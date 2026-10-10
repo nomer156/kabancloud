@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { 
-  Layers, 
+  Network, 
   Plus, 
   Sun, 
   Moon, 
   Volume2, 
   VolumeX, 
-  Database, 
+  Wifi, 
   Users, 
   Flame, 
   CheckCircle2, 
   Clock, 
-  Sparkles,
   ChevronDown
 } from 'lucide-react';
 import { playSound, isSoundEnabled, setSoundEnabled } from '../lib/sound';
@@ -24,9 +23,8 @@ export function Header({
   theme,
   onToggleTheme,
   onOpenNewTask,
-  onOpenSupabaseModal,
-  onOpenTeamModal,
-  supabaseConfigured
+  onOpenNetworkModal,
+  onOpenTeamModal
 }) {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -49,28 +47,29 @@ export function Header({
     <header className="app-header">
       {/* Brand */}
       <div className="brand-section">
-        <div className="brand-logo" title="Kaban Pro">
-          <Layers size={22} strokeWidth={2.2} />
+        <div className="brand-logo" title="Уфанет • Проектирование">
+          <Network size={22} strokeWidth={2.4} />
         </div>
         <div>
           <div className="brand-title">
-            Kaban Pro
+            <span className="brand-accent">Уфанет</span>
+            <span>Проект</span>
             <span className="brand-badge">Отдел проектирования</span>
           </div>
           <div className="brand-subtitle">
-            Команда: 6 инженеров • Синхронизация задач
+            Локальная сеть отдела • 6 проектировщиков
           </div>
         </div>
       </div>
 
       {/* Stats bar */}
-      <div className="header-stats" title="Сводка по проекту">
+      <div className="header-stats" title="Сводка по задачам">
         <div className="stat-item">
           <span>Всего:</span>
           <span className="stat-value">{totalCount}</span>
         </div>
         <div style={{ color: 'var(--border-subtle)' }}>•</div>
-        <div className="stat-item" style={{ color: '#3b82f6' }}>
+        <div className="stat-item" style={{ color: 'var(--accent-orange)' }}>
           <Clock size={13} />
           <span>В работе:</span>
           <span className="stat-value">{inProgressCount}</span>
@@ -110,7 +109,7 @@ export function Header({
           >
             <div 
               className="user-avatar-badge" 
-              style={{ backgroundColor: currentUser?.avatar_color || '#3b82f6' }}
+              style={{ backgroundColor: currentUser?.avatar_color || '#ff6600' }}
             >
               {currentUser?.initials || 'Я'}
             </div>
@@ -132,7 +131,7 @@ export function Header({
                 boxShadow: 'var(--shadow-lg)',
                 padding: '0.4rem',
                 zIndex: 60,
-                minWidth: '220px'
+                minWidth: '240px'
               }}
             >
               <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', padding: '0.4rem 0.6rem', fontWeight: 600 }}>
@@ -153,7 +152,7 @@ export function Header({
                     gap: '0.6rem',
                     width: '100%',
                     padding: '0.5rem 0.6rem',
-                    background: currentUser?.id === m.id ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                    background: currentUser?.id === m.id ? 'rgba(255, 102, 0, 0.15)' : 'transparent',
                     border: 'none',
                     borderRadius: 'var(--radius-sm)',
                     cursor: 'pointer',
@@ -180,19 +179,19 @@ export function Header({
           )}
         </div>
 
-        {/* Supabase status badge */}
+        {/* Local Network IP status badge */}
         <button 
           type="button"
-          className={`status-pill ${supabaseConfigured ? 'connected' : 'local'}`}
+          className="status-pill lan"
           onClick={() => {
             playSound('click');
-            onOpenSupabaseModal();
+            onOpenNetworkModal();
           }}
-          title={supabaseConfigured ? 'Подключено к Supabase (Realtime)' : 'Автономный режим (Demo) — кликните для настройки Supabase'}
+          title="Локальная сеть отдела — кликните для ссылок коллегам"
         >
           <div className="pulse-dot" />
-          <Database size={13} />
-          <span>{supabaseConfigured ? 'Supabase' : 'Локально (Demo)'}</span>
+          <Wifi size={13} />
+          <span>Локальная сеть (LAN)</span>
         </button>
 
         {/* Team Modal Button */}

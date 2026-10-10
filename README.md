@@ -1,16 +1,47 @@
-# React + Vite
+# 🟧 Уфанет • Доска проектировщиков (Локальный сервер)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Автономная канбан-доска для отдела проектирования компании Уфанет.
+Работает внутри корпоративной локальной сети без внешних облаков.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Как запустить на рабочем ПК:
 
-## React Compiler
+### Вариант 1 (Самый простой — в 1 клик):
+1. Скопируйте папку `kaban2` на рабочий ПК (через флешку или `git clone`).
+2. Дважды кликните по файлу **`start.bat`**.
+3. Сервер запустится, консоль покажет IP-адрес для коллег, и в браузере откроется сайт!
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Вариант 2 (Через Docker):
+Если на рабочем ПК установлен Docker Desktop:
+```bash
+docker compose up -d
+```
+Сервер запустится в фоновом контейнере с автоперезапуском (`restart: always`).
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## 👥 Ссылки для коллег из отдела:
+Коллеги могут открывать доску со своих рабочих мест по локальному IP вашего компьютера:
+👉 `http://[IP-ВАШЕГО-ПК]:3000` (например: `http://192.168.1.45:3000`).
+
+Точный IP-адрес отображается в консоли при запуске сервера, а также в шапке сайта по кнопке **«Локальная сеть (LAN)»**.
+
+---
+
+## 🔒 Политика блокировки ПК (Win + L):
+Когда вы нажимаете **Win + L** и отходите от рабочего места:
+* Сервер **продолжает работать** в фоне и отдавать задачи коллегам.
+* Чтобы Windows не усыпляла системный блок:
+  * В настройках Windows «Питание и сон»:
+    * Экран: отключать через 5–10 минут.
+    * Спящий режим: **«Никогда»**.
+
+---
+
+## 💾 Данные и бэкапы:
+Все задачи, чек-листы и профили сохраняются в файл:
+`./data/ufanet_db.json`
+
+В папку `./data/backups/` автоматически сохраняются резервные копии.
+Также в интерфейсе можно в 1 клик скачать свежую копию базы через кнопку «Резервная копия базы (JSON)».

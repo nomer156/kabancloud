@@ -10,15 +10,14 @@ import {
   saveTeamMember, 
   fetchProjectsList, 
   addProjectItem, 
-  subscribeToRealtimeChanges,
-  getSupabaseCredentials
-} from './lib/supabase';
+  subscribeToRealtimeChanges
+} from './lib/api';
 import { playSound } from './lib/sound';
 import { Header } from './components/Header';
 import { FilterBar } from './components/FilterBar';
 import { KanbanColumn } from './components/KanbanColumn';
 import { TaskModal } from './components/TaskModal';
-import { SupabaseModal } from './components/SupabaseModal';
+import { NetworkModal } from './components/NetworkModal';
 import { TeamModal } from './components/TeamModal';
 
 export default function App() {
@@ -43,7 +42,7 @@ export default function App() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [initialModalStatus, setInitialModalStatus] = useState('backlog');
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+  const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
 
   // Toast feedback
@@ -81,7 +80,7 @@ export default function App() {
       setTeamMembers(loadedMembers || []);
       setProjects(loadedProjects || []);
 
-      // Set or restore current user
+      // Restore current user or set default
       const savedUserId = localStorage.getItem('kaban_current_user_id');
       const found = loadedMembers?.find((m) => m.id === savedUserId);
       if (found) {
@@ -90,7 +89,7 @@ export default function App() {
         setCurrentUser(loadedMembers[0]);
       }
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error('Ошибка загрузки данных:', err);
     } finally {
       setLoading(false);
     }
@@ -99,12 +98,26 @@ export default function App() {
   useEffect(() => {
     loadData();
 
-    // Subscribe to realtime changes if Supabase connected
-    const unsubscribe = subscribeToRealtimeChanges(() => {
-      fetchAllTasks().then((freshTasks) => {
-        setTasks(freshTasks);
-        showToast('Данные обновлены коллегой (Realtime)', '⚡');
-      });
+    // Subscribe to Server-Sent Events (SSE) Realtime updates from colleagues on the LAN!
+    const unsubscribe = subscribeToRealtimeChanges((event) => {
+      if (event.type === 'TASK_UPDATED') {
+        setTasks((prev) => {
+          const index = prev.findIndex((t) => t.id === event.payload.id);
+          if (index >= 0) {
+            const copy = [...prev];
+            copy[index] = event.payload;
+            return copy;
+          }
+          return [event.payload, ...prev];
+        });
+        showToast('Задача обновлена коллегой (LAN)', '⚡');
+      } else if (event.type === 'TASK_DELETED') {
+        setTasks((prev) => prev.filter((t) => t.id !== event.payload.id));
+      } else if (event.type === 'MEMBERS_UPDATED') {
+        setTeamMembers(event.payload);
+      } else if (event.type === 'PROJECTS_UPDATED') {
+        setProjects(event.payload);
+      }
     });
 
     return () => {
@@ -173,7 +186,7 @@ export default function App() {
         spread: 70,
         origin: { y: 0.7 }
       });
-      showToast('Задача выдана и перенесена в Готово! 🎉');
+      showToast('Задача выпущена в монтаж / завершена! 🎉');
     } else {
       playSound('drop');
     }
@@ -181,23 +194,21 @@ export default function App() {
     try {
       await updateTaskStatus(taskId, newStatus);
     } catch (err) {
-      console.error('Failed to update status:', err);
+      console.error('Ошибка обновления статуса:', err);
     }
   };
 
   // Save task (create or edit)
   const handleSaveTask = async (taskData) => {
-    // If new project was introduced, add it to projects list
     if (taskData.project_code && !projects.includes(taskData.project_code)) {
       const updatedProjects = await addProjectItem(taskData.project_code);
       setProjects(updatedProjects);
     }
 
-    // Optimistic UI update
     const isEditing = Boolean(taskData.id);
     if (isEditing) {
       setTasks((prev) => prev.map((t) => (t.id === taskData.id ? { ...t, ...taskData } : t)));
-      showToast('Карточка успешно обновлена');
+      showToast('Карточка успешно сохранена');
     } else {
       const tempId = `temp-${Date.now()}`;
       setTasks((prev) => [{ ...taskData, id: tempId }, ...prev]);
@@ -217,7 +228,7 @@ export default function App() {
         return [saved, ...withoutTemp];
       });
     } catch (e) {
-      console.error('Error saving task:', e);
+      console.error('Ошибка сохранения задачи:', e);
     }
   };
 
@@ -228,7 +239,7 @@ export default function App() {
     try {
       await deleteTask(taskId);
     } catch (e) {
-      console.error('Error deleting task:', e);
+      console.error('Ошибка удаления задачи:', e);
     }
   };
 
@@ -265,8 +276,6 @@ export default function App() {
     setIsTaskModalOpen(true);
   };
 
-  const { isConfigured } = getSupabaseCredentials();
-
   return (
     <div className="app-layout">
       {/* Top Navigation Header */}
@@ -278,9 +287,8 @@ export default function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenNewTask={() => handleQuickAdd('backlog')}
-        onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+        onOpenNetworkModal={() => setIsNetworkModalOpen(true)}
         onOpenTeamModal={() => setIsTeamModalOpen(true)}
-        supabaseConfigured={isConfigured}
       />
 
       {/* Filter and Search Bar */}
@@ -333,11 +341,10 @@ export default function App() {
         onDeleteTask={handleDeleteTask}
       />
 
-      {/* Supabase Settings & SQL Modal */}
-      <SupabaseModal
-        isOpen={isSupabaseModalOpen}
-        onClose={() => setIsSupabaseModalOpen(false)}
-        onConfigChanged={loadData}
+      {/* Local LAN Network Modal */}
+      <NetworkModal
+        isOpen={isNetworkModalOpen}
+        onClose={() => setIsNetworkModalOpen(false)}
       />
 
       {/* Team 6 Members Modal */}

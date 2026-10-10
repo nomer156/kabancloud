@@ -1,0 +1,474 @@
+// ==============================================================================
+// УФАНЕТ • Автономный сервер доски проектировщиков (Zero Dependencies)
+// Работает в локальной сети на любом ПК (Windows/Linux/Docker)
+// ==============================================================================
+
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PORT = process.env.PORT || 3000;
+const DATA_DIR = path.join(__dirname, 'data');
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+const DB_FILE = path.join(DATA_DIR, 'ufanet_db.json');
+const DIST_DIR = path.join(__dirname, 'dist');
+
+// Ensure data directories exist
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+
+// Initial seed data if file doesn't exist
+const DEFAULT_SEED = {
+  projects: [
+    'ВОЛС: Модернизация Юг',
+    'СКС и Wi-Fi: Технопарк',
+    'Видеонаблюдение: ЖК «Северный»',
+    'Умный дом: Квартал 4',
+    'Дата-центр: Стойка 12'
+  ],
+  members: [
+    {
+      id: 'uf-11111111-1111-1111-1111-111111111111',
+      full_name: 'Алексей Смирнов',
+      role: 'Руководитель группы / ГИП',
+      initials: 'АС',
+      avatar_color: '#ff6600',
+      specialty: 'ГИП'
+    },
+    {
+      id: 'uf-22222222-2222-2222-2222-222222222222',
+      full_name: 'Мария Воронова',
+      role: 'Ведущий инженер ВОЛС',
+      initials: 'МВ',
+      avatar_color: '#ff8800',
+      specialty: 'ВОЛС'
+    },
+    {
+      id: 'uf-33333333-3333-3333-3333-333333333333',
+      full_name: 'Дмитрий Ковалёв',
+      role: 'Инженер СКС и передачи данных',
+      initials: 'ДК',
+      avatar_color: '#0284c7',
+      specialty: 'СКС'
+    },
+    {
+      id: 'uf-44444444-4444-4444-4444-444444444444',
+      full_name: 'Елена Васильева',
+      role: 'Инженер видеонаблюдения и СКУД',
+      initials: 'ЕВ',
+      avatar_color: '#10b981',
+      specialty: 'ВН'
+    },
+    {
+      id: 'uf-55555555-5555-5555-5555-555555555555',
+      full_name: 'Сергей Морозов',
+      role: 'Инженер Умный дом / IoT',
+      initials: 'СМ',
+      avatar_color: '#f59e0b',
+      specialty: 'IoT'
+    },
+    {
+      id: 'uf-66666666-6666-6666-6666-666666666666',
+      full_name: 'Антон Кузнецов',
+      role: 'Системный архитектор / IT-инфраструктура',
+      initials: 'АК',
+      avatar_color: '#8b5cf6',
+      specialty: 'IT'
+    }
+  ],
+  tasks: [
+    {
+      id: 'task-uf-1',
+      title: 'Трассировка магистрального оптического кабеля (96 ОВ)',
+      project_code: 'ВОЛС: Модернизация Юг',
+      section: 'ВОЛС',
+      status: 'in_progress',
+      priority: 'urgent',
+      assignee_id: 'uf-22222222-2222-2222-2222-222222222222',
+      due_date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
+      network_link: '\\\\ufanet-server\\projects\\ВОЛС_Юг\\Трасса_96ОВ.dwg',
+      description: 'Согласовать проход кабеля через кабельную канализацию и опоры освещения. Подготовить схему разварки муфт МТОК.',
+      checklist: [
+        { id: 'c1', text: 'Запросить ТУ на прокладку по опорам', done: true },
+        { id: 'c2', text: 'Разработать план кроссовой коммутации ODF', done: true },
+        { id: 'c3', text: 'Согласовать спецификацию оптических муфт', done: false }
+      ],
+      created_at: new Date(Date.now() - 3 * 86400000).toISOString()
+    },
+    {
+      id: 'task-uf-2',
+      title: 'Проект СКС и схемы коммутационных шкафов 42U',
+      project_code: 'СКС и Wi-Fi: Технопарк',
+      section: 'СКС',
+      status: 'in_progress',
+      priority: 'urgent',
+      assignee_id: 'uf-33333333-3333-3333-3333-333333333333',
+      due_date: new Date(Date.now() + 4 * 86400000).toISOString().split('T')[0],
+      network_link: '\\\\ufanet-server\\projects\\Технопарк\\СКС_Шкафы.vsd',
+      description: 'Категория 6A (10G). Расчет тепловыделения активного оборудования, ИБП 6кВА и системы охлаждения серверной.',
+      checklist: [
+        { id: 'c1', text: 'План размещения рабочих мест (320 портов RJ45)', done: true },
+        { id: 'c2', text: 'Спецификация патч-панелей и органайзеров', done: true },
+        { id: 'c3', text: 'Схема заземления телекоммуникационных стоек', done: false }
+      ],
+      created_at: new Date(Date.now() - 2 * 86400000).toISOString()
+    },
+    {
+      id: 'task-uf-3',
+      title: 'Расстановка IP-камер 4К и домофонных панелей СКУД',
+      project_code: 'Видеонаблюдение: ЖК «Северный»',
+      section: 'ВН',
+      status: 'backlog',
+      priority: 'medium',
+      assignee_id: 'uf-44444444-4444-4444-4444-444444444444',
+      due_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      network_link: '\\\\ufanet-server\\projects\\Северный\\План_Камер.dwg',
+      description: 'Охват входных групп, лифтовых холлов, въездных шлагбаумов и подземного паркинга. Расчет архива 30 дней.',
+      checklist: [
+        { id: 'c1', text: 'Определить углы обзора и мертвые зоны', done: false },
+        { id: 'c2', text: 'Подбор PoE-коммутаторов с запасом мощности', done: false }
+      ],
+      created_at: new Date(Date.now() - 1 * 86400000).toISOString()
+    },
+    {
+      id: 'task-uf-4',
+      title: 'Финальная проверка комплекта РД перед выдачей в монтаж',
+      project_code: 'Умный дом: Квартал 4',
+      section: 'СКУД',
+      status: 'review',
+      priority: 'urgent',
+      assignee_id: 'uf-11111111-1111-1111-1111-111111111111',
+      due_date: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
+      network_link: '\\\\ufanet-server\\projects\\Квартал4\\РД_Выпуск_Уфанет.pdf',
+      description: 'Нормоконтроль спецификаций контроллеров Умного дома, электрозамков, считывателей BLE и датчиков протечки.',
+      checklist: [
+        { id: 'c1', text: 'Проверить кабельный журнал', done: true },
+        { id: 'c2', text: 'Сверить ТУ с городскими сетями', done: true },
+        { id: 'c3', text: 'Подписать титульные листы ГИПа', done: false }
+      ],
+      created_at: new Date(Date.now() - 4 * 86400000).toISOString()
+    },
+    {
+      id: 'task-uf-5',
+      title: 'Выпуск рабочей документации ЭОМ узла связи',
+      project_code: 'Дата-центр: Стойка 12',
+      section: 'ЭОМ',
+      status: 'done',
+      priority: 'low',
+      assignee_id: 'uf-55555555-5555-5555-5555-555555555555',
+      due_date: new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0],
+      network_link: '\\\\ufanet-server\\projects\\Датацентр\\ЭОМ_Стойка12_final.pdf',
+      description: 'Узел принят службой эксплуатации Уфанет, кабельные трассы и щиты АВР согласованы.',
+      checklist: [
+        { id: 'c1', text: 'Однолинейная расчетная схема', done: true },
+        { id: 'c2', text: 'Согласование службы эксплуатации', done: true }
+      ],
+      created_at: new Date(Date.now() - 5 * 86400000).toISOString()
+    }
+  ]
+};
+
+// Database read/write helpers
+function readDb() {
+  try {
+    if (!fs.existsSync(DB_FILE)) {
+      fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_SEED, null, 2), 'utf8');
+      return DEFAULT_SEED;
+    }
+    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Ошибка чтения базы данных:', err);
+    return DEFAULT_SEED;
+  }
+}
+
+let lastBackupTime = 0;
+function writeDb(data) {
+  try {
+    const json = JSON.stringify(data, null, 2);
+    fs.writeFileSync(DB_FILE, json, 'utf8');
+
+    // Create periodic backup (every 1 hour or upon large change)
+    const now = Date.now();
+    if (now - lastBackupTime > 3600000) {
+      const backupPath = path.join(BACKUPS_DIR, `ufanet_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+      fs.writeFileSync(backupPath, json, 'utf8');
+      lastBackupTime = now;
+    }
+  } catch (err) {
+    console.error('Ошибка сохранения базы данных:', err);
+  }
+}
+
+// Ensure initial database exists
+readDb();
+
+// Server-Sent Events (SSE) subscribers
+const sseClients = new Set();
+
+function broadcastEvent(type, payload) {
+  const data = JSON.stringify({ type, payload, timestamp: Date.now() });
+  for (const res of sseClients) {
+    try {
+      res.write(`data: ${data}\n\n`);
+    } catch {
+      sseClients.delete(res);
+    }
+  }
+}
+
+// Get Local Network IP addresses
+function getLocalIps() {
+  const nets = os.networkInterfaces();
+  const results = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        results.push(net.address);
+      }
+    }
+  }
+  return results;
+}
+
+// MIME types for static assets
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon'
+};
+
+// Request Parser Helper
+function parseBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch {
+        resolve({});
+      }
+    });
+  });
+}
+
+// HTTP Server
+const server = http.createServer(async (req, res) => {
+  // CORS Headers for local development
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const pathname = parsedUrl.pathname;
+
+  // ------------------ API ROUTES ------------------ //
+
+  // 1. Server-Sent Events (Realtime)
+  if (pathname === '/api/events') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+    res.write(': connected\n\n');
+    sseClients.add(res);
+    req.on('close', () => sseClients.delete(res));
+    return;
+  }
+
+  // 2. Server Info
+  if (pathname === '/api/server-info' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      hostname: os.hostname(),
+      ips: getLocalIps(),
+      port: PORT,
+      uptime: Math.round(process.uptime()),
+      status: 'online'
+    }));
+    return;
+  }
+
+  // 3. GET /api/tasks
+  if (pathname === '/api/tasks' && req.method === 'GET') {
+    const db = readDb();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.tasks || []));
+    return;
+  }
+
+  // 4. POST /api/tasks (Create or Update)
+  if (pathname === '/api/tasks' && req.method === 'POST') {
+    const task = await parseBody(req);
+    const db = readDb();
+    const id = task.id || `task-uf-${Date.now()}`;
+    const prepared = {
+      ...task,
+      id,
+      updated_at: new Date().toISOString(),
+      created_at: task.created_at || new Date().toISOString()
+    };
+
+    const index = db.tasks.findIndex((t) => t.id === id);
+    if (index >= 0) {
+      db.tasks[index] = prepared;
+    } else {
+      db.tasks.unshift(prepared);
+    }
+
+    writeDb(db);
+    broadcastEvent('TASK_UPDATED', prepared);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(prepared));
+    return;
+  }
+
+  // 5. PATCH /api/tasks/:id/status
+  if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/status') && req.method === 'PATCH') {
+    const parts = pathname.split('/');
+    const taskId = parts[3];
+    const { status } = await parseBody(req);
+
+    const db = readDb();
+    const task = db.tasks.find((t) => t.id === taskId);
+    if (task) {
+      task.status = status;
+      task.updated_at = new Date().toISOString();
+      writeDb(db);
+      broadcastEvent('TASK_UPDATED', task);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(task));
+    } else {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Задача не найдена' }));
+    }
+    return;
+  }
+
+  // 6. DELETE /api/tasks/:id
+  if (pathname.startsWith('/api/tasks/') && req.method === 'DELETE') {
+    const taskId = pathname.split('/')[3];
+    const db = readDb();
+    const initialLen = db.tasks.length;
+    db.tasks = db.tasks.filter((t) => t.id !== taskId);
+
+    if (db.tasks.length !== initialLen) {
+      writeDb(db);
+      broadcastEvent('TASK_DELETED', { id: taskId });
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    return;
+  }
+
+  // 7. GET /api/members
+  if (pathname === '/api/members' && req.method === 'GET') {
+    const db = readDb();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.members || []));
+    return;
+  }
+
+  // 8. POST /api/members
+  if (pathname === '/api/members' && req.method === 'POST') {
+    const member = await parseBody(req);
+    const db = readDb();
+    const index = db.members.findIndex((m) => m.id === member.id);
+    if (index >= 0) {
+      db.members[index] = member;
+    } else {
+      db.members.push(member);
+    }
+    writeDb(db);
+    broadcastEvent('MEMBERS_UPDATED', db.members);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.members));
+    return;
+  }
+
+  // 9. GET /api/projects
+  if (pathname === '/api/projects' && req.method === 'GET') {
+    const db = readDb();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.projects || []));
+    return;
+  }
+
+  // 10. POST /api/projects
+  if (pathname === '/api/projects' && req.method === 'POST') {
+    const { name } = await parseBody(req);
+    const db = readDb();
+    if (name && !db.projects.includes(name.trim())) {
+      db.projects.unshift(name.trim());
+      writeDb(db);
+      broadcastEvent('PROJECTS_UPDATED', db.projects);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.projects));
+    return;
+  }
+
+  // ------------------ STATIC FRONTEND ASSETS ------------------ //
+
+  let filePath = path.join(DIST_DIR, pathname);
+
+  // If path is root or directory, serve index.html
+  if (pathname === '/' || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    filePath = path.join(DIST_DIR, 'index.html');
+  }
+
+  if (fs.existsSync(filePath)) {
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': contentType });
+    fs.createReadStream(filePath).pipe(res);
+  } else {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`
+      <html>
+        <head><title>Уфанет • Сервер проектирования</title></head>
+        <body style="font-family: sans-serif; background: #0f121b; color: white; padding: 2rem; text-align: center;">
+          <h1 style="color: #ff6600;">Уфанет • Локальный сервер запущен!</h1>
+          <p>Соберите фронтенд командой: <code>npm run build</code></p>
+        </body>
+      </html>
+    `);
+  }
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  const ips = getLocalIps();
+  console.log('\n' + '═'.repeat(62));
+  console.log('   🟧  УФАНЕТ • ДОСКА ПРОЕКТИРОВЩИКОВ (ЛОКАЛЬНЫЙ СЕРВЕР)');
+  console.log('═'.repeat(62));
+  console.log(`  🚀 На этом ПК:           http://localhost:${PORT}`);
+  if (ips.length > 0) {
+    ips.forEach((ip) => {
+      console.log(`  👥 Для коллег в сети:    http://${ip}:${PORT}`);
+    });
+  } else {
+    console.log(`  👥 Для коллег в сети:    http://[IP-компьютера]:${PORT}`);
+  }
+  console.log(`  💾 База данных:          ${DB_FILE}`);
+  console.log('═'.repeat(62) + '\n');
+});

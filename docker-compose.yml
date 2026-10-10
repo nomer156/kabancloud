@@ -1,0 +1,12 @@
+services:
+  ufanet-kaban:
+    build: .
+    container_name: ufanet-kaban-server
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      # База данных сохраняется прямо в папку data на диске вашего ПК
+      - ./data:/app/data
+    environment:
+      - PORT=3000
