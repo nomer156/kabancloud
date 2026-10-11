@@ -92,14 +92,14 @@
       "house_id": null,
       "hours_spent": "08:00",
       "work_type": "Разработка проектной документации",
-      "updated_at": "2026-10-11T15:26:00.721Z"
+      "updated_at": "2026-10-11T16:33:43.263Z"
     },
     {
       "id": "task-uf-2",
       "title": "Проект СКС и схемы коммутационных шкафов 42U",
       "project_code": "СКС и Wi-Fi: Технопарк",
       "section": "СКС",
-      "status": "backlog",
+      "status": "in_progress",
       "priority": "urgent",
       "assignee_id": "uf-33333333-3333-3333-3333-333333333333",
       "due_date": "2026-10-14",
@@ -123,7 +123,7 @@
         }
       ],
       "created_at": "2026-10-08T19:06:00.595Z",
-      "updated_at": "2026-10-11T15:26:01.760Z"
+      "updated_at": "2026-10-11T16:33:55.508Z"
     },
     {
       "id": "task-uf-3",
@@ -131,10 +131,10 @@
       "title": "Расстановка IP-камер видеонаблюдения и зоны видимости",
       "project_code": "Видеонаблюдение: ЖК «Северный»",
       "section": "СВН",
-      "status": "review",
+      "status": "backlog",
       "priority": "medium",
       "assignee_id": "uf-44444444-4444-4444-4444-444444444444",
-      "due_date": "2026-10-19",
+      "due_date": "2026-10-12",
       "network_link": "\\\\ufanet-server\\projects\\ЖК_Северный\\Камеры_Обзор.pdf",
       "description": "Проверить углы обзора объективов 2.8мм и 4мм на парковке и детской площадке. Глубина архива NVR — 30 дней H.265+.",
       "checklist": [
@@ -159,7 +159,9 @@
       "house_id": "1235465",
       "hours_spent": "01:30",
       "work_type": "Рабочая документация (РД)",
-      "updated_at": "2026-10-11T15:23:52.764Z"
+      "worklogs": [],
+      "comments": [],
+      "updated_at": "2026-10-11T16:33:57.187Z"
     },
     {
       "id": "task-uf-4",
@@ -167,7 +169,7 @@
       "title": "Интеграция IP-домофонии с облачной платформой Уфанет",
       "project_code": "Умный дом: Квартал 4",
       "section": "IoT",
-      "status": "review",
+      "status": "done",
       "priority": "medium",
       "assignee_id": "uf-55555555-5555-5555-5555-555555555555",
       "due_date": "2026-10-09",
@@ -195,7 +197,7 @@
       "house_id": null,
       "hours_spent": null,
       "work_type": "Разработка проектной документации",
-      "updated_at": "2026-10-11T15:28:38.200Z"
+      "updated_at": "2026-10-11T16:17:44.298Z"
     },
     {
       "id": "task-uf-5",
@@ -203,10 +205,10 @@
       "title": "План резервирования питания серверной и дизель-генератора",
       "project_code": "ВОЛС: Модернизация Юг",
       "section": "ЧС",
-      "status": "in_progress",
-      "priority": "low",
+      "status": "review",
+      "priority": "urgent",
       "assignee_id": "uf-33333333-3333-3333-3333-333333333333",
-      "due_date": "2026-10-20",
+      "due_date": "2027-03-21",
       "network_link": "\\\\ufanet-server\\projects\\ЦОД\\Питание_АВР.dwg",
       "description": "Расчет времени автономной работы аккумуляторов при нагрузке 20 кВт. Автоматический ввод резерва (АВР) 380В.",
       "checklist": [
@@ -226,7 +228,9 @@
       "house_id": null,
       "hours_spent": "08:00",
       "work_type": "Нормоконтроль ГИПа",
-      "updated_at": "2026-10-11T15:38:26.281Z"
+      "worklogs": [],
+      "comments": [],
+      "updated_at": "2026-10-11T16:33:53.538Z"
     }
   ]
 }

@@ -152,6 +152,15 @@ export function TaskDetailView({
   // Feedback states
   const [copiedLink, setCopiedLink] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [copiedErpString, setCopiedErpString] = useState(false);
+
+  // Quick preset helper
+  const handleSetPresetTime = (hh, mm) => {
+    setWlHours(String(hh).padStart(2, '0'));
+    setWlMinutes(String(mm).padStart(2, '0'));
+    playSound('click');
+  };
 
   // Sync if task prop changes
   useEffect(() => {
@@ -358,11 +367,30 @@ export function TaskDetailView({
     border: 'rgba(255, 102, 0, 0.35)'
   };
 
+  const priorityMeta = PRIORITIES.find((p) => p.id === priority) || PRIORITIES[1];
+  const currentColumn = columns.find((c) => c.id === status) || columns[0];
   const assignee = teamMembers.find((m) => m.id === assigneeId);
   const deadlineBadge = getDeadlineBadge(dueDate, status === 'done');
   const doneChecklist = checklist.filter((i) => i.done).length;
   const totalChecklist = checklist.length;
   const checklistPercent = totalChecklist > 0 ? Math.round((doneChecklist / totalChecklist) * 100) : 0;
+
+  const handleCopyErpString = () => {
+    const parts = [
+      erpProjectId ? `Проект: ${erpProjectId}` : '',
+      erpTaskNumber ? `Задача: ${erpTaskNumber}` : '',
+      houseId ? `Дом: ${houseId}` : '',
+      `Время: ${totalHoursString}`,
+      workType || ''
+    ].filter(Boolean);
+    const line = parts.join(' | ');
+    if (line) {
+      navigator.clipboard.writeText(line);
+      setCopiedErpString(true);
+      playSound('success');
+      setTimeout(() => setCopiedErpString(false), 2000);
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
@@ -393,13 +421,13 @@ export function TaskDetailView({
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-            <span>Уфанет Проект</span>
+            <span>Доска проектирования</span>
             <span>/</span>
             <span
               style={{
                 fontSize: '0.72rem',
-                fontWeight: 700,
-                padding: '2px 7px',
+                fontWeight: 800,
+                padding: '2px 8px',
                 borderRadius: '4px',
                 backgroundColor: sectionMeta.bg,
                 color: sectionMeta.color,
@@ -409,7 +437,27 @@ export function TaskDetailView({
               {sectionMeta.id}
             </span>
             <span>/</span>
-            <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{projectCode}</span>
+            <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{projectCode || 'Без объекта'}</span>
+            
+            {priority === 'urgent' && (
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginLeft: '4px'
+                }}
+              >
+                🔥 Срочно!
+              </span>
+            )}
           </div>
         </div>
 
@@ -424,7 +472,7 @@ export function TaskDetailView({
             type="button"
             className="btn btn-primary"
             onClick={() => handleSaveAll()}
-            style={{ padding: '0.4rem 0.95rem', fontSize: '0.8rem' }}
+            style={{ padding: '0.45rem 1.1rem', fontSize: '0.82rem', fontWeight: 700 }}
           >
             <Save size={15} />
             <span>Сохранить</span>
@@ -433,7 +481,7 @@ export function TaskDetailView({
       </header>
 
       {/* Main Content Layout: Left (Main Content) vs Right (Metadata Sidebar) */}
-      <div style={{ flex: 1, maxWidth: '1600px', width: '100%', margin: '0 auto', padding: '1.5rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '1.5rem' }}>
+      <div style={{ flex: 1, maxWidth: '1600px', width: '100%', margin: '0 auto', padding: '1.5rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: '1.5rem' }}>
         
         {/* ================= LEFT MAIN COLUMN ================= */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -494,9 +542,10 @@ export function TaskDetailView({
           </div>
 
           {/* Description & Notes */}
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem' }}>
-            <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Описание проекта / Исходные данные
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FileSpreadsheet size={14} style={{ color: 'var(--accent-orange)' }} />
+              <span>Описание проекта / Исходные данные</span>
             </label>
             <textarea
               className="form-textarea"
@@ -504,7 +553,7 @@ export function TaskDetailView({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Дополнительные примечания, технические условия, заметки к чертежам..."
-              style={{ marginTop: '0.4rem' }}
+              style={{ width: '100%', minHeight: '90px', boxSizing: 'border-box' }}
             />
           </div>
 
@@ -649,39 +698,42 @@ export function TaskDetailView({
                 <form
                   onSubmit={handleAddWorklog}
                   style={{
-                    padding: '1rem',
+                    padding: '1.15rem',
                     background: 'var(--bg-tertiary)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 'var(--radius-md)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.75rem'
+                    gap: '0.85rem'
                   }}
                 >
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Plus size={14} style={{ color: 'var(--accent-orange)' }} />
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Plus size={15} style={{ color: 'var(--accent-orange)' }} />
                     <span>Записать время работы:</span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'auto 160px 1fr auto', gap: '0.75rem', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr auto', gap: '0.85rem', alignItems: 'flex-end' }}>
                     {/* Date with 'Today' button */}
                     <div>
-                      <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', display: 'block', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
                         Дата списания:
                       </label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <input
                           type="date"
                           className="form-input"
                           value={wlDate}
                           onChange={(e) => setWlDate(e.target.value)}
-                          style={{ width: '135px' }}
+                          style={{ width: '145px', padding: '0.45rem 0.65rem', fontSize: '0.82rem' }}
                         />
                         <button
                           type="button"
-                          className="btn-mini-action"
-                          style={{ padding: '5px 8px', fontSize: '0.72rem' }}
-                          onClick={() => setWlDate(new Date().toISOString().split('T')[0])}
+                          className="btn btn-secondary"
+                          style={{ padding: '0.45rem 0.75rem', fontSize: '0.76rem', fontWeight: 600, color: 'var(--accent-orange)', whiteSpace: 'nowrap' }}
+                          onClick={() => {
+                            setWlDate(new Date().toISOString().split('T')[0]);
+                            playSound('click');
+                          }}
                         >
                           Сегодня
                         </button>
@@ -690,51 +742,74 @@ export function TaskDetailView({
 
                     {/* Time with fixed colon */}
                     <div>
-                      <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', display: 'block', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
                         Время (ЧЧ:ММ):
                       </label>
-                      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0 0.4rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0 0.5rem', height: '36px' }}>
                         <input
                           type="text"
                           inputMode="numeric"
                           maxLength={3}
                           value={wlHours}
                           onChange={(e) => setWlHours(e.target.value.replace(/[^0-9]/g, ''))}
-                          style={{ width: '38px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 800, background: 'transparent', border: 'none', color: 'var(--accent-orange)', padding: '0.35rem 0' }}
+                          style={{ width: '38px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 800, background: 'transparent', border: 'none', color: 'var(--accent-orange)', fontSize: '0.95rem' }}
                           placeholder="04"
                         />
-                        <span style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--accent-orange)' }}>:</span>
+                        <span style={{ fontWeight: 900, fontSize: '1.15rem', color: 'var(--accent-orange)' }}>:</span>
                         <input
                           type="text"
                           inputMode="numeric"
                           maxLength={2}
                           value={wlMinutes}
                           onChange={(e) => setWlMinutes(e.target.value.replace(/[^0-9]/g, ''))}
-                          style={{ width: '36px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 800, background: 'transparent', border: 'none', color: 'var(--accent-orange)', padding: '0.35rem 0' }}
+                          style={{ width: '36px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 800, background: 'transparent', border: 'none', color: 'var(--accent-orange)', fontSize: '0.95rem' }}
                           placeholder="00"
                         />
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px' }}>ч:м</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px', fontWeight: 600 }}>ч:м</span>
                       </div>
                     </div>
 
                     {/* Activity / Comment */}
-                    <div>
-                      <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', display: 'block', marginBottom: '3px' }}>
+                    <div style={{ minWidth: '180px' }}>
+                      <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
                         Что делалось (примечание):
                       </label>
                       <input
                         type="text"
                         className="form-input"
-                        placeholder="Например: Трассировка в Visio, составление СП..."
+                        placeholder="Например: Трассировка в Visio, СП в 1С..."
                         value={wlComment}
                         onChange={(e) => setWlComment(e.target.value)}
+                        style={{ padding: '0.45rem 0.75rem', height: '36px' }}
                       />
                     </div>
 
-                    <button type="submit" className="btn btn-primary" style={{ padding: '0.45rem 0.85rem', fontSize: '0.78rem' }}>
-                      <Plus size={14} />
+                    <button type="submit" className="btn btn-primary" style={{ height: '36px', padding: '0 1rem', fontSize: '0.82rem', fontWeight: 700 }}>
+                      <Plus size={15} />
                       <span>Записать</span>
                     </button>
+                  </div>
+
+                  {/* Fast Quick-Presets */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap', paddingTop: '0.35rem', borderTop: '1px dashed var(--border-subtle)' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>Быстрая подстановка:</span>
+                    {[
+                      { label: '+30 мин', h: '00', m: '30' },
+                      { label: '+1 ч', h: '01', m: '00' },
+                      { label: '+2 ч', h: '02', m: '00' },
+                      { label: '+4 ч (полдня)', h: '04', m: '00' },
+                      { label: '8 ч (весь рабочий день)', h: '08', m: '00' }
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        className="btn-mini-action"
+                        style={{ padding: '3px 8px', fontSize: '0.72rem', borderRadius: '4px' }}
+                        onClick={() => handleSetPresetTime(preset.h, preset.m)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
                   </div>
                 </form>
 
@@ -877,7 +952,28 @@ export function TaskDetailView({
 
             {/* Tab 3: ERP & TIMESHEET (Данные для ЗП) */}
             {activeBottomTab === 'erp' && (
-              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FileSpreadsheet size={16} style={{ color: 'var(--accent-orange)' }} />
+                      <span>Данные для табеля ЗП и ЕРП компании</span>
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      Эти параметры используются для начисления заработной платы и производственных отчётов
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCopyErpString}
+                    style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', color: copiedErpString ? '#10b981' : 'var(--text-main)' }}
+                  >
+                    {copiedErpString ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                    <span>{copiedErpString ? 'Скопировано в буфер!' : '📋 Скопировать готовую строку для сайта ЗП'}</span>
+                  </button>
+                </div>
+
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label" style={{ fontWeight: 600 }}>ID проекта в ERP</label>
@@ -935,10 +1031,10 @@ export function TaskDetailView({
                   </div>
                 </div>
 
-                <div style={{ padding: '0.85rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ padding: '0.85rem 1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '0.84rem', fontWeight: 700 }}>Итоговое списанное время для табеля ЗП:</div>
-                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Рассчитывается автоматически из журнала списаний (Worklog)</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Суммируется автоматически из журнала работы (Worklog)</div>
                   </div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-orange)', fontFamily: 'var(--font-mono)' }}>
                     {totalHoursString} ч.
@@ -951,14 +1047,36 @@ export function TaskDetailView({
 
         {/* ================= RIGHT SIDEBAR ================= */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-dim)', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem' }}>
-              Параметры задачи
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-dim)', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Параметры задачи</span>
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>#{task.id}</span>
             </div>
 
-            {/* Status (Column) */}
+            {/* Status (Column) with colored dot */}
             <div className="form-group">
-              <label className="form-label">Статус (Этап)</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="form-label" style={{ margin: 0 }}>Статус (Этап)</label>
+                {currentColumn && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      backgroundColor: `${currentColumn.color || '#ff6600'}22`,
+                      color: currentColumn.color || '#ff6600',
+                      border: `1px solid ${currentColumn.color || '#ff6600'}55`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: currentColumn.color || '#ff6600' }} />
+                    {currentColumn.title}
+                  </span>
+                )}
+              </div>
               <select
                 className="form-select"
                 value={status}
@@ -966,6 +1084,7 @@ export function TaskDetailView({
                   setStatus(e.target.value);
                   handleSaveAll({ status: e.target.value });
                 }}
+                style={{ fontWeight: 600 }}
               >
                 {columns.map((col) => (
                   <option key={col.id} value={col.id}>
@@ -975,12 +1094,44 @@ export function TaskDetailView({
               </select>
             </div>
 
-            {/* Assignee */}
+            {/* Assignee with colored avatar */}
             <div className="form-group">
-              <label className="form-label">
-                <User size={13} />
-                <span>Исполнитель</span>
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="form-label" style={{ margin: 0 }}>
+                  <User size={13} />
+                  <span>Исполнитель</span>
+                </label>
+                {assignee && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: assignee.avatar_color || 'var(--accent-orange)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 17,
+                        height: 17,
+                        borderRadius: '50%',
+                        background: assignee.avatar_color || 'var(--accent-orange)',
+                        color: '#fff',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.6rem',
+                        fontWeight: 800
+                      }}
+                    >
+                      {assignee.initials || 'ИН'}
+                    </span>
+                    {assignee.full_name?.split(' ')[0]}
+                  </span>
+                )}
+              </div>
               <select
                 className="form-select"
                 value={assigneeId}
@@ -998,12 +1149,27 @@ export function TaskDetailView({
               </select>
             </div>
 
-            {/* Section / Mark */}
+            {/* Section / Mark with vivid badge */}
             <div className="form-group">
-              <label className="form-label">
-                <Layers size={13} />
-                <span>Раздел (Марка)</span>
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="form-label" style={{ margin: 0 }}>
+                  <Layers size={13} />
+                  <span>Раздел (Марка)</span>
+                </label>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: sectionMeta.bg,
+                    color: sectionMeta.color,
+                    border: `1px solid ${sectionMeta.border}`
+                  }}
+                >
+                  {sectionMeta.id}
+                </span>
+              </div>
               <select
                 className="form-select"
                 value={section}
@@ -1011,6 +1177,7 @@ export function TaskDetailView({
                   setSection(e.target.value);
                   handleSaveAll({ section: e.target.value });
                 }}
+                style={{ fontWeight: 600 }}
               >
                 {sections.map((sec) => (
                   <option key={sec.id} value={sec.id}>
@@ -1020,9 +1187,31 @@ export function TaskDetailView({
               </select>
             </div>
 
-            {/* Priority */}
+            {/* Priority with fire / flame indicator */}
             <div className="form-group">
-              <label className="form-label">Приоритет</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="form-label" style={{ margin: 0 }}>
+                  <Flame size={13} style={{ color: priorityMeta?.color }} />
+                  <span>Приоритет</span>
+                </label>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: priorityMeta?.bg,
+                    color: priorityMeta?.color,
+                    border: `1px solid ${priorityMeta?.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {priority === 'urgent' && <span>🔥</span>}
+                  {priorityMeta?.name}
+                </span>
+              </div>
               <select
                 className="form-select"
                 value={priority}
@@ -1030,6 +1219,7 @@ export function TaskDetailView({
                   setPriority(e.target.value);
                   handleSaveAll({ priority: e.target.value });
                 }}
+                style={{ fontWeight: 600, color: priorityMeta?.color }}
               >
                 {PRIORITIES.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -1111,32 +1301,72 @@ export function TaskDetailView({
               />
             </div>
 
-            {/* Actions */}
-            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {/* Actions: Save All + Safe Inline Delete */}
+            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => handleSaveAll()}
-                style={{ width: '100%', justifyContent: 'center' }}
+                style={{ width: '100%', justifyContent: 'center', padding: '0.6rem 1rem' }}
               >
-                <Save size={15} />
+                <Save size={16} />
                 <span>Сохранить всё</span>
               </button>
 
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ width: '100%', justifyContent: 'center', color: 'var(--accent-rose)' }}
-                onClick={() => {
-                  if (window.confirm('Вы уверены, что хотите удалить эту задачу?')) {
-                    onDeleteTask(task.id);
-                    onBack();
-                  }
-                }}
-              >
-                <Trash2 size={14} />
-                <span>Удалить задачу</span>
-              </button>
+              {showDeleteConfirm ? (
+                <div
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.85rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.6rem',
+                    animation: 'fadeIn 0.2s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontWeight: 700, fontSize: '0.82rem' }}>
+                    <AlertCircle size={16} />
+                    <span>Удалить задачу навсегда?</span>
+                  </div>
+                  <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                    Все списания времени, комментарии и чек-листы будут удалены.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ flex: 1, background: '#ef4444', color: '#fff', border: 'none', padding: '0.45rem', fontSize: '0.78rem', fontWeight: 700 }}
+                      onClick={() => {
+                        onDeleteTask(task.id);
+                        playSound('click');
+                        onBack();
+                      }}
+                    >
+                      <Trash2 size={13} /> Да, удалить
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '0.45rem', fontSize: '0.78rem' }}
+                      onClick={() => setShowDeleteConfirm(false)}
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', justifyContent: 'center', color: 'var(--accent-rose)', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 size={14} />
+                  <span>Удалить задачу</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

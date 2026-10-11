@@ -822,18 +822,23 @@ button, input, select, textarea {
 }
 
 .btn-mini-action {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  display: flex;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 3px 8px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-muted);
   cursor: pointer;
   transition: var(--transition-fast);
+  white-space: nowrap;
+  font-size: 0.74rem;
+  font-weight: 500;
+  box-sizing: border-box;
 }
 
 .btn-mini-action:hover {
@@ -920,6 +925,8 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .form-label {
@@ -929,9 +936,14 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  width: 100%;
 }
 
 .form-input, .form-select, .form-textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: block;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -939,6 +951,13 @@ button, input, select, textarea {
   font-size: 0.88rem;
   color: var(--text-main);
   transition: border-color var(--transition-fast);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 85px;
+  font-family: inherit;
+  line-height: 1.5;
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
