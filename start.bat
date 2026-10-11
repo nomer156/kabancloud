@@ -1,35 +1,28 @@
 @echo off
-chcp 65001 > nul
 title Уфанет • Сервер проектирования
+cd /d "%~dp0"
 
 echo ============================================================
-echo   🟧 УФАНЕТ • ЗАПУСК ЛОКАЛЬНОГО СЕРВЕРА
+echo   УФАНЕТ • ЗАПУСК ЛОКАЛЬНОГО СЕРВЕРА
 echo ============================================================
 echo.
 
-:: Проверка наличия Node.js
 where node >nul 2>nul
-if %errorlevel% == 0 (
-    echo [OK] Node.js обнаружен. Запускаем сервер напрямую...
-    echo.
+if %errorlevel% equ 0 (
+    echo [OK] Node.js найден. Запуск сервера...
     start http://localhost:3000
     node server.js
-    goto end
+    exit /b
 )
 
-:: Если Node.js нет, проверяем Docker
 where docker >nul 2>nul
-if %errorlevel% == 0 (
-    echo [OK] Docker обнаружен. Запускаем в фоновом контейнере...
+if %errorlevel% equ 0 (
+    echo [OK] Docker найден. Запуск контейнера...
     docker compose up -d
-    echo.
-    echo Сервер запущен в контейнере!
     start http://localhost:3000
-    goto end
+    exit /b
 )
 
-echo [!] ОШИБКА: На этом компьютере не найдены ни Node.js, ни Docker.
-echo Пожалуйста, установите Node.js (https://nodejs.org) или Docker Desktop.
+echo [!] ОШИБКА: На компьютере не найдены Node.js или Docker.
+echo Установите Node.js с официального сайта: https://nodejs.org
 pause
-
-:end
