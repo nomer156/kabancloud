@@ -7,7 +7,8 @@ import {
   Check, 
   Flame, 
   Clock,
-  Briefcase
+  Briefcase,
+  ExternalLink
 } from 'lucide-react';
 import { PRIORITIES } from '../lib/constants';
 import { playSound } from '../lib/sound';
@@ -43,11 +44,8 @@ export function TaskCard({
   const checklistPercent = totalChecklist > 0 ? (doneChecklist / totalChecklist) * 100 : 0;
 
   // Due date human calculation
-  let dueText = null;
-  let isOverdue = false;
-  let isUrgentDue = false;
-
-  if (task.due_date) {
+  let deadlineBadge = null;
+  if (task.due_date && task.status !== 'done') {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const due = new Date(task.due_date);
@@ -55,18 +53,45 @@ export function TaskCard({
     const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      dueText = `Просрочено на ${Math.abs(diffDays)} дн.`;
-      isOverdue = true;
+      deadlineBadge = {
+        type: 'overdue',
+        text: `Просрочено на ${Math.abs(diffDays)} дн.`,
+        color: '#ef4444'
+      };
     } else if (diffDays === 0) {
-      dueText = 'Срок: Сегодня!';
-      isUrgentDue = true;
+      deadlineBadge = {
+        type: 'today',
+        text: 'Срок: Сегодня',
+        color: '#f97316'
+      };
     } else if (diffDays === 1) {
-      dueText = 'Срок: Завтра';
-      isUrgentDue = true;
+      deadlineBadge = {
+        type: 'tomorrow',
+        text: 'Срок: Завтра',
+        color: '#f97316'
+      };
     } else {
-      dueText = `До ${due.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`;
+      const monthNamesShort = ['янв.', 'февр.', 'марта', 'апр.', 'мая', 'июня', 'июля', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
+      deadlineBadge = {
+        type: 'normal',
+        text: `До ${due.getDate()} ${monthNamesShort[due.getMonth()]}`,
+        color: '#38bdf8'
+      };
     }
   }
+
+  // Open in new tab (Jira full page view)
+  const handleOpenInNewTab = (e) => {
+    e.stopPropagation();
+    window.open(`/#task/${task.id}`, '_blank');
+  };
+
+  const handleMouseDown = (e) => {
+    if (e.button === 1) { // Middle mouse wheel click!
+      e.preventDefault();
+      window.open(`/#task/${task.id}`, '_blank');
+    }
+  };
 
   // Copy network link
   const handleCopyLink = (e) => {
@@ -89,8 +114,9 @@ export function TaskCard({
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => onEdit(task)}
+      onMouseDown={handleMouseDown}
     >
-      {/* Top Metadata: Section Tag, Project Tag, Priority Indicator */}
+      {/* Top Metadata: Section Tag, Project Tag, Priority Indicator, New Tab Button */}
       <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
         <div className="card-tags-group" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
           {/* Main Project Section Badge (ВДН, ККС, МКЖ...) */}
@@ -126,7 +152,7 @@ export function TaskCard({
           )}
         </div>
 
-        {/* Priority Dot */}
+        {/* Priority Dot & External Link button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           {task.priority === 'urgent' && (
             <Flame size={14} style={{ color: '#ef4444' }} title="Высокий приоритет" />
@@ -136,6 +162,15 @@ export function TaskCard({
             style={{ backgroundColor: priorityMeta.color }}
             title={`Приоритет: ${priorityMeta.name}`}
           />
+          <button
+            type="button"
+            className="btn-icon"
+            style={{ width: 20, height: 20, padding: 0, opacity: 0.55 }}
+            onClick={handleOpenInNewTab}
+            title="Открыть задачу в новой вкладке (Jira / колёсиком мыши)"
+          >
+            <ExternalLink size={12} />
+          </button>
         </div>
       </div>
 
@@ -237,14 +272,26 @@ export function TaskCard({
 
       {/* Footer: Due date + Assignee (NO arrows!) */}
       <div className="card-footer">
-        {/* Due Date */}
-        {dueText ? (
+        {/* Due Date Traffic Light Badge */}
+        {deadlineBadge ? (
           <div
-            className={`card-due-badge ${isOverdue || isUrgentDue ? 'urgent' : ''}`}
-            title={task.due_date}
+            className={`card-due-badge ${deadlineBadge.type}`}
+            style={{ 
+              color: deadlineBadge.color, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.3rem', 
+              fontSize: '0.74rem', 
+              fontWeight: 600 
+            }}
+            title={`Дедлайн: ${task.due_date}`}
           >
-            <Calendar size={13} />
-            <span>{dueText}</span>
+            <Calendar size={13} style={{ color: deadlineBadge.color }} />
+            <span>{deadlineBadge.text}</span>
+          </div>
+        ) : task.due_date ? (
+          <div style={{ fontSize: '0.72rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+            <Check size={12} /> Выполнено
           </div>
         ) : (
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Без срока</div>

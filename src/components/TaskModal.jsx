@@ -15,7 +15,8 @@ import {
   ChevronUp,
   FileSpreadsheet,
   Home,
-  Check
+  Check,
+  ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { PRIORITIES, COLUMNS, WORK_TYPES } from '../lib/constants';
@@ -261,7 +262,9 @@ export function TaskModal({
       erp_task_number: erpTaskNumber.trim() || null,
       house_id: houseId.trim() || null,
       hours_spent: finalHoursSpent,
-      work_type: workType || null
+      work_type: workType || null,
+      worklogs: taskToEdit?.worklogs || [],
+      comments: taskToEdit?.comments || []
     };
 
     onSaveTask(taskData);
@@ -301,9 +304,25 @@ export function TaskModal({
             <Layers size={20} style={{ color: 'var(--accent-orange)' }} />
             <span>{taskToEdit ? 'Редактирование задачи' : 'Создать задачу проектировщика'}</span>
           </div>
-          <button type="button" className="btn-icon" onClick={onClose}>
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {taskToEdit && (
+              <button
+                type="button"
+                className="btn-icon"
+                title="Открыть задачу в отдельной вкладке (Jira-вид)"
+                onClick={() => {
+                  window.open(`/#task/${taskToEdit.id}`, '_blank');
+                  onClose();
+                }}
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <ExternalLink size={17} />
+              </button>
+            )}
+            <button type="button" className="btn-icon" onClick={onClose}>
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Form */}

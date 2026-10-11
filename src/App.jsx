@@ -26,6 +26,7 @@ import { TeamModal } from './components/TeamModal';
 import { SectionsModal } from './components/SectionsModal';
 import { ColumnsModal } from './components/ColumnsModal';
 import { MonthlyReport } from './components/MonthlyReport';
+import { TaskDetailView } from './components/TaskDetailView';
 
 export default function App() {
   // Theme state
@@ -33,6 +34,27 @@ export default function App() {
 
   // Navigation view: 'board' | 'report'
   const [activeView, setActiveView] = useState('board');
+
+  // Hash routing for Jira full page view: #task/:id
+  const [detailTaskId, setDetailTaskId] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash.startsWith('#task/')) {
+      return window.location.hash.replace('#task/', '');
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash.startsWith('#task/')) {
+        const id = window.location.hash.replace('#task/', '');
+        setDetailTaskId(id);
+      } else {
+        setDetailTaskId(null);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // App data state
   const [tasks, setTasks] = useState([]);
@@ -151,6 +173,12 @@ export default function App() {
     setCurrentUser(user);
     if (user?.id) localStorage.setItem('kaban_current_user_id', user.id);
   };
+
+  // Active task for full-page Jira view
+  const activeDetailTask = useMemo(() => {
+    if (!detailTaskId) return null;
+    return tasks.find((t) => String(t.id) === String(detailTaskId)) || null;
+  }, [detailTaskId, tasks]);
 
   // Find member selected in filter
   const selectedFilterMember = useMemo(() => {
@@ -364,76 +392,121 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      {/* Top Navigation Header */}
-      <Header
-        tasks={tasks}
-        teamMembers={teamMembers}
-        currentUser={currentUser}
-        onSelectCurrentUser={handleSelectCurrentUser}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        onOpenNewTask={() => handleQuickAdd(columns[0]?.id || 'backlog')}
-        onOpenNetworkModal={() => setIsNetworkModalOpen(true)}
-        onOpenTeamModal={() => setIsTeamModalOpen(true)}
-        onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
-        onOpenColumnsModal={() => setIsColumnsModalOpen(true)}
-        activeView={activeView}
-        onSelectView={setActiveView}
-      />
-
-      {/* Filter and Search Bar */}
-      <FilterBar
-        teamMembers={teamMembers}
-        projects={projects}
-        sections={sections}
-        selectedAssigneeId={selectedAssigneeId}
-        onSelectAssignee={setSelectedAssigneeId}
-        onlyMyTasks={onlyMyTasks}
-        onToggleOnlyMyTasks={() => setOnlyMyTasks((prev) => !prev)}
-        selectedSection={selectedSection}
-        onSelectSection={setSelectedSection}
-        selectedProject={selectedProject}
-        onSelectProject={setSelectedProject}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onResetFilters={handleResetFilters}
-        onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
-      />
-
-      {/* Main View: Board vs Monthly Report */}
-      {activeView === 'board' ? (
-        <main className="board-container">
-          {columns.map((col) => {
-            const colTasks = filteredTasks.filter((t) => t.status === col.id);
-
-            return (
-              <KanbanColumn
-                key={col.id}
-                column={col}
-                tasks={colTasks}
-                teamMembers={teamMembers}
-                sections={sections}
-                onEditTask={handleEditTask}
-                onQuickAddTask={handleQuickAdd}
-                onDropTask={handleDropTask}
-              />
-            );
-          })}
-        </main>
+      {/* Detail Task Page (Jira view in new tab or direct link) */}
+      {detailTaskId ? (
+        activeDetailTask ? (
+          <TaskDetailView
+            task={activeDetailTask}
+            teamMembers={teamMembers}
+            projects={projects}
+            sections={sections}
+            columns={columns}
+            currentUser={currentUser}
+            onSaveTask={handleSaveTask}
+            onDeleteTask={(id) => {
+              handleDeleteTask(id);
+              window.location.hash = '';
+              setDetailTaskId(null);
+            }}
+            onBack={() => {
+              window.location.hash = '';
+              setDetailTaskId(null);
+            }}
+          />
+        ) : (
+          <div style={{ padding: '6rem 2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '0.8rem', color: 'var(--text-primary)' }}>
+              {loading ? 'Загрузка данных задачи...' : 'Задача не найдена или была удалена'}
+            </h2>
+            <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>
+              {loading ? 'Пожалуйста, подождите...' : `ID: ${detailTaskId}`}
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                window.location.hash = '';
+                setDetailTaskId(null);
+              }}
+            >
+              Вернуться на доску
+            </button>
+          </div>
+        )
       ) : (
-        <MonthlyReport
-          tasks={tasks}
-          teamMembers={teamMembers}
-          sections={sections}
-          selectedAssigneeId={onlyMyTasks ? currentUser?.id : selectedAssigneeId}
-          selectedMember={selectedFilterMember}
-          onSelectAssignee={(id) => {
-            if (onlyMyTasks) setOnlyMyTasks(false);
-            setSelectedAssigneeId(id);
-          }}
-          onEditTask={handleEditTask}
-          theme={theme}
-        />
+        <>
+          {/* Top Navigation Header */}
+          <Header
+            tasks={tasks}
+            teamMembers={teamMembers}
+            currentUser={currentUser}
+            onSelectCurrentUser={handleSelectCurrentUser}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            onOpenNewTask={() => handleQuickAdd(columns[0]?.id || 'backlog')}
+            onOpenNetworkModal={() => setIsNetworkModalOpen(true)}
+            onOpenTeamModal={() => setIsTeamModalOpen(true)}
+            onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
+            onOpenColumnsModal={() => setIsColumnsModalOpen(true)}
+            activeView={activeView}
+            onSelectView={setActiveView}
+          />
+
+          {/* Filter and Search Bar */}
+          <FilterBar
+            teamMembers={teamMembers}
+            projects={projects}
+            sections={sections}
+            selectedAssigneeId={selectedAssigneeId}
+            onSelectAssignee={setSelectedAssigneeId}
+            onlyMyTasks={onlyMyTasks}
+            onToggleOnlyMyTasks={() => setOnlyMyTasks((prev) => !prev)}
+            selectedSection={selectedSection}
+            onSelectSection={setSelectedSection}
+            selectedProject={selectedProject}
+            onSelectProject={setSelectedProject}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onResetFilters={handleResetFilters}
+            onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
+          />
+
+          {/* Main View: Board vs Monthly Report */}
+          {activeView === 'board' ? (
+            <main className="board-container">
+              {columns.map((col) => {
+                const colTasks = filteredTasks.filter((t) => t.status === col.id);
+
+                return (
+                  <KanbanColumn
+                    key={col.id}
+                    column={col}
+                    tasks={colTasks}
+                    teamMembers={teamMembers}
+                    sections={sections}
+                    onEditTask={handleEditTask}
+                    onQuickAddTask={handleQuickAdd}
+                    onDropTask={handleDropTask}
+                  />
+                );
+              })}
+            </main>
+          ) : (
+            <MonthlyReport
+              tasks={tasks}
+              teamMembers={teamMembers}
+              sections={sections}
+              selectedAssigneeId={onlyMyTasks ? currentUser?.id : selectedAssigneeId}
+              selectedMember={selectedFilterMember}
+              onSelectAssignee={(id) => {
+                if (onlyMyTasks) setOnlyMyTasks(false);
+                setSelectedAssigneeId(id);
+              }}
+              onEditTask={handleEditTask}
+              theme={theme}
+            />
+          )}
+        </>
       )}
 
       {/* Task Creation / Editing Modal */}
