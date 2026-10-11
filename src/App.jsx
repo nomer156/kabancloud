@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { COLUMNS } from './lib/constants';
+import { COLUMNS, DEFAULT_COLUMNS } from './lib/constants';
 import { 
   fetchAllTasks, 
   saveTask, 
@@ -12,6 +12,8 @@ import {
   addProjectItem, 
   fetchSectionsList,
   saveSectionsList,
+  fetchColumnsList,
+  saveColumnsList,
   subscribeToRealtimeChanges
 } from './lib/api';
 import { playSound } from './lib/sound';
@@ -22,6 +24,7 @@ import { TaskModal } from './components/TaskModal';
 import { NetworkModal } from './components/NetworkModal';
 import { TeamModal } from './components/TeamModal';
 import { SectionsModal } from './components/SectionsModal';
+import { ColumnsModal } from './components/ColumnsModal';
 import { MonthlyReport } from './components/MonthlyReport';
 
 export default function App() {
@@ -36,6 +39,7 @@ export default function App() {
   const [teamMembers, setTeamMembers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [sections, setSections] = useState([]);
+  const [columns, setColumns] = useState(() => DEFAULT_COLUMNS || COLUMNS);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,6 +57,7 @@ export default function App() {
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [isSectionsModalOpen, setIsSectionsModalOpen] = useState(false);
+  const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
 
   // Toast feedback
   const [toasts, setToasts] = useState([]);
@@ -79,17 +84,19 @@ export default function App() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [loadedTasks, loadedMembers, loadedProjects, loadedSections] = await Promise.all([
+      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns] = await Promise.all([
         fetchAllTasks(),
         fetchTeamMembers(),
         fetchProjectsList(),
-        fetchSectionsList()
+        fetchSectionsList(),
+        fetchColumnsList()
       ]);
 
       setTasks(loadedTasks || []);
       setTeamMembers(loadedMembers || []);
       setProjects(loadedProjects || []);
       setSections(loadedSections || []);
+      setColumns(loadedColumns && loadedColumns.length > 0 ? loadedColumns : DEFAULT_COLUMNS || COLUMNS);
 
       // Restore current user or set default
       const savedUserId = localStorage.getItem('kaban_current_user_id');
@@ -130,6 +137,8 @@ export default function App() {
         setProjects(event.payload);
       } else if (event.type === 'SECTIONS_UPDATED') {
         setSections(event.payload);
+      } else if (event.type === 'COLUMNS_UPDATED') {
+        setColumns(event.payload);
       }
     });
 
@@ -304,6 +313,32 @@ export default function App() {
     showToast('Список разделов/марок обновлен');
   };
 
+  // Save columns
+  const handleSaveColumns = async (updatedColumns, renamesMap = {}) => {
+    const saved = await saveColumnsList(updatedColumns);
+    setColumns(saved);
+
+    // If any column was renamed or deleted, migrate affected tasks
+    if (renamesMap && Object.keys(renamesMap).length > 0) {
+      let tasksUpdated = false;
+      const newTasks = tasks.map((task) => {
+        if (task.status && renamesMap[task.status]) {
+          tasksUpdated = true;
+          const updatedTask = { ...task, status: renamesMap[task.status] };
+          saveTask(updatedTask);
+          return updatedTask;
+        }
+        return task;
+      });
+
+      if (tasksUpdated) {
+        setTasks(newTasks);
+      }
+    }
+
+    showToast('Список колонок доски обновлен');
+  };
+
   // Reset all filters
   const handleResetFilters = () => {
     setSelectedAssigneeId(null);
@@ -337,10 +372,11 @@ export default function App() {
         onSelectCurrentUser={handleSelectCurrentUser}
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        onOpenNewTask={() => handleQuickAdd('backlog')}
+        onOpenNewTask={() => handleQuickAdd(columns[0]?.id || 'backlog')}
         onOpenNetworkModal={() => setIsNetworkModalOpen(true)}
         onOpenTeamModal={() => setIsTeamModalOpen(true)}
         onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
+        onOpenColumnsModal={() => setIsColumnsModalOpen(true)}
         activeView={activeView}
         onSelectView={setActiveView}
       />
@@ -367,7 +403,7 @@ export default function App() {
       {/* Main View: Board vs Monthly Report */}
       {activeView === 'board' ? (
         <main className="board-container">
-          {COLUMNS.map((col) => {
+          {columns.map((col) => {
             const colTasks = filteredTasks.filter((t) => t.status === col.id);
 
             return (
@@ -409,6 +445,7 @@ export default function App() {
         teamMembers={teamMembers}
         projects={projects}
         sections={sections}
+        columns={columns}
         onSaveTask={handleSaveTask}
         onDeleteTask={handleDeleteTask}
       />
@@ -433,6 +470,15 @@ export default function App() {
         onClose={() => setIsSectionsModalOpen(false)}
         sections={sections}
         onSaveSections={handleSaveSections}
+      />
+
+      {/* Kanban Columns Management Modal */}
+      <ColumnsModal
+        isOpen={isColumnsModalOpen}
+        onClose={() => setIsColumnsModalOpen(false)}
+        columns={columns}
+        onSaveColumns={handleSaveColumns}
+        tasks={tasks}
       />
 
       {/* Toast Feedback */}

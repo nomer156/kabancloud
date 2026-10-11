@@ -29,6 +29,7 @@ export function Header({
   onOpenNetworkModal,
   onOpenTeamModal,
   onOpenSectionsModal,
+  onOpenColumnsModal,
   activeView,
   onSelectView
 }) {
@@ -251,6 +252,19 @@ export function Header({
           title="Управление разделами проекта (ВДН, ККС, МКЖ...)"
         >
           <Layers size={17} />
+        </button>
+
+        {/* Columns Management Button */}
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={() => {
+            playSound('click');
+            onOpenColumnsModal();
+          }}
+          title="Управление колонками доски (этапами разработки)"
+        >
+          <Kanban size={17} />
         </button>
 
         {/* Team Modal Button */}

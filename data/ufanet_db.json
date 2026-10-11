@@ -64,7 +64,7 @@
       "title": "Трассировка магистрального оптического кабеля (96 ОВ)",
       "project_code": "ВОЛС: Модернизация Юг",
       "section": "ВДН",
-      "status": "in_progress",
+      "status": "done",
       "priority": "urgent",
       "assignee_id": "uf-66666666-6666-6666-6666-666666666666",
       "due_date": "2026-10-12",
@@ -92,14 +92,14 @@
       "house_id": null,
       "hours_spent": "08:00",
       "work_type": "Разработка проектной документации",
-      "updated_at": "2026-10-11T14:49:42.496Z"
+      "updated_at": "2026-10-11T15:26:00.721Z"
     },
     {
       "id": "task-uf-2",
       "title": "Проект СКС и схемы коммутационных шкафов 42U",
       "project_code": "СКС и Wi-Fi: Технопарк",
       "section": "СКС",
-      "status": "in_progress",
+      "status": "backlog",
       "priority": "urgent",
       "assignee_id": "uf-33333333-3333-3333-3333-333333333333",
       "due_date": "2026-10-14",
@@ -122,7 +122,8 @@
           "done": false
         }
       ],
-      "created_at": "2026-10-08T19:06:00.595Z"
+      "created_at": "2026-10-08T19:06:00.595Z",
+      "updated_at": "2026-10-11T15:26:01.760Z"
     },
     {
       "id": "task-uf-3",
@@ -133,7 +134,7 @@
       "status": "review",
       "priority": "medium",
       "assignee_id": "uf-44444444-4444-4444-4444-444444444444",
-      "due_date": "2026-10-11",
+      "due_date": "2026-10-19",
       "network_link": "\\\\ufanet-server\\projects\\ЖК_Северный\\Камеры_Обзор.pdf",
       "description": "Проверить углы обзора объективов 2.8мм и 4мм на парковке и детской площадке. Глубина архива NVR — 30 дней H.265+.",
       "checklist": [
@@ -153,19 +154,19 @@
           "done": false
         }
       ],
-      "erp_project_id": null,
-      "erp_task_number": null,
-      "house_id": null,
-      "hours_spent": null,
-      "work_type": "Разработка проектной документации",
-      "updated_at": "2026-10-11T14:26:51.496Z"
+      "erp_project_id": "23535356",
+      "erp_task_number": "56148",
+      "house_id": "1235465",
+      "hours_spent": "01:30",
+      "work_type": "Рабочая документация (РД)",
+      "updated_at": "2026-10-11T15:23:52.764Z"
     },
     {
       "id": "task-uf-4",
       "title": "Интеграция IP-домофонии с облачной платформой Уфанет",
       "project_code": "Умный дом: Квартал 4",
       "section": "IoT",
-      "status": "done",
+      "status": "review",
       "priority": "medium",
       "assignee_id": "uf-55555555-5555-5555-5555-555555555555",
       "due_date": "2026-10-09",
@@ -189,7 +190,7 @@
         }
       ],
       "created_at": "2026-10-03T19:06:00.595Z",
-      "updated_at": "2026-10-11T13:45:57.000Z"
+      "updated_at": "2026-10-11T15:26:00.278Z"
     },
     {
       "id": "task-uf-5",

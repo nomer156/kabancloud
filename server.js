@@ -33,6 +33,13 @@ const DEFAULT_SECTIONS = [
   { id: 'ЭОМ', name: 'ЭОМ (Электроснабжение оборудования)', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.15)', border: 'rgba(99, 102, 241, 0.35)' }
 ];
 
+const DEFAULT_COLUMNS = [
+  { id: 'backlog', title: 'Очередь / Бэклог', subtitle: 'В планах к разработке', color: '#64748b' },
+  { id: 'in_progress', title: 'В работе', subtitle: 'Текущие задачи инженеров', color: '#ff6600' },
+  { id: 'review', title: 'На проверке', subtitle: 'Проверка начальника / Согласование ЮЛ', color: '#f59e0b' },
+  { id: 'done', title: 'Готово / Выдано', subtitle: 'Выпущено в монтаж / заказчику', color: '#10b981' }
+];
+
 // Initial seed data if file doesn't exist
 const DEFAULT_SEED = {
   projects: [
@@ -456,6 +463,26 @@ const server = http.createServer(async (req, res) => {
     broadcastEvent('SECTIONS_UPDATED', db.sections);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(db.sections));
+    return;
+  }
+
+  // 13. GET /api/columns
+  if (pathname === '/api/columns' && req.method === 'GET') {
+    const db = readDb();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.columns || DEFAULT_COLUMNS));
+    return;
+  }
+
+  // 14. POST /api/columns (Full array save)
+  if (pathname === '/api/columns' && req.method === 'POST') {
+    const cols = await parseBody(req);
+    const db = readDb();
+    db.columns = Array.isArray(cols) ? cols : DEFAULT_COLUMNS;
+    writeDb(db);
+    broadcastEvent('COLUMNS_UPDATED', db.columns);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.columns));
     return;
   }
 

@@ -21,12 +21,14 @@ export const WORK_TYPES = [
   'Нормоконтроль ГИПа'
 ];
 
-export const COLUMNS = [
+export const DEFAULT_COLUMNS = [
   { id: 'backlog', title: 'Очередь / Бэклог', subtitle: 'В планах к разработке', color: '#64748b' },
   { id: 'in_progress', title: 'В работе', subtitle: 'Текущие задачи инженеров', color: '#ff6600' },
-  { id: 'review', title: 'На проверке (ГИП)', subtitle: 'Нормоконтроль и согласование', color: '#f59e0b' },
+  { id: 'review', title: 'На проверке', subtitle: 'Проверка начальника / Согласование ЮЛ', color: '#f59e0b' },
   { id: 'done', title: 'Готово / Выдано', subtitle: 'Выпущено в монтаж / заказчику', color: '#10b981' }
 ];
+
+export const COLUMNS = DEFAULT_COLUMNS;
 
 export const PRIORITIES = [
   { id: 'urgent', name: 'Срочно / Горит', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.35)' },

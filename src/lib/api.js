@@ -6,9 +6,10 @@ const STORAGE_KEY_TASKS = 'ufanet_local_tasks_v3';
 const STORAGE_KEY_MEMBERS = 'ufanet_local_members_v3';
 const STORAGE_KEY_PROJECTS = 'ufanet_local_projects_v3';
 const STORAGE_KEY_SECTIONS = 'ufanet_local_sections_v3';
+const STORAGE_KEY_COLUMNS = 'ufanet_local_columns_v3';
 const STORAGE_KEY_CUSTOM_IP = 'ufanet_custom_lan_ip';
 
-import { INITIAL_MEMBERS, INITIAL_PROJECTS, INITIAL_TASKS, DEFAULT_SECTIONS } from './constants';
+import { INITIAL_MEMBERS, INITIAL_PROJECTS, INITIAL_TASKS, DEFAULT_SECTIONS, DEFAULT_COLUMNS } from './constants';
 
 function getLocalData(key, fallback) {
   try {
@@ -214,6 +215,32 @@ export async function saveSectionsList(sections) {
 
   setLocalData(STORAGE_KEY_SECTIONS, sections);
   return sections;
+}
+
+export async function fetchColumnsList() {
+  try {
+    const res = await fetch(`${API_BASE}/api/columns`);
+    if (res.ok) {
+      const data = await res.json();
+      setLocalData(STORAGE_KEY_COLUMNS, data);
+      return data;
+    }
+  } catch {}
+  return getLocalData(STORAGE_KEY_COLUMNS, DEFAULT_COLUMNS);
+}
+
+export async function saveColumnsList(columns) {
+  try {
+    const res = await fetch(`${API_BASE}/api/columns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(columns)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  setLocalData(STORAGE_KEY_COLUMNS, columns);
+  return columns;
 }
 
 // Server-Sent Events (SSE) Realtime subscription

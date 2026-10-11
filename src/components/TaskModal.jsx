@@ -40,6 +40,7 @@ export function TaskModal({
   teamMembers = [],
   projects = [],
   sections = [],
+  columns = [],
   onSaveTask,
   onDeleteTask
 }) {
@@ -420,7 +421,7 @@ export function TaskModal({
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                 >
-                  {COLUMNS.map((col) => (
+                  {(columns && columns.length > 0 ? columns : COLUMNS).map((col) => (
                     <option key={col.id} value={col.id}>
                       {col.title}
                     </option>
