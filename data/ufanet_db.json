@@ -90,9 +90,9 @@
       "erp_project_id": null,
       "erp_task_number": null,
       "house_id": null,
-      "hours_spent": null,
+      "hours_spent": "08:00",
       "work_type": "Разработка проектной документации",
-      "updated_at": "2026-10-11T14:10:51.922Z"
+      "updated_at": "2026-10-11T14:49:42.496Z"
     },
     {
       "id": "task-uf-2",
@@ -126,9 +126,10 @@
     },
     {
       "id": "task-uf-3",
+      "created_at": "2026-10-05T19:06:00.595Z",
       "title": "Расстановка IP-камер видеонаблюдения и зоны видимости",
       "project_code": "Видеонаблюдение: ЖК «Северный»",
-      "section": "ВН",
+      "section": "СВН",
       "status": "review",
       "priority": "medium",
       "assignee_id": "uf-44444444-4444-4444-4444-444444444444",
@@ -152,7 +153,12 @@
           "done": false
         }
       ],
-      "created_at": "2026-10-05T19:06:00.595Z"
+      "erp_project_id": null,
+      "erp_task_number": null,
+      "house_id": null,
+      "hours_spent": null,
+      "work_type": "Разработка проектной документации",
+      "updated_at": "2026-10-11T14:26:51.496Z"
     },
     {
       "id": "task-uf-4",

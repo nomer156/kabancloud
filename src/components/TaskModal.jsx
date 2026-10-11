@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   Trash2, 
@@ -14,20 +14,32 @@ import {
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
-  Home
+  Home,
+  Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { PRIORITIES, COLUMNS, WORK_TYPES } from '../lib/constants';
 import { playSound } from '../lib/sound';
+
+function normalizeToTimeFormat(val) {
+  if (!val) return '';
+  const str = String(val).trim();
+  if (str.includes(':')) return str;
+  const num = parseFloat(str);
+  if (isNaN(num)) return str;
+  const h = Math.floor(num);
+  const m = Math.round((num - h) * 60);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
 
 export function TaskModal({
   isOpen,
   onClose,
   taskToEdit,
   initialStatus = 'backlog',
-  teamMembers,
-  projects,
-  sections,
+  teamMembers = [],
+  projects = [],
+  sections = [],
   onSaveTask,
   onDeleteTask
 }) {
@@ -44,15 +56,23 @@ export function TaskModal({
   const [checklist, setChecklist] = useState([]);
   const [newChecklistText, setNewChecklistText] = useState('');
 
-  // ERP & Timesheet fields
+  // ERP & Timesheet fields (located at the bottom of the form)
   const [erpProjectId, setErpProjectId] = useState('');
   const [erpTaskNumber, setErpTaskNumber] = useState('');
   const [houseId, setHouseId] = useState('');
-  const [hoursSpent, setHoursSpent] = useState('');
+  
+  // Time state: hours and minutes with fixed ':'
+  const [hoursPart, setHoursPart] = useState('');
+  const [minutesPart, setMinutesPart] = useState('');
   const [workType, setWorkType] = useState(WORK_TYPES[0]);
   const [isErpAccordionOpen, setIsErpAccordionOpen] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
+  
+  const minutesInputRef = useRef(null);
+  const hoursInputRef = useRef(null);
+  const accordionRef = useRef(null);
+  const modalBodyRef = useRef(null);
 
   // Sync state when modal opens or editing task changes
   useEffect(() => {
@@ -72,7 +92,17 @@ export function TaskModal({
       setErpProjectId(taskToEdit.erp_project_id || '');
       setErpTaskNumber(taskToEdit.erp_task_number || '');
       setHouseId(taskToEdit.house_id || '');
-      setHoursSpent(taskToEdit.hours_spent || '');
+      
+      const normalizedTime = normalizeToTimeFormat(taskToEdit.hours_spent);
+      if (normalizedTime && normalizedTime.includes(':')) {
+        const [hh, mm] = normalizedTime.split(':');
+        setHoursPart(hh || '');
+        setMinutesPart(mm || '');
+      } else {
+        setHoursPart('');
+        setMinutesPart('');
+      }
+
       setWorkType(taskToEdit.work_type || WORK_TYPES[0]);
       setIsErpAccordionOpen(Boolean(taskToEdit.erp_project_id || taskToEdit.hours_spent));
     } else {
@@ -90,7 +120,8 @@ export function TaskModal({
       setErpProjectId('');
       setErpTaskNumber('');
       setHouseId('');
-      setHoursSpent('');
+      setHoursPart('');
+      setMinutesPart('');
       setWorkType(WORK_TYPES[0]);
       setIsErpAccordionOpen(false);
     }
@@ -100,6 +131,23 @@ export function TaskModal({
   }, [taskToEdit, isOpen, initialStatus, projects, teamMembers, sections]);
 
   if (!isOpen) return null;
+
+  // Toggle Accordion and scroll into view smoothly
+  const handleToggleAccordion = () => {
+    const nextState = !isErpAccordionOpen;
+    setIsErpAccordionOpen(nextState);
+    playSound('click');
+    if (nextState) {
+      setTimeout(() => {
+        if (modalBodyRef.current) {
+          modalBodyRef.current.scrollTo({
+            top: modalBodyRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 50);
+    }
+  };
 
   // Add checklist item
   const handleAddChecklistItem = (e) => {
@@ -139,6 +187,44 @@ export function TaskModal({
     playSound('click');
   };
 
+  // Handle Hours input (XX)
+  const handleHoursChange = (e) => {
+    const val = e.target.value.replace(/[^0-9]/g, '');
+    if (val.length <= 3) {
+      setHoursPart(val);
+      // Auto-jump to minutes after 2 digits
+      if (val.length === 2 && minutesInputRef.current) {
+        minutesInputRef.current.focus();
+        minutesInputRef.current.select();
+      }
+    }
+  };
+
+  // Handle Minutes input (XX, max 59)
+  const handleMinutesChange = (e) => {
+    const val = e.target.value.replace(/[^0-9]/g, '');
+    if (val.length <= 2) {
+      const num = parseInt(val, 10);
+      if (isNaN(num) || num <= 59) {
+        setMinutesPart(val);
+      }
+    }
+  };
+
+  const handleMinutesKeyDown = (e) => {
+    // If Backspace pressed in empty minutes, jump back to hours
+    if (e.key === 'Backspace' && !minutesPart && hoursInputRef.current) {
+      hoursInputRef.current.focus();
+    }
+  };
+
+  // Quick preset time helpers
+  const handleSetQuickTime = (hh, mm) => {
+    setHoursPart(hh);
+    setMinutesPart(mm);
+    playSound('click');
+  };
+
   // Submit form
   const handleSave = (e) => {
     e.preventDefault();
@@ -148,6 +234,14 @@ export function TaskModal({
     }
 
     const finalProject = newProjectInput.trim() ? newProjectInput.trim() : projectCode;
+
+    // Format hours: XX:XX
+    let finalHoursSpent = null;
+    if (hoursPart.trim() || minutesPart.trim()) {
+      const hh = hoursPart.trim() ? hoursPart.trim().padStart(2, '0') : '00';
+      const mm = minutesPart.trim() ? minutesPart.trim().padStart(2, '0') : '00';
+      finalHoursSpent = `${hh}:${mm}`;
+    }
 
     const taskData = {
       ...(taskToEdit ? { id: taskToEdit.id, created_at: taskToEdit.created_at } : {}),
@@ -165,7 +259,7 @@ export function TaskModal({
       erp_project_id: erpProjectId.trim() || null,
       erp_task_number: erpTaskNumber.trim() || null,
       house_id: houseId.trim() || null,
-      hours_spent: hoursSpent.trim() || null,
+      hours_spent: finalHoursSpent,
       work_type: workType || null
     };
 
@@ -189,9 +283,17 @@ export function TaskModal({
     }
   };
 
+  const formattedTimePreview = (hoursPart || minutesPart)
+    ? `${hoursPart.padStart(2, '0') || '00'}:${minutesPart.padStart(2, '0') || '00'}`
+    : '';
+
   return (
     <div className="modal-overlay" onMouseDown={handleOverlayMouseDown}>
-      <div className="modal-content" onMouseDown={(e) => e.stopPropagation()}>
+      <div 
+        className="modal-content" 
+        style={{ maxWidth: '680px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} 
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="modal-header">
           <div className="modal-title">
@@ -204,8 +306,8 @@ export function TaskModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div className="modal-body">
+        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div className="modal-body" ref={modalBodyRef} style={{ overflowY: 'auto', flex: 1, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
             {errorMsg && (
               <div
                 style={{
@@ -224,7 +326,7 @@ export function TaskModal({
               </div>
             )}
 
-            {/* Title */}
+            {/* 1. Title */}
             <div className="form-group">
               <label className="form-label">
                 Название задачи / Выпуск чертежей *
@@ -232,14 +334,14 @@ export function TaskModal({
               <input
                 type="text"
                 className="form-input"
-                placeholder="Например: Трассировка кабельной канализации ККС"
+                placeholder="Например: Трассировка оптического кабеля 96 ОВ"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 autoFocus
               />
             </div>
 
-            {/* Project & Section Row */}
+            {/* 2. Project & Section Row */}
             <div className="form-row">
               {/* Project / Object */}
               <div className="form-group">
@@ -288,13 +390,13 @@ export function TaskModal({
               </div>
             </div>
 
-            {/* Assignee & Status Row */}
+            {/* 3. Assignee & Status Row */}
             <div className="form-row">
               {/* Assignee */}
               <div className="form-group">
                 <label className="form-label">
                   <User size={13} />
-                  <span>Исполнитель (Отдел проектирования)</span>
+                  <span>Исполнитель</span>
                 </label>
                 <select
                   className="form-select"
@@ -327,7 +429,7 @@ export function TaskModal({
               </div>
             </div>
 
-            {/* Priority & Due Date Row */}
+            {/* 4. Priority & Due Date Row */}
             <div className="form-row">
               {/* Priority */}
               <div className="form-group">
@@ -360,60 +462,138 @@ export function TaskModal({
               </div>
             </div>
 
-            {/* Network Link / Folder */}
+            {/* 5. Network Link / Folder */}
             <div className="form-group">
               <label className="form-label">
                 <FolderGit2 size={13} />
-                <span>Путь к сетевой папке / Чертежу / Серверу</span>
+                <span>Сетевая папка / путь к чертежам</span>
               </label>
               <input
                 type="text"
                 className="form-input"
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}
-                placeholder="\\ufanet-server\projects\Объект\ВДН\Схема.dwg"
+                placeholder="\\ufanet-server\projects\Одинцово\ОДРС\Схема.dwg"
                 value={networkLink}
                 onChange={(e) => setNetworkLink(e.target.value)}
               />
             </div>
 
-            {/* =======================================================
-                ERP & TIMESHEET ACCORDION (СВОРАЧИВАЕМЫЙ БЛОК ДЛЯ ЗП)
-               ======================================================= */}
+            {/* 6. Description / Notes */}
+            <div className="form-group">
+              <label className="form-label">Описание / Заметки к выдаче</label>
+              <textarea
+                className="form-textarea"
+                rows={3}
+                placeholder="Дополнительные комментарии, исходные данные по проекту..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+
+            {/* 7. Interactive Checklist */}
+            <div className="form-group">
+              <label className="form-label">
+                <CheckSquare size={13} />
+                <span>Чек-лист этапов и подзадач</span>
+              </label>
+
+              {checklist.length > 0 && (
+                <div className="checklist-items-list" style={{ marginBottom: '0.5rem' }}>
+                  {checklist.map((item) => (
+                    <div key={item.id} className="checklist-item-row">
+                      <input
+                        type="checkbox"
+                        checked={item.done}
+                        onChange={() => handleToggleChecklistItem(item.id)}
+                        className="checklist-checkbox"
+                        id={`modal-check-${item.id}`}
+                      />
+                      <label
+                        htmlFor={`modal-check-${item.id}`}
+                        className={`checklist-text ${item.done ? 'done' : ''}`}
+                      >
+                        {item.text}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteChecklistItem(item.id)}
+                        className="btn-icon btn-icon-danger"
+                        style={{ marginLeft: 'auto', width: 22, height: 22, padding: 0 }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Добавить подзадачу (например: запросить ТУ на прокладку)..."
+                  value={newChecklistText}
+                  onChange={(e) => setNewChecklistText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddChecklistItem();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleAddChecklistItem}
+                  style={{ flexShrink: 0 }}
+                >
+                  <Plus size={14} />
+                  <span>Добавить</span>
+                </button>
+              </div>
+            </div>
+
+            {/* =========================================================================
+                8. ERP & TIMESHEET BLOCK (ПЕРЕНЕСЁН В САМЫЙ НИЗ И РАСКРЫВАЕТСЯ ПОЛНОСТЬЮ)
+               ========================================================================= */}
             <div
+              ref={accordionRef}
               style={{
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
                 background: 'var(--bg-tertiary)',
-                overflow: 'hidden'
+                marginTop: '0.5rem',
+                boxShadow: isErpAccordionOpen ? '0 4px 16px rgba(0,0,0,0.2)' : 'none',
+                transition: 'all 0.2s ease'
               }}
             >
               <button
                 type="button"
-                onClick={() => setIsErpAccordionOpen(!isErpAccordionOpen)}
+                onClick={handleToggleAccordion}
                 style={{
                   width: '100%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0.65rem 0.9rem',
+                  padding: '0.75rem 1rem',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
                   color: 'var(--text-main)',
                   fontWeight: 600,
-                  fontSize: '0.82rem'
+                  fontSize: '0.85rem'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <FileSpreadsheet size={16} style={{ color: 'var(--accent-orange)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <FileSpreadsheet size={17} style={{ color: 'var(--accent-orange)' }} />
                   <span>Данные для ERP и учета табеля ЗП</span>
-                  {erpProjectId || hoursSpent ? (
-                    <span style={{ fontSize: '0.7rem', color: 'var(--accent-orange)', background: 'rgba(255, 102, 0, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
-                      Заполнено
+                  {erpProjectId || hoursPart ? (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--accent-orange)', background: 'rgba(255, 102, 0, 0.12)', padding: '2px 7px', borderRadius: '4px', fontWeight: 700 }}>
+                      ✓ Заполнено {formattedTimePreview ? `(${formattedTimePreview} ч.)` : ''}
                     </span>
                   ) : (
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
-                      (свернуть/развернуть)
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                      {isErpAccordionOpen ? '(нажмите, чтобы скрыть)' : '(нажмите, чтобы заполнить)'}
                     </span>
                   )}
                 </div>
@@ -421,68 +601,183 @@ export function TaskModal({
               </button>
 
               {isErpAccordionOpen && (
-                <div style={{ padding: '0.85rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <div 
+                  style={{ 
+                    padding: '1rem', 
+                    borderTop: '1px solid var(--border-subtle)', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '1rem',
+                    background: 'var(--bg-secondary)',
+                    borderBottomLeftRadius: 'var(--radius-md)',
+                    borderBottomRightRadius: 'var(--radius-md)'
+                  }}
+                >
+                  {/* Row 1: ERP Project ID & Task Number */}
                   <div className="form-row">
+                    {/* ID проекта в ERP: свободный формат с точками */}
                     <div className="form-group">
-                      <label className="form-label">ID проекта в ERP</label>
+                      <label className="form-label" style={{ fontWeight: 600 }}>
+                        ID проекта в ERP
+                      </label>
                       <input
                         type="text"
                         className="form-input"
-                        placeholder="Например: PRJ-10482"
+                        placeholder="Например: 24.102.04912.001923"
                         value={erpProjectId}
                         onChange={(e) => setErpProjectId(e.target.value)}
-                        style={{ fontFamily: 'var(--font-mono)' }}
+                        style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
                       />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                        Формат: ХХ.ХХХ.ХХХХХ... (любая длина)
+                      </span>
                     </div>
 
+                    {/* Номер задачи из ERP: 123456789 */}
                     <div className="form-group">
-                      <label className="form-label">Номер задачи из ERP</label>
+                      <label className="form-label" style={{ fontWeight: 600 }}>
+                        Номер задачи из ERP
+                      </label>
                       <input
                         type="text"
                         className="form-input"
-                        placeholder="Например: TASK-84920"
+                        placeholder="Например: 123456789"
                         value={erpTaskNumber}
-                        onChange={(e) => setErpTaskNumber(e.target.value)}
-                        style={{ fontFamily: 'var(--font-mono)' }}
+                        onChange={(e) => setErpTaskNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                        style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
                       />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                        Числовой номер заявки в ERP
+                      </span>
                     </div>
                   </div>
 
+                  {/* Row 2: ID дома & Затраченные часы (XX:XX) */}
                   <div className="form-row">
+                    {/* ID дома: 111213 */}
                     <div className="form-group">
-                      <label className="form-label">
-                        <Home size={12} />
-                        <span>ID дома (для СВН, ОДРС, МКЖ)</span>
+                      <label className="form-label" style={{ fontWeight: 600 }}>
+                        <Home size={13} />
+                        <span>ID дома</span>
                       </label>
                       <input
                         type="text"
                         className="form-input"
-                        placeholder="Например: ДОМ-44 (если применимо)"
+                        placeholder="Например: 111213"
                         value={houseId}
-                        onChange={(e) => setHouseId(e.target.value)}
+                        onChange={(e) => setHouseId(e.target.value.replace(/[^0-9]/g, ''))}
+                        style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
                       />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                        Числовой идентификатор дома
+                      </span>
                     </div>
 
+                    {/* Затраченные часы: формат XX:XX с зафиксированным ":" */}
                     <div className="form-group">
-                      <label className="form-label">
-                        <Clock size={12} />
-                        <span>Затраченное время (часы)</span>
+                      <label className="form-label" style={{ fontWeight: 600 }}>
+                        <Clock size={13} style={{ color: 'var(--accent-orange)' }} />
+                        <span>Затраченное время (ЧЧ:ММ)</span>
                       </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        className="form-input"
-                        placeholder="Например: 12.5"
-                        value={hoursSpent}
-                        onChange={(e) => setHoursSpent(e.target.value)}
-                        style={{ fontFamily: 'var(--font-mono)' }}
-                      />
+
+                      {/* Fixed colon Time Control */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0 0.4rem' }}>
+                          <input
+                            ref={hoursInputRef}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={3}
+                            placeholder="08"
+                            value={hoursPart}
+                            onChange={handleHoursChange}
+                            style={{
+                              width: '42px',
+                              textAlign: 'center',
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 800,
+                              fontSize: '1rem',
+                              background: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              padding: '0.4rem 0',
+                              color: 'var(--accent-orange)'
+                            }}
+                            title="Часы (например: 08)"
+                          />
+                          <span style={{ fontWeight: 900, fontSize: '1.15rem', color: 'var(--accent-orange)', userSelect: 'none', padding: '0 2px' }}>
+                            :
+                          </span>
+                          <input
+                            ref={minutesInputRef}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={2}
+                            placeholder="00"
+                            value={minutesPart}
+                            onChange={handleMinutesChange}
+                            onKeyDown={handleMinutesKeyDown}
+                            style={{
+                              width: '38px',
+                              textAlign: 'center',
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 800,
+                              fontSize: '1rem',
+                              background: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              padding: '0.4rem 0',
+                              color: 'var(--accent-orange)'
+                            }}
+                            title="Минуты (00 - 59)"
+                          />
+                        </div>
+
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.2rem' }}>
+                          ч:мин
+                        </span>
+
+                        {/* Quick Presets */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginLeft: 'auto' }}>
+                          <button
+                            type="button"
+                            className="btn-mini-action"
+                            style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                            onClick={() => handleSetQuickTime('08', '00')}
+                            title="8 часов (полный рабочий день)"
+                          >
+                            8:00
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-mini-action"
+                            style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                            onClick={() => handleSetQuickTime('04', '00')}
+                            title="4 часа (полдня)"
+                          >
+                            4:00
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-mini-action"
+                            style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                            onClick={() => handleSetQuickTime('01', '30')}
+                            title="1 час 30 минут"
+                          >
+                            1:30
+                          </button>
+                        </div>
+                      </div>
+
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                        Формат XX:XX (Часы и минуты с фиксированным двоеточием)
+                      </span>
                     </div>
                   </div>
 
+                  {/* Row 3: Work Type */}
                   <div className="form-group">
-                    <label className="form-label">Тип работы для табеля</label>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Тип работы для табеля ЗП</label>
                     <select
                       className="form-select"
                       value={workType}
@@ -498,104 +793,30 @@ export function TaskModal({
                 </div>
               )}
             </div>
-
-            {/* Description */}
-            <div className="form-group">
-              <label className="form-label">Описание / Заметки к выдаче</label>
-              <textarea
-                className="form-textarea"
-                rows={3}
-                placeholder="Дополнительные комментарии, замечания начальника отдела, исходные данные..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-
-            {/* Interactive Checklist */}
-            <div className="form-group">
-              <label className="form-label">
-                <CheckSquare size={13} />
-                <span>Чек-лист согласований и подзадач</span>
-              </label>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.5rem' }}>
-                {checklist.map((item) => (
-                  <div key={item.id} className="checklist-item-row">
-                    <input
-                      type="checkbox"
-                      className="checklist-checkbox"
-                      checked={item.done}
-                      onChange={() => handleToggleChecklistItem(item.id)}
-                    />
-                    <span className={`checklist-text ${item.done ? 'done' : ''}`}>
-                      {item.text}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteChecklistItem(item.id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-dim)',
-                        cursor: 'pointer',
-                        padding: '2px'
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type="text"
-                  className="form-input"
-                  style={{ flex: 1, padding: '0.45rem 0.75rem', fontSize: '0.82rem' }}
-                  placeholder="Добавить пункт (нажмите Enter)..."
-                  value={newChecklistText}
-                  onChange={(e) => setNewChecklistText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddChecklistItem();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '0.45rem 0.8rem' }}
-                  onClick={handleAddChecklistItem}
-                >
-                  <Plus size={14} />
-                  <span>Добавить</span>
-                </button>
-              </div>
-            </div>
           </div>
 
-          {/* Pinned Footer Actions */}
-          <div className="modal-footer">
-            {taskToEdit && (
+          {/* Modal Footer */}
+          <div className="modal-footer" style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {taskToEdit ? (
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ color: 'var(--accent-rose)', marginRight: 'auto' }}
+                style={{ color: 'var(--accent-rose)' }}
                 onClick={handleDelete}
               >
                 <Trash2 size={15} />
                 <span>Удалить</span>
               </button>
-            )}
+            ) : <div />}
 
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Отмена
-            </button>
-
-            <button type="submit" className="btn btn-primary">
-              {taskToEdit ? 'Сохранить изменения' : 'Создать карточку'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>
+                Отмена
+              </button>
+              <button type="submit" className="btn btn-primary">
+                {taskToEdit ? 'Сохранить изменения' : 'Создать задачу'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

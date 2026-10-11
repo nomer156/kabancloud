@@ -24,6 +24,33 @@ const MONTH_NAMES = [
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
 ];
 
+function parseHoursToDecimal(val) {
+  if (!val) return 0;
+  const str = String(val).trim();
+  if (str.includes(':')) {
+    const [hh, mm] = str.split(':');
+    const h = parseFloat(hh) || 0;
+    const m = (parseFloat(mm) || 0) / 60;
+    return Math.round((h + m) * 100) / 100;
+  }
+  const parsed = parseFloat(str);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function formatHoursDisplay(val) {
+  if (!val) return '—';
+  const str = String(val).trim();
+  return `${str} ч.`;
+}
+
+function formatTotalHoursSummary(decimalHours) {
+  const rounded = Math.round(decimalHours * 100) / 100;
+  const h = Math.floor(decimalHours);
+  const m = Math.round((decimalHours - h) * 60);
+  if (m === 0) return `${h} ч.`;
+  return `${rounded} ч. (${h} ч. ${m} мин.)`;
+}
+
 export function MonthlyReport({
   tasks = [],
   teamMembers = [],
@@ -87,11 +114,10 @@ export function MonthlyReport({
   const backlogTasks = reportTasks.filter((t) => t.status === 'backlog').length;
 
   const totalHours = reportTasks.reduce((sum, t) => {
-    const val = parseFloat(t.hours_spent);
-    return !isNaN(val) ? sum + val : sum;
+    return sum + parseHoursToDecimal(t.hours_spent);
   }, 0);
 
-  const missingHoursCount = reportTasks.filter((t) => !t.hours_spent || parseFloat(t.hours_spent) === 0).length;
+  const missingHoursCount = reportTasks.filter((t) => !t.hours_spent || parseHoursToDecimal(t.hours_spent) === 0).length;
   const missingErpCount = reportTasks.filter((t) => !t.erp_project_id && !t.erp_task_number).length;
   const completionPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
@@ -104,8 +130,8 @@ export function MonthlyReport({
         map[s] = { count: 0, hours: 0 };
       }
       map[s].count += 1;
-      const h = parseFloat(t.hours_spent);
-      if (!isNaN(h)) map[s].hours += h;
+      const h = parseHoursToDecimal(t.hours_spent);
+      if (h > 0) map[s].hours += h;
     });
     return Object.entries(map).sort((a, b) => b[1].hours - a[1].hours);
   }, [reportTasks]);
@@ -117,8 +143,7 @@ export function MonthlyReport({
       const mDone = memberTasks.filter((t) => t.status === 'done').length;
       const mInProgress = memberTasks.filter((t) => t.status === 'in_progress' || t.status === 'review').length;
       const mHours = memberTasks.reduce((sum, t) => {
-        const val = parseFloat(t.hours_spent);
-        return !isNaN(val) ? sum + val : sum;
+        return sum + parseHoursToDecimal(t.hours_spent);
       }, 0);
 
       return {
@@ -126,7 +151,7 @@ export function MonthlyReport({
         tasksCount: memberTasks.length,
         doneCount: mDone,
         inProgressCount: mInProgress,
-        hours: mHours
+        hours: Math.round(mHours * 10) / 10
       };
     }).sort((a, b) => b.hours - a.hours);
   }, [teamMembers, reportTasks]);
@@ -426,7 +451,7 @@ export function MonthlyReport({
             <Clock size={18} style={{ color: 'var(--accent-orange)' }} />
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-orange)', marginTop: '0.35rem', fontFamily: 'var(--font-mono)' }}>
-            {totalHours} <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)' }}>ч.</span>
+            {Math.round(totalHours * 10) / 10} <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)' }}>ч.</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
             {missingHoursCount > 0 ? (
@@ -655,7 +680,7 @@ export function MonthlyReport({
           </div>
 
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            Задач: <b>{reportTasks.length}</b> • Итого часов: <b style={{ color: 'var(--accent-orange)', fontFamily: 'var(--font-mono)' }}>{totalHours} ч.</b>
+            Задач: <b>{reportTasks.length}</b> • Итого часов: <b style={{ color: 'var(--accent-orange)', fontFamily: 'var(--font-mono)' }}>{Math.round(totalHours * 10) / 10} ч.</b>
           </span>
         </div>
 
