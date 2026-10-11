@@ -157,6 +157,20 @@ export async function saveTeamMember(member) {
   return updated;
 }
 
+export async function deleteTeamMember(memberId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/members/${memberId}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  const updated = members.filter((m) => m.id !== memberId);
+  setLocalData(STORAGE_KEY_MEMBERS, updated);
+  return updated;
+}
+
 export async function fetchProjectsList() {
   try {
     const res = await fetch(`${API_BASE}/api/projects`);

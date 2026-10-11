@@ -6,10 +6,9 @@ export function FilterBar({
   teamMembers,
   projects,
   sections,
+  currentUser,
   selectedAssigneeId,
   onSelectAssignee,
-  onlyMyTasks,
-  onToggleOnlyMyTasks,
   selectedSection,
   onSelectSection,
   selectedProject,
@@ -17,11 +16,22 @@ export function FilterBar({
   searchQuery,
   onSearchChange,
   onResetFilters,
-  onOpenSectionsModal
+  onOpenSectionsModal,
+  onOpenTeamModal
 }) {
+  const isMyTasksActive = Boolean(currentUser && selectedAssigneeId === currentUser.id);
+
+  const handleToggleMyTasks = () => {
+    playSound('click');
+    if (isMyTasksActive) {
+      onSelectAssignee(null);
+    } else if (currentUser) {
+      onSelectAssignee(currentUser.id);
+    }
+  };
+
   const isAnyFilterActive = Boolean(
     selectedAssigneeId ||
-    onlyMyTasks ||
     selectedSection ||
     selectedProject ||
     searchQuery.trim()
@@ -34,13 +44,10 @@ export function FilterBar({
         {/* Toggle My Tasks */}
         <button
           type="button"
-          className={`btn ${onlyMyTasks ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem' }}
-          onClick={() => {
-            playSound('click');
-            onToggleOnlyMyTasks();
-          }}
-          title="Показать только задачи, назначенные на текущего пользователя"
+          className={`btn ${isMyTasksActive ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}
+          onClick={handleToggleMyTasks}
+          title={currentUser ? `Показать только задачи инженера: ${currentUser.full_name}` : 'Мои задачи'}
         >
           <UserCheck size={14} />
           <span>Мои задачи</span>
@@ -50,7 +57,7 @@ export function FilterBar({
         <div className="team-filter-list" title="Фильтр по сотруднику">
           <button
             type="button"
-            className={`team-avatar-all ${!selectedAssigneeId && !onlyMyTasks ? 'selected' : ''}`}
+            className={`team-avatar-all ${!selectedAssigneeId ? 'selected' : ''}`}
             onClick={() => {
               playSound('click');
               onSelectAssignee(null);
@@ -65,7 +72,10 @@ export function FilterBar({
                 key={member.id}
                 type="button"
                 className={`team-avatar-btn ${isSelected ? 'selected' : ''}`}
-                style={{ backgroundColor: member.avatar_color }}
+                style={{
+                  backgroundColor: member.avatar_color,
+                  boxShadow: isSelected ? `0 0 0 3px var(--accent-orange), 0 0 8px rgba(255, 102, 0, 0.45)` : undefined
+                }}
                 onClick={() => {
                   playSound('click');
                   onSelectAssignee(isSelected ? null : member.id);
@@ -76,6 +86,20 @@ export function FilterBar({
               </button>
             );
           })}
+          {onOpenTeamModal && (
+            <button
+              type="button"
+              className="btn-icon"
+              style={{ width: 26, height: 26, padding: 0 }}
+              onClick={() => {
+                playSound('click');
+                onOpenTeamModal();
+              }}
+              title="Настроить инженеров (цвета, имена, должности)"
+            >
+              <Settings2 size={13} />
+            </button>
+          )}
         </div>
 
         {/* Sections Pills */}

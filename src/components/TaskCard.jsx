@@ -290,8 +290,40 @@ export function TaskCard({
             <span>{deadlineBadge.text}</span>
           </div>
         ) : task.due_date ? (
-          <div style={{ fontSize: '0.72rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
-            <Check size={12} /> Выполнено
+          <div
+            style={{
+              fontSize: '0.74rem',
+              color: '#10b981',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontWeight: 700
+            }}
+            title={`Сдано / Выдано в монтаж: ${task.due_date}`}
+          >
+            <Check size={13} style={{ strokeWidth: 2.5 }} />
+            <span>
+              {(() => {
+                const due = new Date(task.due_date);
+                if (isNaN(due.getTime())) return task.due_date;
+                const mNames = ['янв.', 'февр.', 'марта', 'апр.', 'мая', 'июня', 'июля', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
+                return `${due.getDate()} ${mNames[due.getMonth()]}`;
+              })()}
+            </span>
+          </div>
+        ) : task.status === 'done' ? (
+          <div
+            style={{
+              fontSize: '0.74rem',
+              color: '#10b981',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontWeight: 700
+            }}
+          >
+            <Check size={13} style={{ strokeWidth: 2.5 }} />
+            <span>Выполнено</span>
           </div>
         ) : (
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Без срока</div>

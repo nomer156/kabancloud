@@ -8,6 +8,7 @@ import {
   updateTaskStatus, 
   fetchTeamMembers, 
   saveTeamMember, 
+  deleteTeamMember,
   fetchProjectsList, 
   addProjectItem, 
   fetchSectionsList,
@@ -67,7 +68,6 @@ export default function App() {
 
   // Filters state
   const [selectedAssigneeId, setSelectedAssigneeId] = useState(null);
-  const [onlyMyTasks, setOnlyMyTasks] = useState(false);
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,25 +182,19 @@ export default function App() {
 
   // Find member selected in filter
   const selectedFilterMember = useMemo(() => {
-    if (onlyMyTasks && currentUser) return currentUser;
     if (selectedAssigneeId) return teamMembers.find((m) => m.id === selectedAssigneeId) || null;
     return null;
-  }, [selectedAssigneeId, onlyMyTasks, currentUser, teamMembers]);
+  }, [selectedAssigneeId, teamMembers]);
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      // 1. My tasks filter
-      if (onlyMyTasks && currentUser) {
-        if (task.assignee_id !== currentUser.id) return false;
-      }
-
-      // 2. Assignee filter
+      // 1. Assignee filter (handles both individual engineers and "My tasks")
       if (selectedAssigneeId && task.assignee_id !== selectedAssigneeId) {
         return false;
       }
 
-      // 3. Section filter
+      // 2. Section filter
       if (selectedSection && task.section !== selectedSection) {
         return false;
       }
@@ -309,6 +303,19 @@ export default function App() {
       setCurrentUser(member);
     }
     showToast('Профиль сотрудника обновлен');
+  };
+
+  // Delete team member
+  const handleDeleteMember = async (memberId) => {
+    const updated = await deleteTeamMember(memberId);
+    setTeamMembers(updated);
+    if (currentUser?.id === memberId) {
+      setCurrentUser(updated[0] || null);
+    }
+    if (selectedAssigneeId === memberId) {
+      setSelectedAssigneeId(null);
+    }
+    showToast('Сотрудник удален');
   };
 
   // Save sections
@@ -457,10 +464,9 @@ export default function App() {
             teamMembers={teamMembers}
             projects={projects}
             sections={sections}
+            currentUser={currentUser}
             selectedAssigneeId={selectedAssigneeId}
             onSelectAssignee={setSelectedAssigneeId}
-            onlyMyTasks={onlyMyTasks}
-            onToggleOnlyMyTasks={() => setOnlyMyTasks((prev) => !prev)}
             selectedSection={selectedSection}
             onSelectSection={setSelectedSection}
             selectedProject={selectedProject}
@@ -469,6 +475,7 @@ export default function App() {
             onSearchChange={setSearchQuery}
             onResetFilters={handleResetFilters}
             onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
+            onOpenTeamModal={() => setIsTeamModalOpen(true)}
           />
 
           {/* Main View: Board vs Monthly Report */}
@@ -496,12 +503,9 @@ export default function App() {
               tasks={tasks}
               teamMembers={teamMembers}
               sections={sections}
-              selectedAssigneeId={onlyMyTasks ? currentUser?.id : selectedAssigneeId}
+              selectedAssigneeId={selectedAssigneeId}
               selectedMember={selectedFilterMember}
-              onSelectAssignee={(id) => {
-                if (onlyMyTasks) setOnlyMyTasks(false);
-                setSelectedAssigneeId(id);
-              }}
+              onSelectAssignee={setSelectedAssigneeId}
               onEditTask={handleEditTask}
               theme={theme}
             />
@@ -535,6 +539,7 @@ export default function App() {
         onClose={() => setIsTeamModalOpen(false)}
         teamMembers={teamMembers}
         onUpdateMember={handleUpdateMember}
+        onDeleteMember={handleDeleteMember}
       />
 
       {/* Project Sections Management Modal */}

@@ -25,3 +25,8 @@ data/backups/
 *.njsproj
 *.sln
 *.sw?
+
+# Agent local memory (Never commit or push to git)
+INTERNAL_NOTES.md
+.agent_internal_memory.md
+*.memory.md

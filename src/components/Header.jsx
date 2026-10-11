@@ -222,6 +222,21 @@ export function Header({
                   </div>
                 </button>
               ))}
+              <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '0.35rem', paddingTop: '0.35rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserDropdownOpen(false);
+                    onOpenTeamModal();
+                    playSound('click');
+                  }}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', fontSize: '0.74rem', justifyContent: 'center', padding: '0.35rem 0.5rem', gap: '5px' }}
+                >
+                  <Users size={13} style={{ color: 'var(--accent-orange)' }} />
+                  <span>Настроить отдел и цвета</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

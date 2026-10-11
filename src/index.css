@@ -431,10 +431,23 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.15rem;
+  padding: 0.15rem 0.35rem;
   background: var(--bg-primary);
   border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
+}
+
+.team-filter-list .btn-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--text-dim);
+  transition: var(--transition-fast);
+}
+
+.team-filter-list .btn-icon:hover {
+  color: var(--accent-orange);
+  background: rgba(255, 102, 0, 0.15);
 }
 
 .team-avatar-btn {

@@ -424,6 +424,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 8b. DELETE /api/members/:id
+  if (pathname.startsWith('/api/members/') && req.method === 'DELETE') {
+    const memberId = pathname.split('/')[3];
+    const db = readDb();
+    db.members = (db.members || []).filter((m) => m.id !== memberId);
+    writeDb(db);
+    broadcastEvent('MEMBERS_UPDATED', db.members);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.members));
+    return;
+  }
+
   // 9. GET /api/projects
   if (pathname === '/api/projects' && req.method === 'GET') {
     const db = readDb();
