@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Users, Edit2, Check, UserPlus } from 'lucide-react';
+import { X, Users, Edit2, Check } from 'lucide-react';
 import { playSound } from '../lib/sound';
 
 export function TeamModal({ isOpen, onClose, teamMembers, onUpdateMember }) {
@@ -31,13 +31,20 @@ export function TeamModal({ isOpen, onClose, teamMembers, onUpdateMember }) {
     playSound('success');
   };
 
+  // Safe overlay click
+  const handleOverlayMouseDown = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={handleOverlayMouseDown}>
+      <div className="modal-content" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
-            <Users size={20} style={{ color: 'var(--accent-blue)' }} />
-            <span>Состав отдела проектирования (6 участников)</span>
+            <Users size={20} style={{ color: 'var(--accent-orange)' }} />
+            <span>Состав отдела проектирования Уфанет</span>
           </div>
           <button type="button" className="btn-icon" onClick={onClose}>
             <X size={18} />
@@ -46,7 +53,7 @@ export function TeamModal({ isOpen, onClose, teamMembers, onUpdateMember }) {
 
         <div className="modal-body">
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Здесь представлены все инженеры и архитекторы отдела. Вы можете отредактировать ФИО или должность.
+            1 начальник отдела проектирования и 5 инженеров-проектировщиков. Все сотрудники имеют общий доступ к задачам отдела.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -69,8 +76,8 @@ export function TeamModal({ isOpen, onClose, teamMembers, onUpdateMember }) {
                   {/* Avatar */}
                   <div
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 38,
+                      height: 38,
                       borderRadius: '50%',
                       backgroundColor: member.avatar_color,
                       color: 'white',
@@ -95,7 +102,7 @@ export function TeamModal({ isOpen, onClose, teamMembers, onUpdateMember }) {
                           style={{ padding: '0.35rem 0.6rem', fontSize: '0.82rem' }}
                           value={nameInput}
                           onChange={(e) => setNameInput(e.target.value)}
-                          placeholder="ФИО инженера"
+                          placeholder="ФИО сотрудника"
                         />
                         <input
                           type="text"
@@ -103,7 +110,7 @@ export function TeamModal({ isOpen, onClose, teamMembers, onUpdateMember }) {
                           style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem' }}
                           value={roleInput}
                           onChange={(e) => setRoleInput(e.target.value)}
-                          placeholder="Должность / раздел"
+                          placeholder="Должность"
                         />
                       </div>
                     ) : (

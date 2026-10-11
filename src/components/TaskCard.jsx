@@ -3,34 +3,31 @@ import {
   Calendar, 
   FolderGit2, 
   CheckSquare, 
-  ChevronRight, 
-  ChevronLeft, 
   Copy, 
   Check, 
   Flame, 
-  MoreVertical,
-  ExternalLink
+  Clock,
+  Briefcase
 } from 'lucide-react';
-import { SECTIONS, PRIORITIES, COLUMNS } from '../lib/constants';
+import { PRIORITIES } from '../lib/constants';
 import { playSound } from '../lib/sound';
 
 export function TaskCard({
   task,
   teamMembers,
+  sections,
   onEdit,
-  onMoveColumn,
-  onDelete,
   onDragStart
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
-  // Find section metadata
-  const sectionMeta = SECTIONS.find((s) => s.id === task.section) || {
-    id: task.section || 'АР',
-    color: '#3b82f6',
-    bg: 'rgba(59, 130, 246, 0.15)',
-    border: 'rgba(59, 130, 246, 0.3)'
+  // Find section metadata from dynamic sections
+  const sectionMeta = sections?.find((s) => s.id === task.section) || {
+    id: task.section || 'ВДН',
+    name: task.section || 'ВДН',
+    color: '#ff6600',
+    bg: 'rgba(255, 102, 0, 0.15)',
+    border: 'rgba(255, 102, 0, 0.35)'
   };
 
   // Find priority metadata
@@ -82,18 +79,9 @@ export function TaskCard({
     }
   };
 
-  // Column movement helpers
-  const currentColumnIndex = COLUMNS.findIndex((c) => c.id === task.status);
-  const canMoveLeft = currentColumnIndex > 0;
-  const canMoveRight = currentColumnIndex < COLUMNS.length - 1;
-
-  const handleMove = (e, direction) => {
-    e.stopPropagation();
-    const nextIndex = currentColumnIndex + direction;
-    if (nextIndex >= 0 && nextIndex < COLUMNS.length) {
-      onMoveColumn(task.id, COLUMNS[nextIndex].id);
-    }
-  };
+  // Check if ERP data is missing
+  const hasErpData = Boolean(task.erp_project_id || task.erp_task_number || task.hours_spent);
+  const showErpWarning = !hasErpData && (task.status === 'in_progress' || task.status === 'review' || task.status === 'done');
 
   return (
     <div
@@ -101,28 +89,39 @@ export function TaskCard({
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => onEdit(task)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Top Metadata: Section Badge, Project Badge, Priority Indicator */}
-      <div className="card-top-meta">
-        <div className="card-tags-group">
-          {/* Section Tag */}
+      {/* Top Metadata: Section Tag, Project Tag, Priority Indicator */}
+      <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+        <div className="card-tags-group" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
+          {/* Main Project Section Badge (ВДН, ККС, МКЖ...) */}
           <span
             className="badge-section"
             style={{
               backgroundColor: sectionMeta.bg,
               color: sectionMeta.color,
-              border: `1px solid ${sectionMeta.border}`
+              border: `1px solid ${sectionMeta.border}`,
+              fontWeight: 800
             }}
+            title={sectionMeta.name}
           >
             {sectionMeta.id}
           </span>
 
           {/* Project / Object Tag */}
           {task.project_code && (
-            <span className="badge-project" title={task.project_code}>
+            <span className="badge-project" title={task.project_code} style={{ maxWidth: 'none' }}>
               {task.project_code}
+            </span>
+          )}
+
+          {/* House ID Tag (for СВН / ОДРС) */}
+          {task.house_id && (
+            <span 
+              className="badge-project" 
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', background: 'rgba(255, 102, 0, 0.1)', color: 'var(--accent-orange)' }}
+              title={`ID Дома: ${task.house_id}`}
+            >
+              {task.house_id}
             </span>
           )}
         </div>
@@ -181,7 +180,62 @@ export function TaskCard({
         </div>
       )}
 
-      {/* Footer: Due date + Assignee + Quick Move Actions */}
+      {/* ERP Info Tags Row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+        {task.hours_spent && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              fontSize: '0.7rem',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 600,
+              color: 'var(--accent-orange)',
+              background: 'rgba(255, 102, 0, 0.1)',
+              padding: '2px 6px',
+              borderRadius: '4px'
+            }}
+            title="Затрачено времени на задачу"
+          >
+            <Clock size={11} />
+            <span>{task.hours_spent} ч.</span>
+          </span>
+        )}
+
+        {task.erp_project_id && (
+          <span
+            style={{
+              fontSize: '0.68rem',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-dim)',
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '2px 5px',
+              borderRadius: '4px'
+            }}
+            title={`ERP ID: ${task.erp_project_id}`}
+          >
+            #{task.erp_project_id}
+          </span>
+        )}
+
+        {showErpWarning && (
+          <span
+            style={{
+              fontSize: '0.67rem',
+              color: 'var(--text-dim)',
+              border: '1px dashed var(--border-subtle)',
+              padding: '1px 5px',
+              borderRadius: '4px'
+            }}
+            title="Данные для учета ЗП / ERP еще не заполнены"
+          >
+            ERP: не заполнено
+          </span>
+        )}
+      </div>
+
+      {/* Footer: Due date + Assignee (NO arrows!) */}
       <div className="card-footer">
         {/* Due Date */}
         {dueText ? (
@@ -196,60 +250,31 @@ export function TaskCard({
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Без срока</div>
         )}
 
-        {/* Right side: Quick Move + Assignee */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {/* Quick Column Shift (visible on hover) */}
-          {isHovered && (
-            <div className="card-quick-actions">
-              {canMoveLeft && (
-                <button
-                  type="button"
-                  className="btn-mini-action"
-                  onClick={(e) => handleMove(e, -1)}
-                  title="Переместить влево"
-                >
-                  <ChevronLeft size={13} />
-                </button>
-              )}
-              {canMoveRight && (
-                <button
-                  type="button"
-                  className="btn-mini-action"
-                  onClick={(e) => handleMove(e, 1)}
-                  title="Переместить вправо"
-                >
-                  <ChevronRight size={13} />
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Assignee Avatar */}
-          {assignee ? (
-            <div
-              className="card-assignee"
-              title={`Исполнитель: ${assignee.full_name} (${assignee.role})`}
-            >
-              <div
-                className="assignee-avatar-sm"
-                style={{ backgroundColor: assignee.avatar_color }}
-              >
-                {assignee.initials}
-              </div>
-              <span className="assignee-name-sm">
-                {assignee.full_name.split(' ')[0]}
-              </span>
-            </div>
-          ) : (
+        {/* Assignee Avatar + Name */}
+        {assignee ? (
+          <div
+            className="card-assignee"
+            title={`Исполнитель: ${assignee.full_name} (${assignee.role})`}
+          >
             <div
               className="assignee-avatar-sm"
-              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-dim)' }}
-              title="Исполнитель не назначен"
+              style={{ backgroundColor: assignee.avatar_color }}
             >
-              ?
+              {assignee.initials}
             </div>
-          )}
-        </div>
+            <span className="assignee-name-sm">
+              {assignee.full_name.split(' ')[0]}
+            </span>
+          </div>
+        ) : (
+          <div
+            className="assignee-avatar-sm"
+            style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-dim)' }}
+            title="Исполнитель не назначен"
+          >
+            ?
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,12 +2,13 @@
 
 const API_BASE = window.location.port === '5173' ? 'http://localhost:3000' : '';
 
-// Local fallback storage keys (in case server is momentarily offline)
-const STORAGE_KEY_TASKS = 'ufanet_local_tasks_v2';
-const STORAGE_KEY_MEMBERS = 'ufanet_local_members_v2';
-const STORAGE_KEY_PROJECTS = 'ufanet_local_projects_v2';
+const STORAGE_KEY_TASKS = 'ufanet_local_tasks_v3';
+const STORAGE_KEY_MEMBERS = 'ufanet_local_members_v3';
+const STORAGE_KEY_PROJECTS = 'ufanet_local_projects_v3';
+const STORAGE_KEY_SECTIONS = 'ufanet_local_sections_v3';
+const STORAGE_KEY_CUSTOM_IP = 'ufanet_custom_lan_ip';
 
-import { INITIAL_MEMBERS, INITIAL_PROJECTS, INITIAL_TASKS } from './constants';
+import { INITIAL_MEMBERS, INITIAL_PROJECTS, INITIAL_TASKS, DEFAULT_SECTIONS } from './constants';
 
 function getLocalData(key, fallback) {
   try {
@@ -21,6 +22,18 @@ function setLocalData(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
   } catch {}
+}
+
+export function getCustomLanIp() {
+  return localStorage.getItem(STORAGE_KEY_CUSTOM_IP) || '';
+}
+
+export function setCustomLanIp(ip) {
+  if (ip && ip.trim()) {
+    localStorage.setItem(STORAGE_KEY_CUSTOM_IP, ip.trim());
+  } else {
+    localStorage.removeItem(STORAGE_KEY_CUSTOM_IP);
+  }
 }
 
 export async function fetchServerInfo() {
@@ -59,7 +72,6 @@ export async function saveTask(task) {
     console.warn('Сервер недоступен, сохраняю в локальный кеш:', err.message);
   }
 
-  // Local fallback
   const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
   const id = task.id || `task-uf-${Date.now()}`;
   const prepared = { ...task, id, updated_at: new Date().toISOString() };
@@ -178,6 +190,32 @@ export async function addProjectItem(projectName) {
   return projects;
 }
 
+export async function fetchSectionsList() {
+  try {
+    const res = await fetch(`${API_BASE}/api/sections`);
+    if (res.ok) {
+      const data = await res.json();
+      setLocalData(STORAGE_KEY_SECTIONS, data);
+      return data;
+    }
+  } catch {}
+  return getLocalData(STORAGE_KEY_SECTIONS, DEFAULT_SECTIONS);
+}
+
+export async function saveSectionsList(sections) {
+  try {
+    const res = await fetch(`${API_BASE}/api/sections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sections)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  setLocalData(STORAGE_KEY_SECTIONS, sections);
+  return sections;
+}
+
 // Server-Sent Events (SSE) Realtime subscription
 export function subscribeToRealtimeChanges(onRefresh) {
   let eventSource = null;
@@ -192,9 +230,7 @@ export function subscribeToRealtimeChanges(onRefresh) {
       } catch {}
     };
 
-    eventSource.onerror = () => {
-      // Automatic reconnection is handled by EventSource natively
-    };
+    eventSource.onerror = () => {};
   } catch (err) {
     console.warn('SSE subscription failed:', err);
   }

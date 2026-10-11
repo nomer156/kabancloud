@@ -11,7 +11,10 @@ import {
   Flame, 
   CheckCircle2, 
   Clock, 
-  ChevronDown
+  ChevronDown,
+  Kanban,
+  FileBarChart,
+  Layers
 } from 'lucide-react';
 import { playSound, isSoundEnabled, setSoundEnabled } from '../lib/sound';
 
@@ -24,7 +27,10 @@ export function Header({
   onToggleTheme,
   onOpenNewTask,
   onOpenNetworkModal,
-  onOpenTeamModal
+  onOpenTeamModal,
+  onOpenSectionsModal,
+  activeView,
+  onSelectView
 }) {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -45,9 +51,9 @@ export function Header({
 
   return (
     <header className="app-header">
-      {/* Brand */}
+      {/* Left: Brand & Main Navigation Tabs */}
       <div className="brand-section">
-        <div className="brand-logo" title="Уфанет • Проектирование">
+        <div className="brand-logo" title="Уфанет • Отдел проектирования">
           <Network size={22} strokeWidth={2.4} />
         </div>
         <div>
@@ -57,12 +63,52 @@ export function Header({
             <span className="brand-badge">Отдел проектирования</span>
           </div>
           <div className="brand-subtitle">
-            Локальная сеть отдела • 6 проектировщиков
+            Корпоративная доска • Локальная сеть
           </div>
+        </div>
+
+        {/* View Switcher: Kanban Board vs Monthly Report */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.25rem',
+            marginLeft: '1.25rem',
+            padding: '0.2rem',
+            background: 'var(--bg-tertiary)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-subtle)'
+          }}
+        >
+          <button
+            type="button"
+            className={`btn ${activeView === 'board' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', border: 'none' }}
+            onClick={() => {
+              playSound('click');
+              onSelectView('board');
+            }}
+          >
+            <Kanban size={14} />
+            <span>Доска задач</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn ${activeView === 'report' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', border: 'none' }}
+            onClick={() => {
+              playSound('click');
+              onSelectView('report');
+            }}
+          >
+            <FileBarChart size={14} />
+            <span>Ежемесячный отчёт</span>
+          </button>
         </div>
       </div>
 
-      {/* Stats bar */}
+      {/* Middle: Stats bar */}
       <div className="header-stats" title="Сводка по задачам">
         <div className="stat-item">
           <span>Всего:</span>
@@ -97,7 +143,7 @@ export function Header({
         )}
       </div>
 
-      {/* Header Controls */}
+      {/* Right: Actions */}
       <div className="header-actions">
         {/* Current user switch (Кто я сейчас) */}
         <div style={{ position: 'relative' }}>
@@ -161,7 +207,7 @@ export function Header({
                 >
                   <div 
                     className="user-avatar-badge" 
-                    style={{ backgroundColor: m.avatar_color, width: 22, height: 22, fontSize: '0.65rem' }}
+                    style={{ backgroundColor: m.avatar_color, width: 24, height: 24, fontSize: '0.68rem' }}
                   >
                     {m.initials}
                   </div>
@@ -187,11 +233,24 @@ export function Header({
             playSound('click');
             onOpenNetworkModal();
           }}
-          title="Локальная сеть отдела — кликните для ссылок коллегам"
+          title="Локальная сеть отдела — ссылка для коллег"
         >
           <div className="pulse-dot" />
           <Wifi size={13} />
           <span>Локальная сеть (LAN)</span>
+        </button>
+
+        {/* Sections Management Button */}
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={() => {
+            playSound('click');
+            onOpenSectionsModal();
+          }}
+          title="Управление разделами проекта (ВДН, ККС, МКЖ...)"
+        >
+          <Layers size={17} />
         </button>
 
         {/* Team Modal Button */}
@@ -202,7 +261,7 @@ export function Header({
             playSound('click');
             onOpenTeamModal();
           }}
-          title="Список 6 проектировщиков отдела"
+          title="Сотрудники отдела проектирования"
         >
           <Users size={17} />
         </button>

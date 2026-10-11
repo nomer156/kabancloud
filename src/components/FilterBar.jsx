@@ -1,11 +1,11 @@
 import React from 'react';
-import { Search, X, Filter, UserCheck, Briefcase } from 'lucide-react';
-import { SECTIONS } from '../lib/constants';
+import { Search, X, UserCheck, Briefcase, Settings2 } from 'lucide-react';
 import { playSound } from '../lib/sound';
 
 export function FilterBar({
   teamMembers,
   projects,
+  sections,
   selectedAssigneeId,
   onSelectAssignee,
   onlyMyTasks,
@@ -16,7 +16,8 @@ export function FilterBar({
   onSelectProject,
   searchQuery,
   onSearchChange,
-  onResetFilters
+  onResetFilters,
+  onOpenSectionsModal
 }) {
   const isAnyFilterActive = Boolean(
     selectedAssigneeId ||
@@ -28,7 +29,7 @@ export function FilterBar({
 
   return (
     <div className="filter-bar">
-      {/* Left: Quick Views & Team Avatars */}
+      {/* Left: Quick Views, Team Avatars & Sections */}
       <div className="filter-group">
         {/* Toggle My Tasks */}
         <button
@@ -46,7 +47,7 @@ export function FilterBar({
         </button>
 
         {/* Team Avatars Bar */}
-        <div className="team-filter-list" title="Фильтр по инженеру">
+        <div className="team-filter-list" title="Фильтр по сотруднику">
           <button
             type="button"
             className={`team-avatar-all ${!selectedAssigneeId && !onlyMyTasks ? 'selected' : ''}`}
@@ -55,7 +56,7 @@ export function FilterBar({
               onSelectAssignee(null);
             }}
           >
-            Все (6)
+            Все отдел
           </button>
           {teamMembers.map((member) => {
             const isSelected = selectedAssigneeId === member.id;
@@ -87,9 +88,9 @@ export function FilterBar({
               onSelectSection(null);
             }}
           >
-            Все разделы
+            Все марки
           </button>
-          {SECTIONS.map((sec) => (
+          {sections.map((sec) => (
             <button
               key={sec.id}
               type="button"
@@ -103,10 +104,22 @@ export function FilterBar({
                 playSound('click');
                 onSelectSection(selectedSection === sec.id ? null : sec.id);
               }}
+              title={sec.name}
             >
               {sec.id}
             </button>
           ))}
+
+          {/* Quick configure sections button */}
+          <button
+            type="button"
+            onClick={onOpenSectionsModal}
+            className="btn-icon"
+            style={{ width: 26, height: 26, padding: 0 }}
+            title="Редактировать список марок/разделов"
+          >
+            <Settings2 size={13} />
+          </button>
         </div>
       </div>
 
@@ -139,7 +152,7 @@ export function FilterBar({
           <input
             type="text"
             className="search-input"
-            placeholder="Поиск по задаче, шифру..."
+            placeholder="Поиск по задаче, шифру, ERP..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />

@@ -7,9 +7,8 @@ export function KanbanColumn({
   column,
   tasks,
   teamMembers,
+  sections,
   onEditTask,
-  onMoveColumn,
-  onDeleteTask,
   onQuickAddTask,
   onDropTask
 }) {
@@ -79,9 +78,8 @@ export function KanbanColumn({
             key={task.id}
             task={task}
             teamMembers={teamMembers}
+            sections={sections}
             onEdit={onEditTask}
-            onMoveColumn={onMoveColumn}
-            onDelete={onDeleteTask}
             onDragStart={handleDragStart}
           />
         ))}

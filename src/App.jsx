@@ -10,6 +10,8 @@ import {
   saveTeamMember, 
   fetchProjectsList, 
   addProjectItem, 
+  fetchSectionsList,
+  saveSectionsList,
   subscribeToRealtimeChanges
 } from './lib/api';
 import { playSound } from './lib/sound';
@@ -19,15 +21,21 @@ import { KanbanColumn } from './components/KanbanColumn';
 import { TaskModal } from './components/TaskModal';
 import { NetworkModal } from './components/NetworkModal';
 import { TeamModal } from './components/TeamModal';
+import { SectionsModal } from './components/SectionsModal';
+import { MonthlyReport } from './components/MonthlyReport';
 
 export default function App() {
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem('kaban_theme') || 'dark');
 
+  // Navigation view: 'board' | 'report'
+  const [activeView, setActiveView] = useState('board');
+
   // App data state
   const [tasks, setTasks] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [sections, setSections] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -44,6 +52,7 @@ export default function App() {
   const [initialModalStatus, setInitialModalStatus] = useState('backlog');
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [isSectionsModalOpen, setIsSectionsModalOpen] = useState(false);
 
   // Toast feedback
   const [toasts, setToasts] = useState([]);
@@ -70,15 +79,17 @@ export default function App() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [loadedTasks, loadedMembers, loadedProjects] = await Promise.all([
+      const [loadedTasks, loadedMembers, loadedProjects, loadedSections] = await Promise.all([
         fetchAllTasks(),
         fetchTeamMembers(),
-        fetchProjectsList()
+        fetchProjectsList(),
+        fetchSectionsList()
       ]);
 
       setTasks(loadedTasks || []);
       setTeamMembers(loadedMembers || []);
       setProjects(loadedProjects || []);
+      setSections(loadedSections || []);
 
       // Restore current user or set default
       const savedUserId = localStorage.getItem('kaban_current_user_id');
@@ -117,6 +128,8 @@ export default function App() {
         setTeamMembers(event.payload);
       } else if (event.type === 'PROJECTS_UPDATED') {
         setProjects(event.payload);
+      } else if (event.type === 'SECTIONS_UPDATED') {
+        setSections(event.payload);
       }
     });
 
@@ -129,6 +142,13 @@ export default function App() {
     setCurrentUser(user);
     if (user?.id) localStorage.setItem('kaban_current_user_id', user.id);
   };
+
+  // Find member selected in filter
+  const selectedFilterMember = useMemo(() => {
+    if (onlyMyTasks && currentUser) return currentUser;
+    if (selectedAssigneeId) return teamMembers.find((m) => m.id === selectedAssigneeId) || null;
+    return null;
+  }, [selectedAssigneeId, onlyMyTasks, currentUser, teamMembers]);
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -153,14 +173,15 @@ export default function App() {
         return false;
       }
 
-      // 5. Search query
+      // 5. Search query (matches title, description, project, erp id, network link)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const titleMatch = task.title?.toLowerCase().includes(q);
         const descMatch = task.description?.toLowerCase().includes(q);
         const projectMatch = task.project_code?.toLowerCase().includes(q);
         const linkMatch = task.network_link?.toLowerCase().includes(q);
-        if (!titleMatch && !descMatch && !projectMatch && !linkMatch) {
+        const erpMatch = task.erp_project_id?.toLowerCase().includes(q) || task.erp_task_number?.toLowerCase().includes(q);
+        if (!titleMatch && !descMatch && !projectMatch && !linkMatch && !erpMatch) {
           return false;
         }
       }
@@ -250,7 +271,14 @@ export default function App() {
     if (currentUser?.id === member.id) {
       setCurrentUser(member);
     }
-    showToast('Профиль инженера обновлен');
+    showToast('Профиль сотрудника обновлен');
+  };
+
+  // Save sections
+  const handleSaveSections = async (updatedSections) => {
+    const saved = await saveSectionsList(updatedSections);
+    setSections(saved);
+    showToast('Список разделов/марок обновлен');
   };
 
   // Reset all filters
@@ -289,12 +317,16 @@ export default function App() {
         onOpenNewTask={() => handleQuickAdd('backlog')}
         onOpenNetworkModal={() => setIsNetworkModalOpen(true)}
         onOpenTeamModal={() => setIsTeamModalOpen(true)}
+        onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
+        activeView={activeView}
+        onSelectView={setActiveView}
       />
 
       {/* Filter and Search Bar */}
       <FilterBar
         teamMembers={teamMembers}
         projects={projects}
+        sections={sections}
         selectedAssigneeId={selectedAssigneeId}
         onSelectAssignee={setSelectedAssigneeId}
         onlyMyTasks={onlyMyTasks}
@@ -306,28 +338,44 @@ export default function App() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onResetFilters={handleResetFilters}
+        onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
       />
 
-      {/* 4 Kanban Columns Board */}
-      <main className="board-container">
-        {COLUMNS.map((col) => {
-          const colTasks = filteredTasks.filter((t) => t.status === col.id);
+      {/* Main View: Board vs Monthly Report */}
+      {activeView === 'board' ? (
+        <main className="board-container">
+          {COLUMNS.map((col) => {
+            const colTasks = filteredTasks.filter((t) => t.status === col.id);
 
-          return (
-            <KanbanColumn
-              key={col.id}
-              column={col}
-              tasks={colTasks}
-              teamMembers={teamMembers}
-              onEditTask={handleEditTask}
-              onMoveColumn={handleDropTask}
-              onDeleteTask={handleDeleteTask}
-              onQuickAddTask={handleQuickAdd}
-              onDropTask={handleDropTask}
-            />
-          );
-        })}
-      </main>
+            return (
+              <KanbanColumn
+                key={col.id}
+                column={col}
+                tasks={colTasks}
+                teamMembers={teamMembers}
+                sections={sections}
+                onEditTask={handleEditTask}
+                onQuickAddTask={handleQuickAdd}
+                onDropTask={handleDropTask}
+              />
+            );
+          })}
+        </main>
+      ) : (
+        <MonthlyReport
+          tasks={tasks}
+          teamMembers={teamMembers}
+          sections={sections}
+          selectedAssigneeId={onlyMyTasks ? currentUser?.id : selectedAssigneeId}
+          selectedMember={selectedFilterMember}
+          onSelectAssignee={(id) => {
+            if (onlyMyTasks) setOnlyMyTasks(false);
+            setSelectedAssigneeId(id);
+          }}
+          onEditTask={handleEditTask}
+          theme={theme}
+        />
+      )}
 
       {/* Task Creation / Editing Modal */}
       <TaskModal
@@ -337,6 +385,7 @@ export default function App() {
         initialStatus={initialModalStatus}
         teamMembers={teamMembers}
         projects={projects}
+        sections={sections}
         onSaveTask={handleSaveTask}
         onDeleteTask={handleDeleteTask}
       />
@@ -347,12 +396,20 @@ export default function App() {
         onClose={() => setIsNetworkModalOpen(false)}
       />
 
-      {/* Team 6 Members Modal */}
+      {/* Team Members Modal */}
       <TeamModal
         isOpen={isTeamModalOpen}
         onClose={() => setIsTeamModalOpen(false)}
         teamMembers={teamMembers}
         onUpdateMember={handleUpdateMember}
+      />
+
+      {/* Project Sections Management Modal */}
+      <SectionsModal
+        isOpen={isSectionsModalOpen}
+        onClose={() => setIsSectionsModalOpen(false)}
+        sections={sections}
+        onSaveSections={handleSaveSections}
       />
 
       {/* Toast Feedback */}

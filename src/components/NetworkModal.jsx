@@ -5,20 +5,24 @@ import {
   Copy, 
   Check, 
   Download, 
-  ShieldCheck, 
-  Monitor, 
   Server,
-  Lock
+  Lock,
+  Edit2
 } from 'lucide-react';
-import { fetchServerInfo, fetchAllTasks, fetchProjectsList, fetchTeamMembers } from '../lib/api';
+import { fetchServerInfo, fetchAllTasks, fetchProjectsList, fetchTeamMembers, getCustomLanIp, setCustomLanIp } from '../lib/api';
 import { playSound } from '../lib/sound';
 
 export function NetworkModal({ isOpen, onClose }) {
   const [serverInfo, setServerInfo] = useState({ hostname: '...', ips: [], port: 3000, status: 'checking' });
-  const [copiedIp, setCopiedIp] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [customIpInput, setCustomIpInput] = useState('');
+  const [savedCustomIp, setSavedCustomIp] = useState('');
 
   useEffect(() => {
     if (isOpen) {
+      const storedIp = getCustomLanIp();
+      setSavedCustomIp(storedIp);
+      setCustomIpInput(storedIp);
       fetchServerInfo().then((info) => {
         setServerInfo(info);
       });
@@ -29,13 +33,24 @@ export function NetworkModal({ isOpen, onClose }) {
 
   const currentHost = window.location.hostname;
   const currentPort = window.location.port || '3000';
-  const defaultUrl = `http://${currentHost === 'localhost' ? (serverInfo.ips[0] || 'localhost') : currentHost}:${currentPort}`;
+
+  // Primary URL for colleagues: either custom IP or first detected IP or currentHost
+  const effectiveIp = savedCustomIp || (serverInfo.ips && serverInfo.ips.length > 0 ? serverInfo.ips[0] : currentHost);
+  const effectiveUrl = `http://${effectiveIp}:${serverInfo.port || currentPort}`;
 
   const handleCopy = (url, key) => {
     navigator.clipboard.writeText(url);
-    setCopiedIp(key);
+    setCopiedKey(key);
     playSound('click');
-    setTimeout(() => setCopiedIp(null), 2000);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleSaveCustomIp = (e) => {
+    e.preventDefault();
+    const clean = customIpInput.trim();
+    setCustomLanIp(clean);
+    setSavedCustomIp(clean);
+    playSound('success');
   };
 
   const handleExportBackup = async () => {
@@ -48,6 +63,7 @@ export function NetworkModal({ isOpen, onClose }) {
     const backupData = {
       timestamp: new Date().toISOString(),
       company: 'УФАНЕТ',
+      department: 'Отдел проектирования',
       projects,
       members,
       tasks
@@ -63,9 +79,16 @@ export function NetworkModal({ isOpen, onClose }) {
     playSound('success');
   };
 
+  // Safe overlay click
+  const handleOverlayMouseDown = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={handleOverlayMouseDown}>
+      <div className="modal-content" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-header" style={{ borderBottom: '1px solid rgba(255, 102, 0, 0.2)' }}>
           <div className="modal-title">
             <Wifi size={20} style={{ color: 'var(--accent-orange)' }} />
@@ -99,18 +122,83 @@ export function NetworkModal({ isOpen, onClose }) {
             </p>
           </div>
 
-          {/* Links for colleagues */}
+          {/* Primary Recommended Link for colleagues */}
           <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-main)' }}>
-              Ссылки для отправки 5 коллегам из отдела:
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.45rem', color: 'var(--text-main)' }}>
+              Основная ссылка для коллег из отдела:
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {serverInfo.ips.length > 0 ? (
-                serverInfo.ips.map((ip, idx) => {
-                  const fullUrl = `http://${ip}:${serverInfo.port || 3000}`;
-                  const isCopied = copiedIp === `ip-${idx}`;
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1rem',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--accent-orange)',
+                borderRadius: 'var(--radius-md)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.92rem'
+              }}
+            >
+              <span style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>{effectiveUrl}</span>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}
+                onClick={() => handleCopy(effectiveUrl, 'primary')}
+              >
+                {copiedKey === 'primary' ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copiedKey === 'primary' ? 'Скопировано!' : 'Скопировать ссылку'}</span>
+              </button>
+            </div>
+          </div>
 
+          {/* Manual IP input option */}
+          <form
+            onSubmit={handleSaveCustomIp}
+            style={{
+              padding: '0.85rem',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.45rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 600 }}>
+              <Edit2 size={13} style={{ color: 'var(--accent-orange)' }} />
+              <span>Указать рабочий IP вручную (при необходимости):</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                className="form-input"
+                style={{ flex: 1, padding: '0.4rem 0.75rem', fontSize: '0.82rem', fontFamily: 'var(--font-mono)' }}
+                placeholder="Например: 192.168.1.45 или сетевое имя ПК"
+                value={customIpInput}
+                onChange={(e) => setCustomIpInput(e.target.value)}
+              />
+              <button type="submit" className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem' }}>
+                Сохранить
+              </button>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+              Если оставить пустым — адрес будет определяться автоматически.
+            </div>
+          </form>
+
+          {/* Detected Network Adapters List */}
+          {serverInfo.ips && serverInfo.ips.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.35rem' }}>
+                Все обнаруженные сетевые адаптеры компьютера:
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                {serverInfo.ips.map((ip, idx) => {
+                  const url = `http://${ip}:${serverInfo.port || 3000}`;
                   return (
                     <div
                       key={ip}
@@ -118,55 +206,28 @@ export function NetworkModal({ isOpen, onClose }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '0.6rem 0.85rem',
+                        padding: '0.4rem 0.65rem',
                         background: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-md)',
+                        borderRadius: 'var(--radius-sm)',
                         fontFamily: 'var(--font-mono)',
-                        fontSize: '0.84rem'
+                        fontSize: '0.78rem'
                       }}
                     >
-                      <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>{fullUrl}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{url}</span>
                       <button
                         type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
-                        onClick={() => handleCopy(fullUrl, `ip-${idx}`)}
+                        onClick={() => handleCopy(url, `ip-${idx}`)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '2px' }}
+                        title="Скопировать этот IP"
                       >
-                        {isCopied ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
-                        <span>{isCopied ? 'Скопировано!' : 'Скопировать'}</span>
+                        {copiedKey === `ip-${idx}` ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
                       </button>
                     </div>
                   );
-                })
-              ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.6rem 0.85rem',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.84rem'
-                  }}
-                >
-                  <span style={{ color: 'var(--accent-orange)' }}>{defaultUrl}</span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
-                    onClick={() => handleCopy(defaultUrl, 'default')}
-                  >
-                    {copiedIp === 'default' ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
-                    <span>{copiedIp === 'default' ? 'Скопировано!' : 'Скопировать'}</span>
-                  </button>
-                </div>
-              )}
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Win + L info */}
           <div
@@ -180,7 +241,7 @@ export function NetworkModal({ isOpen, onClose }) {
               alignItems: 'flex-start'
             }}
           >
-            <Lock size={20} style={{ color: 'var(--accent-orange)', flexShrink: 0, marginTop: '2px' }} />
+            <Lock size={18} style={{ color: 'var(--accent-orange)', flexShrink: 0, marginTop: '2px' }} />
             <div style={{ fontSize: '0.77rem', color: 'var(--text-muted)' }}>
               <b style={{ color: 'var(--text-main)', display: 'block', marginBottom: '2px' }}>
                 Политика безопасности (Win + L):
