@@ -275,9 +275,32 @@ export default function App() {
   };
 
   // Save sections
-  const handleSaveSections = async (updatedSections) => {
+  const handleSaveSections = async (updatedSections, renamesMap = {}) => {
     const saved = await saveSectionsList(updatedSections);
     setSections(saved);
+
+    // If any section code was renamed, migrate affected tasks
+    if (renamesMap && Object.keys(renamesMap).length > 0) {
+      let tasksUpdated = false;
+      const newTasks = tasks.map((task) => {
+        if (task.section && renamesMap[task.section]) {
+          tasksUpdated = true;
+          const updatedTask = { ...task, section: renamesMap[task.section] };
+          saveTask(updatedTask);
+          return updatedTask;
+        }
+        return task;
+      });
+
+      if (tasksUpdated) {
+        setTasks(newTasks);
+      }
+
+      if (selectedSection && renamesMap[selectedSection]) {
+        setSelectedSection(renamesMap[selectedSection]);
+      }
+    }
+
     showToast('Список разделов/марок обновлен');
   };
 
