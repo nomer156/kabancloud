@@ -88,6 +88,37 @@ export async function saveTask(task) {
   return prepared;
 }
 
+export async function bulkCreateTasks(tasksList) {
+  if (!Array.isArray(tasksList) || tasksList.length === 0) return [];
+
+  try {
+    const res = await fetch(`${API_BASE}/api/tasks/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tasks: tasksList })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const existing = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+      const combined = [...data, ...existing];
+      setLocalData(STORAGE_KEY_TASKS, combined);
+      return data;
+    }
+  } catch (err) {
+    console.warn('Сервер недоступен, сохраняю задачи в локальный кеш:', err.message);
+  }
+
+  const existing = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+  const prepared = tasksList.map((t, idx) => ({
+    ...t,
+    id: t.id || `task-local-${Date.now()}-${idx}`,
+    updated_at: new Date().toISOString(),
+    created_at: t.created_at || new Date().toISOString()
+  }));
+  setLocalData(STORAGE_KEY_TASKS, [...prepared, ...existing]);
+  return prepared;
+}
+
 export async function updateTaskStatus(taskId, status) {
   try {
     const res = await fetch(`${API_BASE}/api/tasks/${taskId}/status`, {
@@ -205,6 +236,29 @@ export async function addProjectItem(projectName) {
   return projects;
 }
 
+export async function deleteProjectItem(projectName) {
+  const trimmed = (projectName || '').trim();
+  if (!trimmed) return fetchProjectsList();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/projects/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setLocalData(STORAGE_KEY_PROJECTS, data);
+      return data;
+    }
+  } catch {}
+
+  const projects = getLocalData(STORAGE_KEY_PROJECTS, INITIAL_PROJECTS);
+  const updated = projects.filter((p) => p !== trimmed);
+  setLocalData(STORAGE_KEY_PROJECTS, updated);
+  return updated;
+}
+
 export async function fetchSectionsList() {
   try {
     const res = await fetch(`${API_BASE}/api/sections`);
@@ -257,6 +311,77 @@ export async function saveColumnsList(columns) {
   return columns;
 }
 
+// Notifications API
+const STORAGE_KEY_NOTIFS = 'ufanet_local_notifs_v3';
+
+export async function fetchNotifications() {
+  try {
+    const res = await fetch(`${API_BASE}/api/notifications`);
+    if (res.ok) {
+      const data = await res.json();
+      setLocalData(STORAGE_KEY_NOTIFS, data);
+      return data;
+    }
+  } catch {}
+  return getLocalData(STORAGE_KEY_NOTIFS, []);
+}
+
+export async function createNotification(notif) {
+  try {
+    const res = await fetch(`${API_BASE}/api/notifications`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(notif)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const current = getLocalData(STORAGE_KEY_NOTIFS, []);
+  const created = {
+    ...notif,
+    id: notif.id || `notif-${Date.now()}`,
+    createdAt: notif.createdAt || new Date().toISOString(),
+    read: false
+  };
+  setLocalData(STORAGE_KEY_NOTIFS, [created, ...current]);
+  return created;
+}
+
+export async function markNotificationRead(id) {
+  try {
+    await fetch(`${API_BASE}/api/notifications/${id}/read`, { method: 'PATCH' });
+  } catch {}
+  const current = getLocalData(STORAGE_KEY_NOTIFS, []);
+  const updated = current.map((n) => (n.id === id ? { ...n, read: true } : n));
+  setLocalData(STORAGE_KEY_NOTIFS, updated);
+  return updated;
+}
+
+export async function markAllNotificationsRead() {
+  try {
+    const res = await fetch(`${API_BASE}/api/notifications`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'read_all' })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  const current = getLocalData(STORAGE_KEY_NOTIFS, []);
+  const updated = current.map((n) => ({ ...n, read: true }));
+  setLocalData(STORAGE_KEY_NOTIFS, updated);
+  return updated;
+}
+
+export async function deleteNotification(id) {
+  try {
+    await fetch(`${API_BASE}/api/notifications/${id}`, { method: 'DELETE' });
+  } catch {}
+  const current = getLocalData(STORAGE_KEY_NOTIFS, []);
+  const updated = current.filter((n) => n.id !== id);
+  setLocalData(STORAGE_KEY_NOTIFS, updated);
+  return updated;
+}
+
 // Server-Sent Events (SSE) Realtime subscription
 export function subscribeToRealtimeChanges(onRefresh) {
   let eventSource = null;
@@ -278,7 +403,128 @@ export function subscribeToRealtimeChanges(onRefresh) {
 
   return () => {
     if (eventSource) {
-      eventSource.close();
+      try {
+        eventSource.close();
+      } catch {}
     }
   };
 }
+
+// Open folder in Windows Explorer
+export async function openFolderInExplorer(folderPath) {
+  if (!folderPath) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/open-folder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderPath })
+    });
+    if (res.ok) return true;
+  } catch {}
+  return false;
+}
+
+// Upload file attachment (Photo, PDF, Visio, DWG)
+export async function uploadTaskFile({ name, type, size, dataBase64, uploadedBy }) {
+  try {
+    const res = await fetch(`${API_BASE}/api/upload-file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, type, size, dataBase64, uploadedBy })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  // Fallback to offline / client-stored attachment
+  return {
+    id: `file-local-${Date.now()}`,
+    name,
+    size,
+    type,
+    url: dataBase64, // Keep base64 if server unavailable
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: uploadedBy || 'Инженер'
+  };
+}
+
+// -------------------------------------------------------------
+// DEPARTMENTS API
+// -------------------------------------------------------------
+const STORAGE_KEY_DEPTS = 'ufanet_local_departments_v1';
+export const INITIAL_DEPARTMENTS = [
+  { id: 'dept-design', name: 'Отдел проектирования', desc: 'Разработка проектной и рабочей документации (ВОЛС, СВН, СКС, СКУД)', color: '#ff6600', isDefault: true },
+  { id: 'dept-maintenance', name: 'Служба эксплуатации', desc: 'Обслуживание и устранение аварий телекоммуникационных сетей', color: '#0284c7' },
+  { id: 'dept-install', name: 'Монтажный отдел', desc: 'Строительно-монтажные и пусконаладочные работы на объектах', color: '#10b981' }
+];
+
+export async function fetchDepartments() {
+  try {
+    const res = await fetch(`${API_BASE}/api/departments`);
+    if (res.ok) {
+      const data = await res.json();
+      setLocalData(STORAGE_KEY_DEPTS, data);
+      return data;
+    }
+  } catch {}
+  return getLocalData(STORAGE_KEY_DEPTS, INITIAL_DEPARTMENTS);
+}
+
+export async function saveDepartment(dept) {
+  try {
+    const res = await fetch(`${API_BASE}/api/departments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dept)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const current = getLocalData(STORAGE_KEY_DEPTS, INITIAL_DEPARTMENTS);
+  const idx = current.findIndex(d => d.id === dept.id);
+  let updated;
+  if (idx >= 0) {
+    updated = [...current];
+    updated[idx] = dept;
+  } else {
+    updated = [...current, { ...dept, id: dept.id || `dept-${Date.now()}` }];
+  }
+  setLocalData(STORAGE_KEY_DEPTS, updated);
+  return updated;
+}
+
+export async function deleteDepartment(deptId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/departments/${deptId}`, { method: 'DELETE' });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const current = getLocalData(STORAGE_KEY_DEPTS, INITIAL_DEPARTMENTS);
+  const updated = current.filter(d => d.id !== deptId);
+  setLocalData(STORAGE_KEY_DEPTS, updated);
+  return updated;
+}
+
+// -------------------------------------------------------------
+// FEEDBACK & IDEAS API
+// -------------------------------------------------------------
+export async function fetchFeedback() {
+  try {
+    const res = await fetch(`${API_BASE}/api/feedback`);
+    if (res.ok) return await res.json();
+  } catch {}
+  return [];
+}
+
+export async function sendFeedback({ authorName, authorId, type, subject, message }) {
+  try {
+    const res = await fetch(`${API_BASE}/api/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorName, authorId, type, subject, message })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return { id: `fb-${Date.now()}`, authorName, type, subject, message, created_at: new Date().toISOString() };
+}
+
+

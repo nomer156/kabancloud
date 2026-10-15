@@ -8,10 +8,13 @@ import {
   Flame, 
   Clock,
   Briefcase,
-  ExternalLink
+  ExternalLink,
+  MapPin
 } from 'lucide-react';
-import { PRIORITIES } from '../lib/constants';
+import { PRIORITIES, formatPathEnd } from '../lib/constants';
 import { playSound } from '../lib/sound';
+import { openFolderInExplorer } from '../lib/api';
+import { renderWithMentions } from '../lib/mentions';
 
 export function TaskCard({
   task,
@@ -95,12 +98,24 @@ export function TaskCard({
 
   // Copy network link
   const handleCopyLink = (e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     if (task.network_link) {
       navigator.clipboard.writeText(task.network_link);
       setCopiedLink(true);
       playSound('click');
       setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  // Open folder in Windows Explorer
+  const handleOpenFolder = async (e) => {
+    if (e) e.stopPropagation();
+    if (!task.network_link) return;
+    try {
+      await openFolderInExplorer(task.network_link);
+      playSound('click');
+    } catch (err) {
+      console.warn('Ошибка открытия папки:', err);
     }
   };
 
@@ -175,28 +190,71 @@ export function TaskCard({
       </div>
 
       {/* Title */}
-      <div className="card-title">{task.title}</div>
+      <div className="card-title">{renderWithMentions(task.title, teamMembers)}</div>
 
       {/* Description Preview */}
       {task.description && (
-        <div className="card-desc-preview">{task.description}</div>
+        <div className="card-desc-preview">{renderWithMentions(task.description, teamMembers)}</div>
       )}
 
       {/* Network / Server Link */}
       {task.network_link && (
         <div
           className="card-network-link"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'space-between' }}
           onClick={handleCopyLink}
-          title="Кликните, чтобы скопировать путь к файлу/папке"
+          title={`Папка: ${task.network_link}\n(Клик/иконка — скопировать путь, ↗ — открыть в Проводнике)`}
         >
-          <FolderGit2 size={13} style={{ flexShrink: 0 }} />
-          <span className="card-network-text">{task.network_link}</span>
-          {copiedLink ? (
-            <Check size={12} style={{ color: '#10b981', flexShrink: 0 }} />
-          ) : (
-            <Copy size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden', minWidth: 0, flex: 1 }}>
+            <FolderGit2 size={13} style={{ flexShrink: 0, color: 'var(--accent-orange)' }} />
+            <span className="card-network-text" style={{ flex: 1, fontFamily: 'var(--font-mono)' }}>
+              {formatPathEnd(task.network_link)}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={handleCopyLink}
+              title="Скопировать путь к папке"
+              style={{ width: 22, height: 22, padding: 0 }}
+            >
+              {copiedLink ? (
+                <Check size={12} style={{ color: '#10b981' }} />
+              ) : (
+                <Copy size={12} style={{ opacity: 0.7 }} />
+              )}
+            </button>
+
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={handleOpenFolder}
+              title="Перейти к папке в Проводнике Windows (Win10 / Win11)"
+              style={{ width: 22, height: 22, padding: 0, color: 'var(--accent-orange)' }}
+            >
+              <ExternalLink size={12} />
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Object Address with Quick Yandex Maps Link */}
+      {task.address && (
+        <a
+          href={`https://yandex.ru/maps/?text=${encodeURIComponent(task.address)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="card-network-link"
+          style={{ textDecoration: 'none', color: 'inherit' }}
+          onClick={(e) => e.stopPropagation()}
+          title={`Адрес объекта: ${task.address} (Кликните для открытия в Яндекс.Картах)`}
+        >
+          <MapPin size={13} style={{ flexShrink: 0, color: 'var(--accent-orange)' }} />
+          <span className="card-network-text">{task.address}</span>
+          <ExternalLink size={11} style={{ opacity: 0.6, flexShrink: 0 }} />
+        </a>
       )}
 
       {/* Checklist Progress Bar */}
@@ -321,9 +379,18 @@ export function TaskCard({
               gap: '4px',
               fontWeight: 700
             }}
+            title={`Выдано в монтаж: ${task.due_date || task.completed_at || task.updated_at || 'Выполнено'}`}
           >
             <Check size={13} style={{ strokeWidth: 2.5 }} />
-            <span>Выполнено</span>
+            <span>
+              {(() => {
+                const raw = task.due_date || task.completed_at || task.updated_at || task.created_at;
+                const d = raw ? new Date(raw) : new Date();
+                if (isNaN(d.getTime())) return raw || 'Выполнено';
+                const mNames = ['янв.', 'февр.', 'марта', 'апр.', 'мая', 'июня', 'июля', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
+                return `${d.getDate()} ${mNames[d.getMonth()]}`;
+              })()}
+            </span>
           </div>
         ) : (
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Без срока</div>

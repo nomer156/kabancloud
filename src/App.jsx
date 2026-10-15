@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { COLUMNS, DEFAULT_COLUMNS } from './lib/constants';
 import { 
@@ -15,7 +15,13 @@ import {
   saveSectionsList,
   fetchColumnsList,
   saveColumnsList,
-  subscribeToRealtimeChanges
+  subscribeToRealtimeChanges,
+  fetchNotifications,
+  createNotification,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  bulkCreateTasks
 } from './lib/api';
 import { playSound } from './lib/sound';
 import { Header } from './components/Header';
@@ -28,6 +34,9 @@ import { SectionsModal } from './components/SectionsModal';
 import { ColumnsModal } from './components/ColumnsModal';
 import { MonthlyReport } from './components/MonthlyReport';
 import { TaskDetailView } from './components/TaskDetailView';
+import { ImportModal } from './components/ImportModal';
+import { AuthModal } from './components/AuthModal';
+import { SettingsModal } from './components/SettingsModal';
 
 export default function App() {
   // Theme state
@@ -78,8 +87,14 @@ export default function App() {
   const [initialModalStatus, setInitialModalStatus] = useState('backlog');
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState(null);
   const [isSectionsModalOpen, setIsSectionsModalOpen] = useState(false);
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Notifications state
+  const [notifications, setNotifications] = useState([]);
 
   // Toast feedback
   const [toasts, setToasts] = useState([]);
@@ -106,12 +121,13 @@ export default function App() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns] = await Promise.all([
+      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns, loadedNotifs] = await Promise.all([
         fetchAllTasks(),
         fetchTeamMembers(),
         fetchProjectsList(),
         fetchSectionsList(),
-        fetchColumnsList()
+        fetchColumnsList(),
+        fetchNotifications()
       ]);
 
       setTasks(loadedTasks || []);
@@ -119,14 +135,15 @@ export default function App() {
       setProjects(loadedProjects || []);
       setSections(loadedSections || []);
       setColumns(loadedColumns && loadedColumns.length > 0 ? loadedColumns : DEFAULT_COLUMNS || COLUMNS);
+      setNotifications(loadedNotifs || []);
 
-      // Restore current user or set default
+      // Restore current user from localStorage if exists
       const savedUserId = localStorage.getItem('kaban_current_user_id');
       const found = loadedMembers?.find((m) => m.id === savedUserId);
       if (found) {
         setCurrentUser(found);
-      } else if (loadedMembers && loadedMembers.length > 0) {
-        setCurrentUser(loadedMembers[0]);
+      } else {
+        setCurrentUser(null);
       }
     } catch (err) {
       console.error('Ошибка загрузки данных:', err);
@@ -134,6 +151,11 @@ export default function App() {
       setLoading(false);
     }
   }, []);
+
+  const currentUserRef = useRef(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   useEffect(() => {
     loadData();
@@ -153,6 +175,14 @@ export default function App() {
         showToast('Задача обновлена коллегой (LAN)', '⚡');
       } else if (event.type === 'TASK_DELETED') {
         setTasks((prev) => prev.filter((t) => t.id !== event.payload.id));
+      } else if (event.type === 'TASKS_BULK_CREATED') {
+        const incomingTasks = event.payload?.tasks || [];
+        setTasks((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const newUnique = incomingTasks.filter((t) => !existingIds.has(t.id));
+          return [...newUnique, ...prev];
+        });
+        showToast(`Импортировано ${incomingTasks.length} новых задач (LAN)`, '⚡');
       } else if (event.type === 'MEMBERS_UPDATED') {
         setTeamMembers(event.payload);
       } else if (event.type === 'PROJECTS_UPDATED') {
@@ -161,6 +191,25 @@ export default function App() {
         setSections(event.payload);
       } else if (event.type === 'COLUMNS_UPDATED') {
         setColumns(event.payload);
+      } else if (event.type === 'NOTIFICATIONS_UPDATED') {
+        const list = event.payload || [];
+        const seen = new Set();
+        const deduped = list.filter((n) => {
+          if (!n || !n.id || seen.has(n.id)) return false;
+          seen.add(n.id);
+          return true;
+        });
+        setNotifications(deduped);
+      } else if (event.type === 'NEW_MENTION') {
+        const notif = event.payload;
+        const targets = notif.targetUserIds || [];
+        const me = currentUserRef.current;
+        const isForMe = me && (targets.includes(me.id) || notif.targetUserId === me.id);
+        const isAll = targets.includes('__all__');
+        if (isForMe || isAll) {
+          playSound('mention');
+          showToast(`🔔 ${isForMe ? 'Вас упомянул(а)' : 'Упоминание @все от'} ${notif.fromUserName || 'коллеги'}!`, '💬');
+        }
       }
     });
 
@@ -170,8 +219,17 @@ export default function App() {
   }, [loadData, showToast]);
 
   const handleSelectCurrentUser = (user) => {
+    if (!user) return;
     setCurrentUser(user);
     if (user?.id) localStorage.setItem('kaban_current_user_id', user.id);
+    showToast(`Добро пожаловать, ${user.full_name}! 👋`, '🔐');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('kaban_current_user_id');
+    setCurrentUser(null);
+    playSound('click');
+    showToast('Вы вышли из профиля', '👋');
   };
 
   // Active task for full-page Jira view
@@ -219,7 +277,7 @@ export default function App() {
 
       return true;
     });
-  }, [tasks, onlyMyTasks, currentUser, selectedAssigneeId, selectedSection, selectedProject, searchQuery]);
+  }, [tasks, currentUser, selectedAssigneeId, selectedSection, selectedProject, searchQuery]);
 
   // Handle Drag & Drop move
   const handleDropTask = async (taskId, newStatus) => {
@@ -377,10 +435,92 @@ export default function App() {
   // Reset all filters
   const handleResetFilters = () => {
     setSelectedAssigneeId(null);
-    setOnlyMyTasks(false);
     setSelectedSection(null);
     setSelectedProject(null);
     setSearchQuery('');
+  };
+
+  // Mentions notifications handlers
+  const handleNotifyMention = async (notifData) => {
+    try {
+      const created = await createNotification(notifData);
+      if (created && created.id) {
+        setNotifications((prev) => {
+          const filtered = prev.filter((n) => n.id !== created.id);
+          return [created, ...filtered];
+        });
+      }
+      playSound('mention');
+      showToast('Упоминание отправлено коллегам! 🔔');
+    } catch (err) {
+      console.error('Ошибка отправки упоминания:', err);
+    }
+  };
+
+  const handleMarkNotificationRead = async (id) => {
+    const updated = await markNotificationRead(id);
+    setNotifications(updated);
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    const updated = await markAllNotificationsRead();
+    setNotifications(updated);
+    showToast('Все уведомления прочитаны', '✓');
+  };
+
+  const handleDeleteNotification = async (id) => {
+    const updated = await deleteNotification(id);
+    setNotifications(updated);
+  };
+
+  const handleOpenTaskFromNotification = (taskId) => {
+    if (!taskId) return;
+    const task = tasks.find((t) => String(t.id) === String(taskId));
+    if (task) {
+      window.location.hash = `#task/${taskId}`;
+      setDetailTaskId(taskId);
+    }
+  };
+
+  // Bulk import from ERP
+  const handleImportTasks = async (parsedRows) => {
+    if (!parsedRows || parsedRows.length === 0) return;
+    try {
+      const newTasks = parsedRows.map((row, idx) => {
+        const erpVal = row.erp_task_number || row.erp_project_id || null;
+        return {
+          id: `task-uf-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+          title: row.title,
+          address: row.address || null,
+          section: row.section || (sections[0]?.id || 'ВДН'),
+          status: columns[0]?.id || 'backlog',
+          priority: row.priority || 'medium',
+          assignee_id: row.assignee_id || null,
+          due_date: row.due_date || null,
+          description: row.description || null,
+          erp_task_number: erpVal,
+          erp_project_id: erpVal,
+          region: row.region || '11',
+          internal_customer: '17',
+          work_group: '22',
+          work_item: '118',
+          created_at: new Date().toISOString()
+        };
+      });
+
+      await bulkCreateTasks(newTasks);
+
+      setTasks((prev) => {
+        const existingIds = new Set(prev.map((t) => t.id));
+        const uniqueNew = newTasks.filter((t) => !existingIds.has(t.id));
+        return [...uniqueNew, ...prev];
+      });
+
+      showToast(`Импортировано ${newTasks.length} задач в бэклог! 🎉`);
+    } catch (err) {
+      console.error('Ошибка импорта задач:', err);
+      showToast('Ошибка при импорте задач', '⚠️');
+    }
   };
 
   // Quick add in specific column
@@ -396,6 +536,30 @@ export default function App() {
     setInitialModalStatus(task.status);
     setIsTaskModalOpen(true);
   };
+
+  // If not logged in and loading is complete: show standalone Auth screen (no reading without auth)
+  if (!loading && !currentUser) {
+    return (
+      <div className="app-layout">
+        <AuthModal
+          isOpen={true}
+          teamMembers={teamMembers}
+          currentUser={currentUser}
+          onSelectUser={handleSelectCurrentUser}
+          isStandalonePage={true}
+        />
+        {/* Toast Feedback */}
+        <div className="toast-container">
+          {toasts.map((t) => (
+            <div key={t.id} className="toast">
+              <span>{t.icon}</span>
+              <span>{t.msg}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-layout">
@@ -419,6 +583,7 @@ export default function App() {
               window.location.hash = '';
               setDetailTaskId(null);
             }}
+            onNotifyMention={handleNotifyMention}
           />
         ) : (
           <div style={{ padding: '6rem 2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
@@ -448,15 +613,26 @@ export default function App() {
             teamMembers={teamMembers}
             currentUser={currentUser}
             onSelectCurrentUser={handleSelectCurrentUser}
+            onLogout={handleLogout}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onOpenNewTask={() => handleQuickAdd(columns[0]?.id || 'backlog')}
             onOpenNetworkModal={() => setIsNetworkModalOpen(true)}
-            onOpenTeamModal={() => setIsTeamModalOpen(true)}
+            onOpenTeamModal={(memberId) => {
+              setEditingMemberId(memberId || null);
+              setIsTeamModalOpen(true);
+            }}
             onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
             onOpenColumnsModal={() => setIsColumnsModalOpen(true)}
+            onOpenImportModal={() => setIsImportModalOpen(true)}
+            onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
             activeView={activeView}
             onSelectView={setActiveView}
+            notifications={notifications}
+            onMarkNotificationRead={handleMarkNotificationRead}
+            onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+            onDeleteNotification={handleDeleteNotification}
+            onOpenTaskFromNotification={handleOpenTaskFromNotification}
           />
 
           {/* Filter and Search Bar */}
@@ -475,7 +651,10 @@ export default function App() {
             onSearchChange={setSearchQuery}
             onResetFilters={handleResetFilters}
             onOpenSectionsModal={() => setIsSectionsModalOpen(true)}
-            onOpenTeamModal={() => setIsTeamModalOpen(true)}
+            onOpenTeamModal={(memberId) => {
+              setEditingMemberId(memberId || null);
+              setIsTeamModalOpen(true);
+            }}
           />
 
           {/* Main View: Board vs Monthly Report */}
@@ -516,15 +695,29 @@ export default function App() {
       {/* Task Creation / Editing Modal */}
       <TaskModal
         isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
+        onClose={() => {
+          setIsTaskModalOpen(false);
+          setTaskToEdit(null);
+        }}
         taskToEdit={taskToEdit}
         initialStatus={initialModalStatus}
         teamMembers={teamMembers}
         projects={projects}
         sections={sections}
         columns={columns}
+        currentUser={currentUser}
         onSaveTask={handleSaveTask}
         onDeleteTask={handleDeleteTask}
+        onNotifyMention={handleNotifyMention}
+      />
+
+      {/* Smart Import from ERP/Excel Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        sections={sections}
+        teamMembers={teamMembers}
+        onImportTasks={handleImportTasks}
       />
 
       {/* Local LAN Network Modal */}
@@ -536,10 +729,14 @@ export default function App() {
       {/* Team Members Modal */}
       <TeamModal
         isOpen={isTeamModalOpen}
-        onClose={() => setIsTeamModalOpen(false)}
+        onClose={() => {
+          setIsTeamModalOpen(false);
+          setEditingMemberId(null);
+        }}
         teamMembers={teamMembers}
         onUpdateMember={handleUpdateMember}
         onDeleteMember={handleDeleteMember}
+        initialEditingId={editingMemberId}
       />
 
       {/* Project Sections Management Modal */}
@@ -557,6 +754,14 @@ export default function App() {
         columns={columns}
         onSaveColumns={handleSaveColumns}
         tasks={tasks}
+      />
+
+      {/* Settings & Departments & Feedback Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        currentUser={currentUser}
+        showToast={showToast}
       />
 
       {/* Toast Feedback */}

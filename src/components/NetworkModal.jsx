@@ -229,6 +229,62 @@ export function NetworkModal({ isOpen, onClose }) {
             </div>
           )}
 
+          {/* ProjectPay Userscript Download / Install Section */}
+          <div
+            style={{
+              padding: '0.85rem 1rem',
+              background: 'rgba(255, 102, 0, 0.08)',
+              border: '1px solid rgba(255, 102, 0, 0.35)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.6rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, fontSize: '0.84rem', color: 'var(--accent-orange)' }}>
+                <span>⚡</span>
+                <span>Скрипт автозаполнения ЗП в ProjectPay (v3.0):</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                Для Tampermonkey
+              </span>
+            </div>
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+              Автоматически проставляет все поля: Название проекта, Шифр, Код, Регион (Уфа), Группу (ВОЛС), Вид работ (РД), Время Тфакт (ч:м), ERP номер, Коэффициенты и Примечание.
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <a
+                href="/projectpay_autofill.user.js"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{ fontSize: '0.74rem', padding: '0.35rem 0.75rem', gap: '5px', textDecoration: 'none' }}
+                title="Установить скрипт в расширение Tampermonkey браузера"
+              >
+                <Download size={13} />
+                <span>Установить скрипт (v3.0)</span>
+              </a>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: '0.74rem', padding: '0.35rem 0.65rem', gap: '5px' }}
+                onClick={() => {
+                  fetch('/projectpay_autofill.user.js')
+                    .then(r => r.text())
+                    .then(code => {
+                      navigator.clipboard.writeText(code);
+                      handleCopy('', 'script-code');
+                    });
+                }}
+                title="Скопировать код скрипта для вставки в консоль F12 или Tampermonkey"
+              >
+                {copiedKey === 'script-code' ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
+                <span>{copiedKey === 'script-code' ? 'Код скопирован!' : 'Скопировать код'}</span>
+              </button>
+            </div>
+          </div>
+
           {/* Win + L info */}
           <div
             style={{

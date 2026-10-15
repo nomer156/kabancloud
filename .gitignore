@@ -28,5 +28,8 @@ data/backups/
 
 # Agent local memory (Never commit or push to git)
 INTERNAL_NOTES.md
+AGENT_MEMORY.md
+DEV_MEMORY.md
 .agent_internal_memory.md
 *.memory.md
+

@@ -4,14 +4,20 @@ import { playSound } from '../lib/sound';
 
 const PRESET_COLORS = [
   { name: 'Оранжевый Уфанет', hex: '#ff6600' },
+  { name: 'Янтарный', hex: '#ff8800' },
+  { name: 'Лазурный', hex: '#00a3ff' },
   { name: 'Небесно-синий', hex: '#0284c7' },
   { name: 'Изумрудный', hex: '#10b981' },
+  { name: 'Мятный', hex: '#059669' },
   { name: 'Фиолетовый', hex: '#8b5cf6' },
-  { name: 'Янтарный', hex: '#f59e0b' },
+  { name: 'Пурпурный', hex: '#a855f7' },
   { name: 'Малиновый', hex: '#ec4899' },
+  { name: 'Розовый', hex: '#f43f5e' },
   { name: 'Бирюзовый', hex: '#06b6d4' },
   { name: 'Индиго', hex: '#6366f1' },
-  { name: 'Красный', hex: '#ef4444' },
+  { name: 'Золотистый', hex: '#f59e0b' },
+  { name: 'Рубиновый', hex: '#ef4444' },
+  { name: 'Тёмно-серый', hex: '#475569' },
   { name: 'Сланцевый', hex: '#64748b' }
 ];
 
@@ -20,11 +26,13 @@ export function TeamModal({
   onClose, 
   teamMembers, 
   onUpdateMember, 
-  onDeleteMember 
+  onDeleteMember,
+  initialEditingId = null
 }) {
   const [editingId, setEditingId] = useState(null);
   const [nameInput, setNameInput] = useState('');
   const [roleInput, setRoleInput] = useState('');
+  const [specialtyInput, setSpecialtyInput] = useState('');
   const [initialsInput, setInitialsInput] = useState('');
   const [colorInput, setColorInput] = useState('#ff6600');
   
@@ -32,11 +40,28 @@ export function TeamModal({
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('Инженер-проектировщик');
+  const [newSpecialty, setNewSpecialty] = useState('ВОЛС');
   const [newInitials, setNewInitials] = useState('');
   const [newColor, setNewColor] = useState('#0284c7');
 
   // Deletion confirm
   const [deletingId, setDeletingId] = useState(null);
+
+  React.useEffect(() => {
+    if (isOpen && initialEditingId) {
+      const target = teamMembers.find((m) => m.id === initialEditingId);
+      if (target) {
+        setEditingId(target.id);
+        setNameInput(target.full_name || '');
+        setRoleInput(target.role || 'Инженер-проектировщик');
+        setSpecialtyInput(target.specialty || '');
+        setInitialsInput(target.initials || 'ИН');
+        setColorInput(target.avatar_color || '#ff6600');
+        setIsAddingNew(false);
+        setDeletingId(null);
+      }
+    }
+  }, [isOpen, initialEditingId, teamMembers]);
 
   if (!isOpen) return null;
 
@@ -53,6 +78,7 @@ export function TeamModal({
     setEditingId(member.id);
     setNameInput(member.full_name || '');
     setRoleInput(member.role || 'Инженер-проектировщик');
+    setSpecialtyInput(member.specialty || '');
     setInitialsInput(member.initials || generateInitials(member.full_name));
     setColorInput(member.avatar_color || '#ff6600');
     setIsAddingNew(false);
@@ -68,6 +94,7 @@ export function TeamModal({
       ...member,
       full_name: nameInput.trim(),
       role: roleInput.trim(),
+      specialty: specialtyInput.trim(),
       initials: finalInitials,
       avatar_color: colorInput
     });
@@ -411,9 +438,9 @@ export function TeamModal({
                         gap: '0.75rem'
                       }}
                     >
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px', gap: '0.65rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 100px 75px', gap: '0.65rem' }}>
                         <div className="form-group">
-                          <label className="form-label">ФИО сотрудника</label>
+                          <label className="form-label">ФИО сотрудника *</label>
                           <input
                             type="text"
                             className="form-input"
@@ -438,6 +465,17 @@ export function TeamModal({
                         </div>
 
                         <div className="form-group">
+                          <label className="form-label">Спец-ция</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={specialtyInput}
+                            onChange={(e) => setSpecialtyInput(e.target.value.toUpperCase())}
+                            placeholder="СКС/ВОЛС"
+                          />
+                        </div>
+
+                        <div className="form-group">
                           <label className="form-label">Инициалы</label>
                           <input
                             type="text"
@@ -451,16 +489,53 @@ export function TeamModal({
                       </div>
 
                       {/* Full Color Palette Picker */}
-                      <div className="form-group">
-                        <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Palette size={13} style={{ color: 'var(--accent-orange)' }} />
-                            <span>Настроить цвет аватара:</span>
-                          </span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: colorInput, fontWeight: 700 }}>
-                            {colorInput}
-                          </span>
-                        </label>
+                      <div className="form-group" style={{ background: 'var(--bg-card)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '6px' }}>
+                          <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Palette size={14} style={{ color: 'var(--accent-orange)' }} />
+                            <span style={{ fontWeight: 700 }}>Цвет аватара инженера:</span>
+                          </label>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {/* Live avatar preview */}
+                            <div
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: '50%',
+                                backgroundColor: colorInput,
+                                color: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                boxShadow: '0 0 0 2px var(--bg-card), 0 0 0 4px ' + colorInput
+                              }}
+                            >
+                              {initialsInput || 'ИН'}
+                            </div>
+
+                            {/* Direct Hex code input */}
+                            <input
+                              type="text"
+                              className="form-input"
+                              value={colorInput}
+                              onChange={(e) => setColorInput(e.target.value)}
+                              placeholder="#ff6600"
+                              style={{
+                                width: '90px',
+                                padding: '0.2rem 0.4rem',
+                                fontSize: '0.75rem',
+                                fontFamily: 'var(--font-mono)',
+                                fontWeight: 700,
+                                color: colorInput,
+                                textAlign: 'center'
+                              }}
+                              title="Можно ввести любой HEX-код цвета"
+                            />
+                          </div>
+                        </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           {PRESET_COLORS.map((pc) => (
@@ -474,26 +549,26 @@ export function TeamModal({
                                 height: 26,
                                 borderRadius: '50%',
                                 backgroundColor: pc.hex,
-                                border: colorInput === pc.hex ? '2px solid #fff' : '2px solid transparent',
-                                boxShadow: colorInput === pc.hex ? `0 0 0 2px ${pc.hex}` : 'none',
+                                border: colorInput.toLowerCase() === pc.hex.toLowerCase() ? '2px solid #fff' : '2px solid transparent',
+                                boxShadow: colorInput.toLowerCase() === pc.hex.toLowerCase() ? `0 0 0 2px ${pc.hex}` : 'none',
                                 cursor: 'pointer',
                                 padding: 0,
-                                transform: colorInput === pc.hex ? 'scale(1.15)' : 'none',
+                                transform: colorInput.toLowerCase() === pc.hex.toLowerCase() ? 'scale(1.18)' : 'none',
                                 transition: 'transform 0.15s ease'
                               }}
                             />
                           ))}
 
-                          {/* Custom Color Input */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
+                          {/* Custom Color Native Input */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '6px' }}>
                             <input
                               type="color"
-                              value={colorInput}
+                              value={colorInput.startsWith('#') && colorInput.length === 7 ? colorInput : '#ff6600'}
                               onChange={(e) => setColorInput(e.target.value)}
-                              style={{ width: 28, height: 28, borderRadius: '4px', cursor: 'pointer', padding: 0, border: 'none', background: 'transparent' }}
-                              title="Выбрать свой цвет"
+                              style={{ width: 30, height: 30, borderRadius: '6px', cursor: 'pointer', padding: 0, border: '1px solid var(--border-subtle)', background: 'transparent' }}
+                              title="Открыть палитру Windows / Браузера"
                             />
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Свой цвет</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Любой оттенок</span>
                           </div>
                         </div>
                       </div>

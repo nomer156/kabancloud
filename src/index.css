@@ -861,10 +861,11 @@ button, input, select, textarea {
 }
 
 /* Modal styles */
-.modal-overlay {
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);

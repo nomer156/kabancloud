@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { exec, spawn } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,12 +16,21 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 const DB_FILE = path.join(DATA_DIR, 'ufanet_db.json');
+const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback_and_ideas.json');
 const DIST_DIR = path.join(__dirname, 'dist');
 
 // Ensure data directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const DEFAULT_DEPARTMENTS = [
+  { id: 'dept-design', name: 'Отдел проектирования', desc: 'Разработка проектной и рабочей документации (ВОЛС, СВН, СКС, СКУД)', color: '#ff6600', isDefault: true },
+  { id: 'dept-maintenance', name: 'Служба эксплуатации', desc: 'Обслуживание и устранение аварий телекоммуникационных сетей', color: '#0284c7' },
+  { id: 'dept-install', name: 'Монтажный отдел', desc: 'Строительно-монтажные и пусконаладочные работы на объектах', color: '#10b981' }
+];
 
 const DEFAULT_SECTIONS = [
   { id: 'ВДН', name: 'ВДН (Видеонаблюдение)', color: '#ff6600', bg: 'rgba(255, 102, 0, 0.15)', border: 'rgba(255, 102, 0, 0.35)' },
@@ -42,6 +52,7 @@ const DEFAULT_COLUMNS = [
 
 // Initial seed data if file doesn't exist
 const DEFAULT_SEED = {
+  departments: DEFAULT_DEPARTMENTS,
   projects: [
     'ВОЛС: Модернизация Юг',
     'СКС и Wi-Fi: Технопарк',
@@ -263,7 +274,23 @@ const MIME_TYPES = {
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
-  '.ico': 'image/x-icon'
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.pdf': 'application/pdf',
+  '.vsd': 'application/vnd.visio',
+  '.vsdx': 'application/vnd.ms-visio.drawing.main+xml',
+  '.dwg': 'application/acad',
+  '.dxf': 'application/dxf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.zip': 'application/zip',
+  '.rar': 'application/x-rar-compressed',
+  '.7z': 'application/x-7z-compressed'
 };
 
 // Request Parser Helper
@@ -357,6 +384,38 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(prepared));
+    return;
+  }
+
+  // 4b. POST /api/tasks/bulk (Atomic bulk import from ERP)
+  if (pathname === '/api/tasks/bulk' && req.method === 'POST') {
+    const { tasks: incomingList } = await parseBody(req);
+    const db = readDb();
+    const createdList = [];
+
+    if (Array.isArray(incomingList) && incomingList.length > 0) {
+      for (const t of incomingList) {
+        const id = t.id || `task-erp-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        const prepared = {
+          ...t,
+          id,
+          updated_at: new Date().toISOString(),
+          created_at: t.created_at || new Date().toISOString()
+        };
+        const index = db.tasks.findIndex((existing) => existing.id === id);
+        if (index >= 0) {
+          db.tasks[index] = prepared;
+        } else {
+          db.tasks.unshift(prepared);
+        }
+        createdList.push(prepared);
+      }
+      writeDb(db);
+      broadcastEvent('TASKS_BULK_CREATED', createdList);
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(createdList));
     return;
   }
 
@@ -458,6 +517,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 10b. POST /api/projects/delete
+  if (pathname === '/api/projects/delete' && req.method === 'POST') {
+    const { name } = await parseBody(req);
+    const db = readDb();
+    if (name) {
+      db.projects = (db.projects || []).filter((p) => p !== name.trim());
+      writeDb(db);
+      broadcastEvent('PROJECTS_UPDATED', db.projects);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.projects));
+    return;
+  }
+
   // 11. GET /api/sections
   if (pathname === '/api/sections' && req.method === 'GET') {
     const db = readDb();
@@ -498,7 +571,282 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ------------------ STATIC FRONTEND ASSETS ------------------ //
+  // 15. GET /api/notifications
+  if (pathname === '/api/notifications' && req.method === 'GET') {
+    const db = readDb();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.notifications || []));
+    return;
+  }
+
+  // 16. POST /api/notifications (Create notification or mark all read)
+  if (pathname === '/api/notifications' && req.method === 'POST') {
+    const payload = await parseBody(req);
+    const db = readDb();
+    if (!Array.isArray(db.notifications)) db.notifications = [];
+
+    if (payload.action === 'read_all') {
+      db.notifications = db.notifications.map((n) => ({ ...n, read: true }));
+      writeDb(db);
+      broadcastEvent('NOTIFICATIONS_UPDATED', db.notifications);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(db.notifications));
+      return;
+    }
+
+    const targetUserIds = Array.isArray(payload.targetUserIds) 
+      ? payload.targetUserIds 
+      : (payload.targetUserId ? [payload.targetUserId] : []);
+
+    // Deduplication check: ignore identical mention within 10 seconds
+    const isDuplicate = db.notifications.some(n => 
+      n.taskId === payload.taskId && 
+      n.text === payload.text && 
+      (n.fromUserId === payload.fromUserId || n.fromUserName === payload.fromUserName) &&
+      (Date.now() - new Date(n.createdAt).getTime()) < 10000
+    );
+
+    if (isDuplicate) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(db.notifications[0] || {}));
+      return;
+    }
+
+    const newNotif = {
+      id: payload.id || `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      taskId: payload.taskId,
+      taskTitle: payload.taskTitle || 'Задача',
+      fromUserId: payload.fromUserId || null,
+      fromUserName: payload.fromUserName || 'Коллега',
+      fromUserAvatar: payload.fromUserAvatar || '#ff6600',
+      text: payload.text || '',
+      createdAt: payload.createdAt || new Date().toISOString(),
+      read: false,
+      targetUserIds: targetUserIds,
+      targetUserId: targetUserIds[0] || null
+    };
+
+    db.notifications.unshift(newNotif);
+    // Keep max 100 recent notifications
+    if (db.notifications.length > 100) {
+      db.notifications = db.notifications.slice(0, 100);
+    }
+
+    writeDb(db);
+    broadcastEvent('NOTIFICATIONS_UPDATED', db.notifications);
+    broadcastEvent('NEW_MENTION', newNotif);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(newNotif));
+    return;
+  }
+
+  // 17. PATCH /api/notifications/:id/read
+  if (pathname.startsWith('/api/notifications/') && pathname.endsWith('/read') && req.method === 'PATCH') {
+    const parts = pathname.split('/');
+    const notifId = parts[3];
+    const db = readDb();
+    if (Array.isArray(db.notifications)) {
+      const item = db.notifications.find((n) => n.id === notifId);
+      if (item) {
+        item.read = true;
+        writeDb(db);
+        broadcastEvent('NOTIFICATIONS_UPDATED', db.notifications);
+      }
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    return;
+  }
+
+  // 18. DELETE /api/notifications/:id
+  if (pathname.startsWith('/api/notifications/') && req.method === 'DELETE') {
+    const parts = pathname.split('/');
+    const notifId = parts[3];
+    const db = readDb();
+    if (Array.isArray(db.notifications)) {
+      db.notifications = db.notifications.filter((n) => n.id !== notifId);
+      writeDb(db);
+      broadcastEvent('NOTIFICATIONS_UPDATED', db.notifications);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    return;
+  }
+
+  // 18b. GET /api/departments
+  if (pathname === '/api/departments' && req.method === 'GET') {
+    const db = readDb();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.departments || DEFAULT_DEPARTMENTS));
+    return;
+  }
+
+  // 18c. POST /api/departments
+  if (pathname === '/api/departments' && req.method === 'POST') {
+    const dept = await parseBody(req);
+    const db = readDb();
+    if (!Array.isArray(db.departments)) db.departments = [...DEFAULT_DEPARTMENTS];
+    const id = dept.id || `dept-${Date.now()}`;
+    const prepared = { ...dept, id };
+    const idx = db.departments.findIndex((d) => d.id === id);
+    if (idx >= 0) db.departments[idx] = prepared;
+    else db.departments.push(prepared);
+    writeDb(db);
+    broadcastEvent('DEPARTMENTS_UPDATED', db.departments);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.departments));
+    return;
+  }
+
+  // 18d. DELETE /api/departments/:id
+  if (pathname.startsWith('/api/departments/') && req.method === 'DELETE') {
+    const deptId = pathname.split('/')[3];
+    const db = readDb();
+    if (!Array.isArray(db.departments)) db.departments = [...DEFAULT_DEPARTMENTS];
+    db.departments = db.departments.filter((d) => d.id !== deptId);
+    writeDb(db);
+    broadcastEvent('DEPARTMENTS_UPDATED', db.departments);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(db.departments));
+    return;
+  }
+
+  // 18e. GET /api/feedback
+  if (pathname === '/api/feedback' && req.method === 'GET') {
+    let items = [];
+    if (fs.existsSync(FEEDBACK_FILE)) {
+      try { items = JSON.parse(fs.readFileSync(FEEDBACK_FILE, 'utf8')); } catch {}
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(items));
+    return;
+  }
+
+  // 18f. POST /api/feedback
+  if (pathname === '/api/feedback' && req.method === 'POST') {
+    const payload = await parseBody(req);
+    let items = [];
+    if (fs.existsSync(FEEDBACK_FILE)) {
+      try { items = JSON.parse(fs.readFileSync(FEEDBACK_FILE, 'utf8')); } catch {}
+    }
+    const newFeedback = {
+      id: `fb-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      authorName: payload.authorName || 'Сотрудник',
+      authorId: payload.authorId || null,
+      type: payload.type || 'пожелание',
+      subject: payload.subject || 'Без темы',
+      message: payload.message || '',
+      created_at: new Date().toISOString()
+    };
+    items.unshift(newFeedback);
+    fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(items, null, 2), 'utf8');
+
+    // Also write to human-friendly text file
+    try {
+      const txtPath = path.join(DATA_DIR, 'feedback_and_ideas.txt');
+      const txtContent = items.map(f => `[${f.created_at}] [${(f.type || '').toUpperCase()}] ${f.authorName}\nТема: ${f.subject}\nСообщение:\n${f.message}\n${'='.repeat(48)}`).join('\n\n');
+      fs.writeFileSync(txtPath, txtContent, 'utf8');
+    } catch {}
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(newFeedback));
+    return;
+  }
+
+  // 18g. GET /api/feedback/export
+  if (pathname === '/api/feedback/export' && req.method === 'GET') {
+    let content = '[]';
+    if (fs.existsSync(FEEDBACK_FILE)) {
+      content = fs.readFileSync(FEEDBACK_FILE, 'utf8');
+    }
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="ufanet_feedback_and_ideas.json"'
+    });
+    res.end(content);
+    return;
+  }
+
+  // 19. POST /api/open-folder (Open network / local path in Windows Explorer)
+  if (pathname === '/api/open-folder' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const rawPath = body.folderPath || body.path || body.folder;
+    if (!rawPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Путь к папке не указан' }));
+      return;
+    }
+    const cleanPath = path.normalize(String(rawPath).trim().replace(/^file:\/\/\/?/i, ''));
+    if (process.platform === 'win32') {
+      try {
+        let isFile = false;
+        try {
+          if (fs.existsSync(cleanPath) && fs.statSync(cleanPath).isFile()) {
+            isFile = true;
+          }
+        } catch {}
+
+        const args = isFile ? [`/select,${cleanPath}`] : [cleanPath];
+        const child = spawn('explorer.exe', args, { detached: true, stdio: 'ignore' });
+        child.unref();
+      } catch (err) {
+        exec(`start "" "${cleanPath}"`, () => {});
+      }
+    } else {
+      const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
+      exec(`${cmd} "${cleanPath}"`, () => {});
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, path: cleanPath }));
+    return;
+  }
+
+  // 20. POST /api/upload-file (Upload field photos, PDF, Visio, DWG)
+  if (pathname === '/api/upload-file' && req.method === 'POST') {
+    const { name, type, size, dataBase64, uploadedBy } = await parseBody(req);
+    if (!dataBase64 || !name) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Данные файла не переданы' }));
+      return;
+    }
+
+    const safeName = path.basename(name).replace(/[^a-zA-Z0-9._\-а-яА-ЯёЁ]/g, '_');
+    const fileId = `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const diskFileName = `${fileId}_${safeName}`;
+    const targetFilePath = path.join(UPLOADS_DIR, diskFileName);
+
+    const base64Data = dataBase64.replace(/^data:([A-Za-z-+/0-9]+);base64,/, '');
+    fs.writeFileSync(targetFilePath, Buffer.from(base64Data, 'base64'));
+
+    const fileMeta = {
+      id: fileId,
+      name: safeName,
+      size: size || fs.statSync(targetFilePath).size,
+      type: type || 'application/octet-stream',
+      url: `/uploads/${diskFileName}`,
+      uploaded_at: new Date().toISOString(),
+      uploaded_by: uploadedBy || 'Инженер'
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(fileMeta));
+    return;
+  }
+
+  // ------------------ STATIC FRONTEND ASSETS & UPLOADS ------------------ //
+
+  // Serve uploaded files
+  if (pathname.startsWith('/uploads/')) {
+    const uploadFile = path.join(UPLOADS_DIR, path.basename(pathname));
+    if (fs.existsSync(uploadFile) && !fs.statSync(uploadFile).isDirectory()) {
+      const ext = path.extname(uploadFile).toLowerCase();
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': contentType });
+      fs.createReadStream(uploadFile).pipe(res);
+      return;
+    }
+  }
 
   let filePath = path.join(DIST_DIR, pathname);
 

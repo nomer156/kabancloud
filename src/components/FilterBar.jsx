@@ -63,10 +63,11 @@ export function FilterBar({
               onSelectAssignee(null);
             }}
           >
-            Все отдел
+            Все
           </button>
           {teamMembers.map((member) => {
             const isSelected = selectedAssigneeId === member.id;
+            const isCurrentMe = currentUser?.id === member.id;
             return (
               <button
                 key={member.id}
@@ -74,13 +75,22 @@ export function FilterBar({
                 className={`team-avatar-btn ${isSelected ? 'selected' : ''}`}
                 style={{
                   backgroundColor: member.avatar_color,
-                  boxShadow: isSelected ? `0 0 0 3px var(--accent-orange), 0 0 8px rgba(255, 102, 0, 0.45)` : undefined
+                  border: isSelected ? '2px solid #ffffff' : '2px solid transparent',
+                  boxShadow: isSelected ? '0 0 0 2.5px var(--accent-orange), 0 0 10px rgba(255, 102, 0, 0.45)' : undefined,
+                  transform: isSelected ? 'scale(1.15)' : undefined,
+                  zIndex: isSelected ? 3 : 1
                 }}
                 onClick={() => {
                   playSound('click');
                   onSelectAssignee(isSelected ? null : member.id);
                 }}
-                title={`${member.full_name} (${member.role})`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (onOpenTeamModal) {
+                    onOpenTeamModal(member.id);
+                  }
+                }}
+                title={`${member.full_name} (${member.role})${isCurrentMe ? ' • Это вы' : ''}\n(Клик — фильтр, Правый клик — настроить цвет)`}
               >
                 {member.initials}
               </button>
@@ -95,7 +105,7 @@ export function FilterBar({
                 playSound('click');
                 onOpenTeamModal();
               }}
-              title="Настроить инженеров (цвета, имена, должности)"
+              title="Настроить отдел: цвета, имена, должности"
             >
               <Settings2 size={13} />
             </button>

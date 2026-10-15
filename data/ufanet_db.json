@@ -51,21 +51,159 @@
     },
     {
       "id": "uf-66666666-6666-6666-6666-666666666666",
-      "full_name": "Запасной",
+      "full_name": "Шестой",
       "role": "инженер",
-      "initials": "ЗА",
+      "initials": "ШЕ",
       "avatar_color": "#8b5cf6",
-      "specialty": "IT"
+      "specialty": "ЭОМ / СКУД"
     }
   ],
   "tasks": [
+    {
+      "id": "task-uf-1792096782719-0-9x321",
+      "title": "д. Деревня, Улица д. 1 (Интернет)",
+      "address": "можайское шоссе 38",
+      "section": "ЧС",
+      "status": "in_progress",
+      "priority": "medium",
+      "assignee_id": null,
+      "due_date": "2026-02-01",
+      "description": "Заявка ERP №: 123456789\nАдрес: д. Деревня, Улица д. 1\nКонтакты: +7 (777) 777-77-77;\nСреда передачи: Оптика\nУслуги: Интернет\nСтатус в ERP: Принят\nСрок обследования КС: 01.02.2026\n@",
+      "erp_task_number": "123456789",
+      "created_at": "2026-10-15T20:39:42.719Z",
+      "project_code": "Одинцово",
+      "network_link": "E:\\фыфыфыфыфыфыфыфыфыфыфыфыфыфыфыфыфыфыфыkaban2",
+      "checklist": [],
+      "worklogs": [],
+      "attachments": [],
+      "hours_spent": "00:00",
+      "internal_customer": "17",
+      "region": "11",
+      "work_group": "22",
+      "work_item": "118",
+      "erp_project_id": null,
+      "project_cipher": null,
+      "project_code_val": null,
+      "project_manager": null,
+      "quantity": "1",
+      "kst": "1",
+      "kizm": "1",
+      "ksl": "1",
+      "kvyp": "1.00",
+      "comments": [],
+      "updated_at": "2026-10-15T21:09:23.385Z",
+      "house_id": null
+    },
+    {
+      "id": "task-uf-1792095866570-0-b3czr",
+      "title": "д. Деревня, Улица д. 1 (Интернет)",
+      "address": "д. Деревня, Улица д. 1",
+      "section": "ЧС",
+      "status": "review",
+      "priority": "medium",
+      "assignee_id": null,
+      "due_date": "2026-01-01",
+      "description": "Заявка ERP №: 123456789\nАдрес: д. Деревня, Улица д. 1\nКонтакты: +7 (777) 777-77-77;\nСреда передачи: Оптика\nУслуги: Интернет\nСтатус в ERP: Принят\nСрок обследования КС: 01.01.2026",
+      "erp_task_number": "123456789",
+      "created_at": "2026-10-15T20:24:26.570Z",
+      "updated_at": "2026-10-15T21:15:10.726Z"
+    },
+    {
+      "title": "фывфывфцв",
+      "address": null,
+      "project_code": "Одинцово",
+      "section": "ВДН",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": "uf-11111111-1111-1111-1111-111111111111",
+      "due_date": null,
+      "network_link": null,
+      "description": null,
+      "checklist": [],
+      "worklogs": [],
+      "attachments": [],
+      "hours_spent": "00:00",
+      "internal_customer": "17",
+      "region": "1",
+      "work_group": "22",
+      "work_item": "118",
+      "erp_project_id": null,
+      "erp_task_number": null,
+      "project_cipher": null,
+      "project_code_val": null,
+      "project_manager": null,
+      "quantity": "1",
+      "kst": "1",
+      "kizm": "1",
+      "ksl": "1",
+      "kvyp": "1.00",
+      "comments": [],
+      "id": "task-uf-1792093948154",
+      "updated_at": "2026-10-15T19:52:32.285Z",
+      "created_at": "2026-10-15T19:52:28.154Z"
+    },
+    {
+      "title": "Домик",
+      "address": "одинцово, можайское ш 38",
+      "project_code": "Одинцово",
+      "section": "ВДН",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": "uf-11111111-1111-1111-1111-111111111111",
+      "due_date": null,
+      "network_link": null,
+      "description": "Спать тут",
+      "checklist": [
+        {
+          "id": "c-1792093355519",
+          "text": "фы",
+          "done": false
+        }
+      ],
+      "worklogs": [
+        {
+          "id": "wl-1792093370579",
+          "date": "2026-10-15",
+          "hours": "08:00",
+          "comment": "не спал",
+          "created_at": "2026-10-15T19:42:50.579Z"
+        },
+        {
+          "id": "wl-1792093361584",
+          "date": "2026-10-15",
+          "hours": "04:00",
+          "comment": "поспал",
+          "created_at": "2026-10-15T19:42:41.584Z"
+        }
+      ],
+      "attachments": [],
+      "hours_spent": "12:00",
+      "internal_customer": "17",
+      "region": "11",
+      "work_group": "4",
+      "work_item": "22",
+      "erp_project_id": null,
+      "erp_task_number": null,
+      "project_cipher": null,
+      "project_code_val": null,
+      "project_manager": null,
+      "quantity": "1",
+      "kst": "2",
+      "kizm": "2",
+      "ksl": "2",
+      "kvyp": "1.00",
+      "comments": [],
+      "id": "task-uf-1792093467569",
+      "updated_at": "2026-10-15T19:44:27.569Z",
+      "created_at": "2026-10-15T19:44:27.569Z"
+    },
     {
       "id": "task-uf-1791738755447",
       "created_at": "2026-10-11T17:12:35.447Z",
       "title": "7 камер в одинцово",
       "project_code": "Одинцово",
       "section": "СВН",
-      "status": "backlog",
+      "status": "done",
       "priority": "medium",
       "assignee_id": "uf-11111111-1111-1111-1111-111111111111",
       "due_date": "2026-10-18",
@@ -90,7 +228,7 @@
       "work_type": "Рабочая документация (РД)",
       "worklogs": [],
       "comments": [],
-      "updated_at": "2026-10-11T17:12:57.349Z"
+      "updated_at": "2026-10-15T19:00:07.113Z"
     },
     {
       "id": "task-uf-1",
@@ -98,7 +236,7 @@
       "title": "Трассировка магистрального оптического кабеля (96 ОВ)",
       "project_code": "ВОЛС: Модернизация Юг",
       "section": "ВДН",
-      "status": "done",
+      "status": "backlog",
       "priority": "urgent",
       "assignee_id": "uf-66666666-6666-6666-6666-666666666666",
       "due_date": "2026-10-12",
@@ -122,11 +260,36 @@
         }
       ],
       "erp_project_id": null,
-      "erp_task_number": null,
+      "erp_task_number": "62",
       "house_id": null,
       "hours_spent": "08:00",
       "work_type": "Разработка проектной документации",
-      "updated_at": "2026-10-11T16:33:43.263Z"
+      "worklogs": [],
+      "comments": [
+        {
+          "id": "comm-1791974362016",
+          "text": "@Первый asdwa",
+          "user_id": "uf-22222222-2222-2222-2222-222222222222",
+          "user_name": "Второй",
+          "user_initials": "ВТ",
+          "avatar_color": "#ff7700",
+          "created_at": "2026-10-14T10:39:22.016Z"
+        }
+      ],
+      "updated_at": "2026-10-15T19:00:14.046Z",
+      "address": "ыфв",
+      "internal_customer": "17",
+      "region": "1",
+      "work_group": "22",
+      "work_item": "118",
+      "project_cipher": null,
+      "project_code_val": null,
+      "project_manager": null,
+      "quantity": "1",
+      "kst": "1",
+      "kizm": "1",
+      "ksl": "1",
+      "kvyp": "1.00"
     },
     {
       "id": "task-uf-3",
@@ -134,12 +297,12 @@
       "title": "Расстановка IP-камер видеонаблюдения и зоны видимости",
       "project_code": "Видеонаблюдение: ЖК «Северный»",
       "section": "СВН",
-      "status": "in_progress",
+      "status": "done",
       "priority": "medium",
       "assignee_id": "uf-44444444-4444-4444-4444-444444444444",
       "due_date": "2026-10-12",
       "network_link": "\\\\ufanet-server\\projects\\ЖК_Северный\\Камеры_Обзор.pdf",
-      "description": "Проверить углы обзора объективов 2.8мм и 4мм на парковке и детской площадке. Глубина архива NVR — 30 дней H.265+.",
+      "description": "Проверить углы обзора объективов 2.8мм и 4мм на парковке и детской площадке. Глубина архива NVR — 30 дней H.265+. @Первый",
       "checklist": [
         {
           "id": "c1",
@@ -163,8 +326,41 @@
       "hours_spent": "01:30",
       "work_type": "Рабочая документация (РД)",
       "worklogs": [],
-      "comments": [],
-      "updated_at": "2026-10-11T17:11:43.779Z"
+      "comments": [
+        {
+          "id": "comm-1792095740137",
+          "text": "@Третий",
+          "user_id": "uf-22222222-2222-2222-2222-222222222222",
+          "user_name": "Второй",
+          "user_initials": "ВТ",
+          "avatar_color": "#ff7700",
+          "created_at": "2026-10-15T20:22:20.137Z"
+        },
+        {
+          "id": "comm-1792095731126",
+          "text": "@Второй",
+          "user_id": "uf-22222222-2222-2222-2222-222222222222",
+          "user_name": "Второй",
+          "user_initials": "ВТ",
+          "avatar_color": "#ff7700",
+          "created_at": "2026-10-15T20:22:11.126Z"
+        }
+      ],
+      "updated_at": "2026-10-15T21:15:09.314Z",
+      "address": null,
+      "attachments": [],
+      "internal_customer": "17",
+      "region": "11",
+      "work_group": "22",
+      "work_item": "118",
+      "project_cipher": null,
+      "project_code_val": null,
+      "project_manager": null,
+      "quantity": "1",
+      "kst": "1",
+      "kizm": "1",
+      "ksl": "1",
+      "kvyp": "1.00"
     },
     {
       "id": "task-uf-4",
@@ -172,9 +368,9 @@
       "title": "Интеграция IP-домофонии с облачной платформой Уфанет",
       "project_code": "Умный дом: Квартал 4",
       "section": "IoT",
-      "status": "done",
+      "status": "review",
       "priority": "medium",
-      "assignee_id": "uf-55555555-5555-5555-5555-555555555555",
+      "assignee_id": "uf-22222222-2222-2222-2222-222222222222",
       "due_date": "2026-10-09",
       "network_link": "\\\\ufanet-server\\projects\\Квартал4\\Домофония_SIP.docx",
       "description": "Настройка SIP-сервера, распознавание лиц жильцов на калитках и вызывных панелях. Протестировано мобильное приложение.",
@@ -200,7 +396,9 @@
       "house_id": null,
       "hours_spent": null,
       "work_type": "Разработка проектной документации",
-      "updated_at": "2026-10-11T16:17:44.298Z"
+      "worklogs": [],
+      "comments": [],
+      "updated_at": "2026-10-15T19:00:04.504Z"
     },
     {
       "id": "task-uf-5",
@@ -233,10 +431,17 @@
       "work_type": "Нормоконтроль ГИПа",
       "worklogs": [],
       "comments": [],
-      "updated_at": "2026-10-11T16:33:53.538Z"
+      "updated_at": "2026-10-15T19:46:08.326Z"
     }
   ],
   "sections": [
+    {
+      "id": "ВДН",
+      "name": "ВДН (Видеонаблюдение)",
+      "color": "#ff6600",
+      "bg": "rgba(255, 102, 0, 0.15)",
+      "border": "rgba(255, 102, 0, 0.35)"
+    },
     {
       "id": "МКЖ",
       "name": "МКЖ (Многоквартирное жилье)",
@@ -278,6 +483,54 @@
       "color": "#ec4899",
       "bg": "rgba(236, 72, 153, 0.15)",
       "border": "rgba(236, 72, 153, 0.35)"
+    },
+    {
+      "id": "ЭОМ",
+      "name": "ЭОМ (Электроснабжение оборудования)",
+      "color": "#6366f1",
+      "bg": "rgba(99, 102, 241, 0.15)",
+      "border": "rgba(99, 102, 241, 0.35)"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1792095740139-2roe8",
+      "taskId": "task-uf-3",
+      "taskTitle": "Расстановка IP-камер видеонаблюдения и зоны видимости",
+      "fromUserName": "Второй",
+      "fromUserAvatar": "#ff7700",
+      "text": "@Третий",
+      "createdAt": "2026-10-15T20:22:20.139Z",
+      "read": false,
+      "targetUserIds": [
+        "uf-33333333-3333-3333-3333-333333333333"
+      ],
+      "targetUserId": "uf-33333333-3333-3333-3333-333333333333"
+    },
+    {
+      "id": "notif-1792095731435-fqpxx",
+      "taskId": "task-uf-3",
+      "taskTitle": "Расстановка IP-камер видеонаблюдения и зоны видимости",
+      "fromUserName": "Второй",
+      "fromUserAvatar": "#ff7700",
+      "text": "@Второй",
+      "createdAt": "2026-10-15T20:22:11.435Z",
+      "read": false,
+      "targetUserIds": [
+        "uf-22222222-2222-2222-2222-222222222222"
+      ],
+      "targetUserId": "uf-22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "id": "notif-1791974362020-kmrag",
+      "taskId": "task-uf-1",
+      "taskTitle": "Трассировка магистрального оптического кабеля (96 ОВ)",
+      "fromUserName": "Второй",
+      "fromUserAvatar": "#ff7700",
+      "text": "@Первый asdwa",
+      "createdAt": "2026-10-14T10:39:22.020Z",
+      "read": true,
+      "targetUserId": null
     }
   ]
 }
