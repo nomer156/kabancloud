@@ -39,7 +39,8 @@ import {
   WORK_ITEMS, 
   KST_OPTIONS, 
   KIZM_OPTIONS, 
-  KSL_OPTIONS 
+  KSL_OPTIONS,
+  DEPARTMENTS
 } from '../lib/constants';
 import { playSound } from '../lib/sound';
 import { MentionAutocompleteDropdown, extractMentionTargets, renderWithMentions } from '../lib/mentions';
@@ -104,6 +105,7 @@ export function TaskModal({
   const [isUploading, setIsUploading] = useState(false);
 
   // 2. Паспортные настройки & ЗП (Правая карточка)
+  const [departmentId, setDepartmentId] = useState(() => taskToEdit?.department_id || currentUser?.department_id || 'dept-design');
   const [section, setSection] = useState('ВДН');
   const [projectCode, setProjectCode] = useState('');
   const [isAddingProject, setIsAddingProject] = useState(false);
@@ -138,6 +140,7 @@ export function TaskModal({
     if (!isOpen) return;
 
     if (taskToEdit) {
+      setDepartmentId(taskToEdit.department_id || currentUser?.department_id || 'dept-design');
       setTitle(taskToEdit.title || '');
       setAddress(taskToEdit.address || '');
       setDescription(taskToEdit.description || '');
@@ -169,6 +172,7 @@ export function TaskModal({
       setKsl(taskToEdit.ksl || '1');
       setKvyp(taskToEdit.kvyp || '1.00');
     } else {
+      setDepartmentId(currentUser?.department_id || 'dept-design');
       setTitle('');
       setAddress('');
       setDescription('');
@@ -568,6 +572,7 @@ export function TaskModal({
     const taskData = {
       ...(taskToEdit || {}),
       id: taskToEdit?.id,
+      department_id: departmentId || 'dept-design',
       title: title.trim(),
       address: address.trim() || null,
       project_code: finalProject,
@@ -579,6 +584,7 @@ export function TaskModal({
       network_link: networkLink.trim() || null,
       description: description.trim() || null,
       checklist,
+      subtasks: checklist,
       worklogs,
       attachments,
       hours_spent: totalCalculatedHours,
@@ -1230,6 +1236,46 @@ export function TaskModal({
                   <span>Паспорт проекта & ProjectPay</span>
                 </div>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Настраивается 1 раз</span>
+              </div>
+
+              {/* Отдел компании (Подразделение) */}
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Building size={13} style={{ color: 'var(--accent-orange)' }} />
+                  <span>Отдел (Подразделение) *</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(105px, 1fr))', gap: '0.35rem' }}>
+                  {DEPARTMENTS.map((dept) => {
+                    const isSelected = departmentId === dept.id;
+                    return (
+                      <button
+                        key={dept.id}
+                        type="button"
+                        onClick={() => setDepartmentId(dept.id)}
+                        style={{
+                          padding: '0.35rem 0.45rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: isSelected ? `2px solid ${dept.color}` : '1px solid var(--border-subtle)',
+                          backgroundColor: isSelected ? `${dept.color}22` : 'var(--bg-card)',
+                          color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          fontSize: '0.72rem',
+                          fontWeight: isSelected ? 800 : 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.15s ease'
+                        }}
+                        title={dept.fullName || dept.name}
+                      >
+                        <span>{dept.icon}</span>
+                        <span>{dept.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Марка / Раздел проекта */}

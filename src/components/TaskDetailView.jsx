@@ -42,6 +42,7 @@ import {
   KST_OPTIONS,
   KIZM_OPTIONS,
   KSL_OPTIONS,
+  DEPARTMENTS,
   formatPathEnd
 } from '../lib/constants';
 import { playSound } from '../lib/sound';
@@ -141,6 +142,7 @@ export function TaskDetailView({
   onNotifyMention
 }) {
   // Main fields state
+  const [departmentId, setDepartmentId] = useState(task?.department_id || 'dept-design');
   const [title, setTitle] = useState(task?.title || '');
   const [projectCode, setProjectCode] = useState(task?.project_code || '');
   const [section, setSection] = useState(task?.section || 'ВДН');
@@ -271,6 +273,7 @@ export function TaskDetailView({
   useEffect(() => {
     if (task && task.id !== currentLoadedTaskIdRef.current) {
       currentLoadedTaskIdRef.current = task.id;
+      setDepartmentId(task.department_id || 'dept-design');
       setTitle(task.title || '');
       setProjectCode(task.project_code || '');
       setSection(task.section || 'ВДН');
@@ -641,6 +644,7 @@ export function TaskDetailView({
 
     const updatedTask = {
       ...task,
+      department_id: extraOverrides.department_id !== undefined ? extraOverrides.department_id : departmentId,
       title: extraOverrides.title !== undefined ? extraOverrides.title.trim() : title.trim(),
       address: extraOverrides.address !== undefined ? (extraOverrides.address ? extraOverrides.address.trim() : null) : (address.trim() || null),
       project_code: extraOverrides.project_code !== undefined ? extraOverrides.project_code : projectCode,

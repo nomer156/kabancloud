@@ -15,6 +15,14 @@ dist-ssr
 .env.*
 data/backups/
 
+# Scratch and temp files
+*.docx
+pr2_text.txt
+find_labs.js
+build_*_report.cjs
+read_*.ps1
+img_*.jpg
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -32,4 +40,17 @@ AGENT_MEMORY.md
 DEV_MEMORY.md
 .agent_internal_memory.md
 *.memory.md
+data/logs/
+data/ssl/
+data/.db_key
+data/backups/
+
+# Scratch and temp files
+*.docx
+pr2_text.txt
+find_labs.js
+build_*_report.cjs
+read_*.ps1
+img_*.jpg
+
 

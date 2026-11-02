@@ -17,9 +17,18 @@ export function FilterBar({
   onSearchChange,
   onResetFilters,
   onOpenSectionsModal,
-  onOpenTeamModal
+  onOpenTeamModal,
+  activeDepartmentId = 'all'
 }) {
   const isMyTasksActive = Boolean(currentUser && selectedAssigneeId === currentUser.id);
+
+  const displayedMembers = React.useMemo(() => {
+    if (activeDepartmentId && activeDepartmentId !== 'all') {
+      const inDept = teamMembers.filter((m) => (m.department_id || 'dept-design') === activeDepartmentId);
+      if (inDept.length > 0) return inDept;
+    }
+    return teamMembers;
+  }, [teamMembers, activeDepartmentId]);
 
   const handleToggleMyTasks = () => {
     playSound('click');
@@ -65,7 +74,7 @@ export function FilterBar({
           >
             Все
           </button>
-          {teamMembers.map((member) => {
+          {displayedMembers.map((member) => {
             const isSelected = selectedAssigneeId === member.id;
             const isCurrentMe = currentUser?.id === member.id;
             return (

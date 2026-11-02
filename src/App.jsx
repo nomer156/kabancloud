@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { COLUMNS, DEFAULT_COLUMNS } from './lib/constants';
+import { COLUMNS, DEFAULT_COLUMNS, DEPARTMENTS } from './lib/constants';
 import { 
   fetchAllTasks, 
   saveTask, 
@@ -15,16 +15,20 @@ import {
   saveSectionsList,
   fetchColumnsList,
   saveColumnsList,
+  fetchDepartments,
   subscribeToRealtimeChanges,
   fetchNotifications,
   createNotification,
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
-  bulkCreateTasks
+  bulkCreateTasks,
+  logoutUser
 } from './lib/api';
 import { playSound } from './lib/sound';
 import { Header } from './components/Header';
+import { DepartmentBar } from './components/DepartmentBar';
+import { DepartmentChatModal } from './components/DepartmentChatModal';
 import { FilterBar } from './components/FilterBar';
 import { KanbanColumn } from './components/KanbanColumn';
 import { TaskModal } from './components/TaskModal';
@@ -72,6 +76,8 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [sections, setSections] = useState([]);
   const [columns, setColumns] = useState(() => DEFAULT_COLUMNS || COLUMNS);
+  const [departments, setDepartments] = useState(DEPARTMENTS);
+  const [activeDepartmentId, setActiveDepartmentId] = useState(() => localStorage.getItem('kaban_active_department') || 'all');
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -92,6 +98,9 @@ export default function App() {
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [chatPreQuotedTask, setChatPreQuotedTask] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
@@ -121,13 +130,14 @@ export default function App() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns, loadedNotifs] = await Promise.all([
+      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns, loadedNotifs, loadedDepts] = await Promise.all([
         fetchAllTasks(),
         fetchTeamMembers(),
         fetchProjectsList(),
         fetchSectionsList(),
         fetchColumnsList(),
-        fetchNotifications()
+        fetchNotifications(),
+        fetchDepartments()
       ]);
 
       setTasks(loadedTasks || []);
@@ -136,6 +146,7 @@ export default function App() {
       setSections(loadedSections || []);
       setColumns(loadedColumns && loadedColumns.length > 0 ? loadedColumns : DEFAULT_COLUMNS || COLUMNS);
       setNotifications(loadedNotifs || []);
+      setDepartments(loadedDepts && loadedDepts.length > 0 ? loadedDepts : DEPARTMENTS);
 
       // Restore current user from localStorage if exists
       const savedUserId = localStorage.getItem('kaban_current_user_id');
@@ -191,6 +202,14 @@ export default function App() {
         setSections(event.payload);
       } else if (event.type === 'COLUMNS_UPDATED') {
         setColumns(event.payload);
+      } else if (event.type === 'DEPARTMENTS_UPDATED') {
+        setDepartments(event.payload);
+      } else if (event.type === 'NEW_CHAT_MESSAGE') {
+        const { message } = event.payload || {};
+        if (message && message.user_id !== currentUserRef.current?.id) {
+          playSound('message');
+          showToast(`💬 Чат: сообщение от ${message.user_name}`, '💬');
+        }
       } else if (event.type === 'NOTIFICATIONS_UPDATED') {
         const list = event.payload || [];
         const seen = new Set();
@@ -222,11 +241,15 @@ export default function App() {
     if (!user) return;
     setCurrentUser(user);
     if (user?.id) localStorage.setItem('kaban_current_user_id', user.id);
+    if (user?.department_id) {
+      setActiveDepartmentId(user.department_id);
+      localStorage.setItem('kaban_active_department', user.department_id);
+    }
     showToast(`Добро пожаловать, ${user.full_name}! 👋`, '🔐');
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('kaban_current_user_id');
+    logoutUser();
     setCurrentUser(null);
     playSound('click');
     showToast('Вы вышли из профиля', '👋');
@@ -247,6 +270,14 @@ export default function App() {
   // Filter tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      // 0. Department filter
+      if (activeDepartmentId && activeDepartmentId !== 'all') {
+        const taskDept = task.department_id || 'dept-design';
+        if (taskDept !== activeDepartmentId) {
+          return false;
+        }
+      }
+
       // 1. Assignee filter (handles both individual engineers and "My tasks")
       if (selectedAssigneeId && task.assignee_id !== selectedAssigneeId) {
         return false;
@@ -262,22 +293,23 @@ export default function App() {
         return false;
       }
 
-      // 5. Search query (matches title, description, project, erp id, network link)
+      // 5. Search query (matches title, description, project, erp id, network link, address)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const titleMatch = task.title?.toLowerCase().includes(q);
         const descMatch = task.description?.toLowerCase().includes(q);
         const projectMatch = task.project_code?.toLowerCase().includes(q);
         const linkMatch = task.network_link?.toLowerCase().includes(q);
+        const addressMatch = task.address?.toLowerCase().includes(q);
         const erpMatch = task.erp_project_id?.toLowerCase().includes(q) || task.erp_task_number?.toLowerCase().includes(q);
-        if (!titleMatch && !descMatch && !projectMatch && !linkMatch && !erpMatch) {
+        if (!titleMatch && !descMatch && !projectMatch && !linkMatch && !addressMatch && !erpMatch) {
           return false;
         }
       }
 
       return true;
     });
-  }, [tasks, currentUser, selectedAssigneeId, selectedSection, selectedProject, searchQuery]);
+  }, [tasks, activeDepartmentId, selectedAssigneeId, selectedSection, selectedProject, searchQuery]);
 
   // Handle Drag & Drop move
   const handleDropTask = async (taskId, newStatus) => {
@@ -340,6 +372,31 @@ export default function App() {
     } catch (e) {
       console.error('Ошибка сохранения задачи:', e);
     }
+  };
+
+  // YouGile Inline Task Creation in any Column
+  const handleInlineCreateTask = async (columnId, title) => {
+    if (!title || !title.trim()) return;
+    const dept = activeDepartmentId !== 'all' ? activeDepartmentId : (currentUser?.department_id || 'dept-design');
+    const newTask = {
+      id: `task-uf-${Date.now()}`,
+      title: title.trim(),
+      status: columnId,
+      priority: 'medium',
+      department_id: dept,
+      assignee_id: currentUser?.id || null,
+      section: sections[0]?.id || 'ВДН',
+      project_code: projects[0] || 'ЖК «Агидель»',
+      created_at: new Date().toISOString()
+    };
+    await handleSaveTask(newTask);
+  };
+
+  // YouGile Share Task to Chat
+  const handleShareTaskToChat = (task) => {
+    setChatPreQuotedTask(task);
+    setIsChatModalOpen(true);
+    playSound('click');
   };
 
   // Delete task
@@ -544,6 +601,7 @@ export default function App() {
         <AuthModal
           isOpen={true}
           teamMembers={teamMembers}
+          departments={departments}
           currentUser={currentUser}
           onSelectUser={handleSelectCurrentUser}
           isStandalonePage={true}
@@ -626,6 +684,7 @@ export default function App() {
             onOpenColumnsModal={() => setIsColumnsModalOpen(true)}
             onOpenImportModal={() => setIsImportModalOpen(true)}
             onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+            onOpenChat={() => setIsChatModalOpen(true)}
             activeView={activeView}
             onSelectView={setActiveView}
             notifications={notifications}
@@ -633,6 +692,18 @@ export default function App() {
             onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
             onDeleteNotification={handleDeleteNotification}
             onOpenTaskFromNotification={handleOpenTaskFromNotification}
+          />
+
+          {/* YouGile Department Switcher Bar */}
+          <DepartmentBar
+            departments={departments}
+            activeDepartmentId={activeDepartmentId}
+            onSelectDepartment={(id) => {
+              setActiveDepartmentId(id);
+              localStorage.setItem('kaban_active_department', id);
+            }}
+            tasks={tasks}
+            onOpenChat={() => setIsChatModalOpen(true)}
           />
 
           {/* Filter and Search Bar */}
@@ -655,6 +726,7 @@ export default function App() {
               setEditingMemberId(memberId || null);
               setIsTeamModalOpen(true);
             }}
+            activeDepartmentId={activeDepartmentId}
           />
 
           {/* Main View: Board vs Monthly Report */}
@@ -672,6 +744,8 @@ export default function App() {
                     sections={sections}
                     onEditTask={handleEditTask}
                     onQuickAddTask={handleQuickAdd}
+                    onInlineCreateTask={handleInlineCreateTask}
+                    onShareToChat={handleShareTaskToChat}
                     onDropTask={handleDropTask}
                   />
                 );
@@ -762,6 +836,35 @@ export default function App() {
         onClose={() => setIsSettingsModalOpen(false)}
         currentUser={currentUser}
         showToast={showToast}
+      />
+
+      {/* YouGile Department Chat Modal with Task Quoting */}
+      <DepartmentChatModal
+        isOpen={isChatModalOpen}
+        onClose={() => {
+          setIsChatModalOpen(false);
+          setChatPreQuotedTask(null);
+        }}
+        currentUser={currentUser}
+        activeDepartmentId={activeDepartmentId}
+        departments={departments}
+        tasks={tasks}
+        onOpenTask={(id) => {
+          setIsChatModalOpen(false);
+          window.location.hash = '#task/' + id;
+        }}
+        preQuotedTask={chatPreQuotedTask}
+      />
+
+      {/* Auth Modal (can be opened as dialog to switch profile or re-auth) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        teamMembers={teamMembers}
+        departments={departments}
+        currentUser={currentUser}
+        onSelectUser={handleSelectCurrentUser}
+        isStandalonePage={false}
       />
 
       {/* Toast Feedback */}

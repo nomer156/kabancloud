@@ -21,10 +21,12 @@ import {
   Trash2,
   Check,
   LogOut,
-  Settings
+  Settings,
+  MessageSquare
 } from 'lucide-react';
 import { playSound, isSoundEnabled, setSoundEnabled } from '../lib/sound';
 import { renderWithMentions } from '../lib/mentions';
+import { DEPARTMENTS } from '../lib/constants';
 
 export function Header({
   tasks,
@@ -40,6 +42,7 @@ export function Header({
   onOpenColumnsModal,
   onOpenImportModal,
   onOpenSettingsModal,
+  onOpenChat,
   activeView,
   onSelectView,
   notifications = [],
@@ -164,57 +167,94 @@ export function Header({
       {/* Right: Actions */}
       <div className="header-actions">
         {/* User Profile & Logout */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div 
-            className="user-switcher"
-            style={{ 
-              cursor: 'default', 
-              background: 'var(--bg-tertiary)', 
-              padding: '0.35rem 0.65rem',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.55rem'
-            }}
-            title={`Авторизован: ${currentUser?.full_name || 'Инженер'} (${currentUser?.role || 'Отдел проектирования'})`}
-          >
-            <div 
-              className="user-avatar-badge" 
-              style={{ 
-                backgroundColor: currentUser?.avatar_color || '#ff6600', 
-                width: 26, 
-                height: 26, 
-                fontSize: '0.72rem',
-                fontWeight: 800
-              }}
-            >
-              {currentUser?.initials || 'Я'}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                {currentUser ? currentUser.full_name : 'Инженер'}
-              </span>
-              <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
-                {currentUser?.role || 'Отдел проектирования'}
-              </span>
-            </div>
-          </div>
+        {(() => {
+          const userDept = DEPARTMENTS.find((d) => d.id === currentUser?.department_id) || DEPARTMENTS[0];
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <div 
+                className="user-switcher"
+                style={{ 
+                  cursor: 'default', 
+                  background: 'var(--bg-tertiary)', 
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.55rem'
+                }}
+                title={`Авторизован: ${currentUser?.full_name || 'Инженер'} (${userDept.name} • ${currentUser?.role || 'Инженер'})`}
+              >
+                <div 
+                  className="user-avatar-badge" 
+                  style={{ 
+                    backgroundColor: currentUser?.avatar_color || '#ff6600', 
+                    width: 28, 
+                    height: 28, 
+                    fontSize: '0.74rem',
+                    fontWeight: 800
+                  }}
+                >
+                  {currentUser?.initials || 'Я'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                      {currentUser ? currentUser.full_name : 'Инженер'}
+                    </span>
+                    {currentUser && (
+                      <span
+                        style={{
+                          fontSize: '0.64rem',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          background: `${userDept.color}22`,
+                          color: userDept.color,
+                          fontWeight: 700
+                        }}
+                      >
+                        {userDept.icon} {userDept.name}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
+                    {currentUser?.role || userDept.name}
+                  </span>
+                </div>
+              </div>
 
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  playSound('click');
+                  if (onLogout) onLogout();
+                }}
+                title="Сменить сотрудника / выйти"
+                style={{ padding: '0.38rem 0.65rem', fontSize: '0.74rem', gap: '5px' }}
+              >
+                <LogOut size={13} style={{ color: 'var(--accent-rose, #ef4444)' }} />
+                <span>Сменить</span>
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* YouGile Department Chat Button */}
+        {onOpenChat && (
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn-icon"
             onClick={() => {
               playSound('click');
-              if (onLogout) onLogout();
+              onOpenChat();
             }}
-            title="Выйти из текущего профиля (сменить пользователя)"
-            style={{ padding: '0.38rem 0.7rem', fontSize: '0.76rem', gap: '5px' }}
+            title="Корпоративный чат отделов (YouGile)"
+            style={{ color: 'var(--accent-orange, #ff6600)' }}
           >
-            <LogOut size={13} style={{ color: 'var(--accent-rose, #ef4444)' }} />
-            <span>Выйти</span>
+            <MessageSquare size={18} />
           </button>
-        </div>
+        )}
 
         {/* Notifications & Mentions Center (Bell Icon) */}
         <div style={{ position: 'relative' }}>

@@ -9,9 +9,10 @@ import {
   Clock,
   Briefcase,
   ExternalLink,
-  MapPin
+  MapPin,
+  MessageSquare
 } from 'lucide-react';
-import { PRIORITIES, formatPathEnd } from '../lib/constants';
+import { PRIORITIES, DEPARTMENTS, formatPathEnd } from '../lib/constants';
 import { playSound } from '../lib/sound';
 import { openFolderInExplorer } from '../lib/api';
 import { renderWithMentions } from '../lib/mentions';
@@ -21,9 +22,13 @@ export function TaskCard({
   teamMembers,
   sections,
   onEdit,
-  onDragStart
+  onDragStart,
+  onShareToChat
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Find department metadata
+  const deptMeta = DEPARTMENTS.find((d) => d.id === task.department_id) || DEPARTMENTS[0];
 
   // Find section metadata from dynamic sections
   const sectionMeta = sections?.find((s) => s.id === task.section) || {
@@ -40,11 +45,11 @@ export function TaskCard({
   // Find assignee
   const assignee = teamMembers.find((m) => m.id === task.assignee_id);
 
-  // Checklist statistics
-  const checklist = Array.isArray(task.checklist) ? task.checklist : [];
-  const totalChecklist = checklist.length;
-  const doneChecklist = checklist.filter((c) => c.done).length;
-  const checklistPercent = totalChecklist > 0 ? (doneChecklist / totalChecklist) * 100 : 0;
+  // Subtasks / Checklist statistics
+  const subtasksList = Array.isArray(task.subtasks) && task.subtasks.length > 0 ? task.subtasks : (Array.isArray(task.checklist) ? task.checklist : []);
+  const totalSubtasks = subtasksList.length;
+  const doneSubtasks = subtasksList.filter((c) => c.done).length;
+  const subtasksPercent = totalSubtasks > 0 ? (doneSubtasks / totalSubtasks) * 100 : 0;
 
   // Due date human calculation
   let deadlineBadge = null;
@@ -131,9 +136,30 @@ export function TaskCard({
       onClick={() => onEdit(task)}
       onMouseDown={handleMouseDown}
     >
-      {/* Top Metadata: Section Tag, Project Tag, Priority Indicator, New Tab Button */}
-      <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+      {/* Top Metadata: Department Badge, Section Tag, Project Tag, Priority Indicator, Actions */}
+      <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.55rem' }}>
         <div className="card-tags-group" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
+          {/* Department Badge (YouGile Department Tag) */}
+          <span
+            className="badge-dept"
+            style={{
+              backgroundColor: `${deptMeta.color}18`,
+              color: deptMeta.color,
+              border: `1px solid ${deptMeta.color}44`,
+              fontWeight: 700,
+              fontSize: '0.67rem',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px'
+            }}
+            title={`Отдел: ${deptMeta.fullName || deptMeta.name}`}
+          >
+            <span>{deptMeta.icon}</span>
+            <span>{deptMeta.name}</span>
+          </span>
+
           {/* Main Project Section Badge (ВДН, ККС, МКЖ...) */}
           <span
             className="badge-section"
@@ -167,8 +193,8 @@ export function TaskCard({
           )}
         </div>
 
-        {/* Priority Dot & External Link button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+        {/* Priority Dot, Chat share button & External Link button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           {task.priority === 'urgent' && (
             <Flame size={14} style={{ color: '#ef4444' }} title="Высокий приоритет" />
           )}
@@ -177,6 +203,23 @@ export function TaskCard({
             style={{ backgroundColor: priorityMeta.color }}
             title={`Приоритет: ${priorityMeta.name}`}
           />
+
+          {/* Share to Chat button */}
+          {onShareToChat && (
+            <button
+              type="button"
+              className="btn-icon"
+              style={{ width: 20, height: 20, padding: 0, opacity: 0.65 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onShareToChat(task);
+              }}
+              title="Поделиться в чате отдела (YouGile)"
+            >
+              <MessageSquare size={12} />
+            </button>
+          )}
+
           <button
             type="button"
             className="btn-icon"
@@ -257,42 +300,49 @@ export function TaskCard({
         </a>
       )}
 
-      {/* Checklist Progress Bar */}
-      {totalChecklist > 0 && (
-        <div className="checklist-progress-bar-container">
-          <CheckSquare size={13} style={{ color: 'var(--text-muted)' }} />
-          <div className="checklist-bar-bg">
+      {/* Subtasks Progress Bar (YouGile Subtask Feature) */}
+      {totalSubtasks > 0 && (
+        <div className="card-checklist-group" style={{ margin: '0.45rem 0' }}>
+          <div className="card-checklist-stats" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: doneSubtasks === totalSubtasks ? '#10b981' : 'var(--text-muted)' }}>
+              <CheckSquare size={12} style={{ color: doneSubtasks === totalSubtasks ? '#10b981' : 'inherit' }} />
+              <span>Подзадачи: {doneSubtasks}/{totalSubtasks}</span>
+            </span>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: doneSubtasks === totalSubtasks ? '#10b981' : 'var(--text-dim)' }}>
+              {Math.round(subtasksPercent)}%
+            </span>
+          </div>
+          <div className="checklist-progress-bar">
             <div
-              className="checklist-bar-fill"
-              style={{ width: `${checklistPercent}%` }}
+              className="checklist-progress-fill"
+              style={{
+                width: `${subtasksPercent}%`,
+                backgroundColor: doneSubtasks === totalSubtasks ? '#10b981' : 'var(--accent-orange)'
+              }}
             />
           </div>
-          <span className="checklist-count-label">
-            {doneChecklist}/{totalChecklist}
-          </span>
         </div>
       )}
 
-      {/* ERP Info Tags Row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+      {/* ERP Meta Tags */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: '0.2rem 0', flexWrap: 'wrap' }}>
         {task.hours_spent && (
           <span
             style={{
+              fontSize: '0.68rem',
+              color: 'var(--accent-orange)',
+              fontWeight: 700,
+              background: 'rgba(255, 102, 0, 0.1)',
+              padding: '2px 5px',
+              borderRadius: '4px',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.25rem',
-              fontSize: '0.7rem',
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 600,
-              color: 'var(--accent-orange)',
-              background: 'rgba(255, 102, 0, 0.1)',
-              padding: '2px 6px',
-              borderRadius: '4px'
+              gap: '3px'
             }}
-            title="Затрачено времени на задачу"
+            title={`Списано часов: ${task.hours_spent}`}
           >
-            <Clock size={11} />
-            <span>{task.hours_spent} ч.</span>
+            <Clock size={10} />
+            <span>{task.hours_spent} ч</span>
           </span>
         )}
 
@@ -328,7 +378,7 @@ export function TaskCard({
         )}
       </div>
 
-      {/* Footer: Due date + Assignee (NO arrows!) */}
+      {/* Footer: Due date + Assignee */}
       <div className="card-footer">
         {/* Due Date Traffic Light Badge */}
         {deadlineBadge ? (

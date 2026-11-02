@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Users, Edit2, Check, Plus, Trash2, Palette, AlertCircle } from 'lucide-react';
+import { X, Users, Edit2, Check, Plus, Trash2, Palette, AlertCircle, Building2 } from 'lucide-react';
 import { playSound } from '../lib/sound';
+import { DEPARTMENTS } from '../lib/constants';
 
 const PRESET_COLORS = [
   { name: 'Оранжевый Уфанет', hex: '#ff6600' },
@@ -31,6 +32,7 @@ export function TeamModal({
 }) {
   const [editingId, setEditingId] = useState(null);
   const [nameInput, setNameInput] = useState('');
+  const [deptInput, setDeptInput] = useState('dept-design');
   const [roleInput, setRoleInput] = useState('');
   const [specialtyInput, setSpecialtyInput] = useState('');
   const [initialsInput, setInitialsInput] = useState('');
@@ -39,6 +41,7 @@ export function TeamModal({
   // Adding new member state
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newDept, setNewDept] = useState('dept-design');
   const [newRole, setNewRole] = useState('Инженер-проектировщик');
   const [newSpecialty, setNewSpecialty] = useState('ВОЛС');
   const [newInitials, setNewInitials] = useState('');
@@ -77,6 +80,7 @@ export function TeamModal({
   const handleStartEdit = (member) => {
     setEditingId(member.id);
     setNameInput(member.full_name || '');
+    setDeptInput(member.department_id || 'dept-design');
     setRoleInput(member.role || 'Инженер-проектировщик');
     setSpecialtyInput(member.specialty || '');
     setInitialsInput(member.initials || generateInitials(member.full_name));
@@ -93,6 +97,7 @@ export function TeamModal({
     onUpdateMember({
       ...member,
       full_name: nameInput.trim(),
+      department_id: deptInput,
       role: roleInput.trim(),
       specialty: specialtyInput.trim(),
       initials: finalInitials,
@@ -110,7 +115,9 @@ export function TeamModal({
     const newMember = {
       id: `uf-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       full_name: newName.trim(),
+      department_id: newDept,
       role: newRole.trim() || 'Инженер-проектировщик',
+      specialty: newSpecialty.trim(),
       initials: finalInitials,
       avatar_color: newColor
     };
