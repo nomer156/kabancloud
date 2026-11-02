@@ -326,7 +326,18 @@ export default function App() {
   // Active task for full-page Jira view
   const activeDetailTask = useMemo(() => {
     if (!detailTaskId) return null;
-    return tasks.find((t) => String(t.id) === String(detailTaskId)) || null;
+    const inState = tasks.find((t) => String(t.id) === String(detailTaskId) || String(t.display_id) === String(detailTaskId));
+    if (inState) return inState;
+    // Fallback to localStorage so task opened in new tab or reloaded is ALWAYS found!
+    try {
+      const raw = localStorage.getItem('ufanet_local_tasks_v3');
+      if (raw) {
+        const localList = JSON.parse(raw);
+        const inLocal = localList.find((t) => String(t.id) === String(detailTaskId) || String(t.display_id) === String(detailTaskId));
+        if (inLocal) return inLocal;
+      }
+    } catch {}
+    return null;
   }, [detailTaskId, tasks]);
 
   // Find member selected in filter
@@ -773,9 +784,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-root-shell" style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
-      {/* Left Column: Full Main Workspace */}
-      <div className="app-main-workspace" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div className="app-root-shell" style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
       {/* Detail Task Page (Jira view in new tab or direct link) */}
       {detailTaskId ? (
         activeDetailTask ? (
@@ -820,7 +829,7 @@ export default function App() {
         )
       ) : (
         <>
-          {/* Top Navigation Header */}
+          {/* Top Navigation Header (Spans full 100% width across the top) */}
           <Header
             tasks={tasks}
             teamMembers={teamMembers}
@@ -850,7 +859,7 @@ export default function App() {
             onOpenTaskFromNotification={handleOpenTaskFromNotification}
           />
 
-          {/* YouGile Department Switcher Bar */}
+          {/* YouGile Department Switcher Bar (Spans full 100% width) */}
           <DepartmentBar
             departments={departments}
             activeDepartmentId={activeDepartmentId}
@@ -861,7 +870,7 @@ export default function App() {
             tasks={tasks}
           />
 
-          {/* Filter and Search Bar */}
+          {/* Filter and Search Bar (Spans full 100% width) */}
           <FilterBar
             teamMembers={teamMembers}
             projects={projects}
@@ -884,10 +893,10 @@ export default function App() {
             activeDepartmentId={activeDepartmentId}
           />
 
-          {/* Main Workspace View: Board vs Monthly Report */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+          {/* Main Board Workspace Row: Columns Workspace + Chat Sidebar (At Column Level Down to Bottom) */}
+          <div className="board-workspace-row" style={{ flex: 1, minHeight: 0, display: 'flex', width: '100%', overflow: 'hidden', position: 'relative' }}>
             {activeView === 'board' ? (
-              <main className="board-container" style={{ flex: 1, minWidth: 0, overflowX: 'auto', display: 'flex' }}>
+              <main className="board-container" style={{ flex: 1, minWidth: 0, height: '100%', overflowX: 'auto', display: 'flex' }}>
                 {columns.map((col) => {
                   const colTasks = filteredTasks.filter((t) => t.status === col.id);
 
@@ -919,29 +928,27 @@ export default function App() {
                 theme={theme}
               />
             )}
+
+            {/* Chat Sidebar (Only inside workspace at column level, never pushes or covers header!) */}
+            <ChatSidebar
+              currentUser={currentUser}
+              departments={departments}
+              tasks={tasks}
+              teamMembers={teamMembers}
+              onOpenTask={(id) => {
+                window.location.hash = '#task/' + id;
+              }}
+              preQuotedTask={chatPreQuotedTask}
+              onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
+              isOpen={isChatSidebarOpen}
+              onToggleOpen={(open) => {
+                setIsChatSidebarOpen(open);
+                localStorage.setItem('kaban_chat_open', String(open));
+              }}
+            />
           </div>
         </>
       )}
-
-            </div>
-
-      {/* Right Column: Full-Height Docked Chat Sidebar (Stretches from very bottom to very top of screen 100vh!) */}
-      <ChatSidebar
-        currentUser={currentUser}
-        departments={departments}
-        tasks={tasks}
-        teamMembers={teamMembers}
-        onOpenTask={(id) => {
-          window.location.hash = '#task/' + id;
-        }}
-        preQuotedTask={chatPreQuotedTask}
-        onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
-        isOpen={isChatSidebarOpen}
-        onToggleOpen={(open) => {
-          setIsChatSidebarOpen(open);
-          localStorage.setItem('kaban_chat_open', String(open));
-        }}
-      />
 
       {/* Task Creation / Editing Modal */}
       <TaskModal

@@ -408,7 +408,7 @@ export function AuthModal({
               </div>
             </button>
 
-            {/* Cloud Access Notice Banner */}
+            {/* Moscow Branch Notice Banner */}
             <div
               style={{
                 padding: '0.65rem 0.85rem',
@@ -422,91 +422,20 @@ export function AuthModal({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '1.15rem' }}>☁️</span>
+                <span style={{ fontSize: '1.15rem' }}>📍</span>
                 <div>
                   <div style={{ fontSize: '0.79rem', fontWeight: 700, color: '#34d399' }}>
-                    Облачный доступ KabanCloud
+                    Московский филиал АО «Уфанет» • Открытый доступ
                   </div>
                   <div style={{ fontSize: '0.71rem', color: 'var(--text-muted, #94a3b8)' }}>
-                    Вход в 1 клик с любого устройства — просто выберите ваш профиль в списке ниже!
+                    Никаких скрытых паролей и рулетки! Выберите ваш профиль ниже для входа в 1 клик:
                   </div>
                 </div>
               </div>
               <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                Онлайн
+                {teamMembers.length} сотрудников
               </span>
             </div>
-
-            {/* Workstation PC Login Box */}
-            <form
-              onSubmit={handleLoginByPc}
-              style={{
-                padding: '0.75rem 0.9rem',
-                background: 'rgba(2, 132, 199, 0.08)',
-                border: '1px solid rgba(2, 132, 199, 0.3)',
-                borderRadius: 'var(--radius-md, 10px)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.55rem'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#38bdf8' }}>
-                  <Monitor size={15} />
-                  <span>Вход по номеру ПК (vlxproject..):</span>
-                </div>
-                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={rememberPc}
-                    onChange={(e) => setRememberPc(e.target.checked)}
-                    style={{ accentColor: 'var(--accent-orange)' }}
-                  />
-                  <span>Запомнить ПК</span>
-                </label>
-              </div>
-
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <input
-                  type="text"
-                  placeholder="Номер 04 или vlxproject04 (или выберите сотрудника ниже)..."
-                  value={pcInput}
-                  onChange={(e) => {
-                    setPcInput(e.target.value);
-                    setPcStatusMsg('');
-                  }}
-                  className="form-input"
-                  style={{
-                    flex: 1,
-                    background: 'var(--bg-secondary, #0f172a)',
-                    fontSize: '0.84rem',
-                    padding: '0.45rem 0.75rem',
-                    fontFamily: 'var(--font-mono, monospace)'
-                  }}
-                />
-
-                <button
-                  type="submit"
-                  disabled={!pcInput.trim()}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    borderColor: 'rgba(2, 132, 199, 0.4)',
-                    color: '#38bdf8'
-                  }}
-                >
-                  Войти по ПК
-                </button>
-              </div>
-
-              {pcStatusMsg && (
-                <div style={{ fontSize: '0.74rem', color: '#f59e0b', fontWeight: 600 }}>
-                  ⚠️ {pcStatusMsg}
-                </div>
-              )}
-            </form>
 
             {/* Department Filter Pills */}
             <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '2px' }}>
@@ -719,6 +648,76 @@ export function AuthModal({
                 </div>
               )}
             </div>
+
+            {/* Optional Quick Login by Workstation PC */}
+            <form
+              onSubmit={handleLoginByPc}
+              style={{
+                marginTop: '0.2rem',
+                padding: '0.65rem 0.85rem',
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px dashed var(--border-subtle, #334155)',
+                borderRadius: 'var(--radius-md, 10px)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-dim, #94a3b8)' }}>
+                  <Monitor size={14} />
+                  <span>Или быстрый вход по номеру ПК (если привязан):</span>
+                </div>
+                <label style={{ fontSize: '0.68rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={rememberPc}
+                    onChange={(e) => setRememberPc(e.target.checked)}
+                    style={{ accentColor: 'var(--accent-orange)' }}
+                  />
+                  <span>Запомнить ПК</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder="Номер ПК (например: 04 или vlxproject04)..."
+                  value={pcInput}
+                  onChange={(e) => {
+                    setPcInput(e.target.value);
+                    setPcStatusMsg('');
+                  }}
+                  className="form-input"
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-secondary, #0f172a)',
+                    fontSize: '0.8rem',
+                    padding: '0.35rem 0.65rem',
+                    fontFamily: 'var(--font-mono, monospace)'
+                  }}
+                />
+
+                <button
+                  type="submit"
+                  disabled={!pcInput.trim()}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    fontSize: '0.74rem',
+                    fontWeight: 700
+                  }}
+                >
+                  Войти по ПК
+                </button>
+              </div>
+
+              {pcStatusMsg && (
+                <div style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: 600 }}>
+                  ⚠️ {pcStatusMsg}
+                </div>
+              )}
+            </form>
           </div>
         )}
 

@@ -21,14 +21,22 @@ export function FilterBar({
   activeDepartmentId = 'all'
 }) {
   const isMyTasksActive = Boolean(currentUser && selectedAssigneeId === currentUser.id);
+  const [showAllBranch, setShowAllBranch] = React.useState(true);
 
+  // All Moscow branch members visible across all departments
   const displayedMembers = React.useMemo(() => {
-    if (activeDepartmentId && activeDepartmentId !== 'all') {
+    if (!showAllBranch && activeDepartmentId && activeDepartmentId !== 'all') {
       const inDept = teamMembers.filter((m) => (m.department_id || 'dept-design') === activeDepartmentId);
       if (inDept.length > 0) return inDept;
     }
+    // Put current department first, followed by other branch members
+    if (activeDepartmentId && activeDepartmentId !== 'all') {
+      const inDept = teamMembers.filter((m) => (m.department_id || 'dept-design') === activeDepartmentId);
+      const others = teamMembers.filter((m) => (m.department_id || 'dept-design') !== activeDepartmentId);
+      return [...inDept, ...others];
+    }
     return teamMembers;
-  }, [teamMembers, activeDepartmentId]);
+  }, [teamMembers, activeDepartmentId, showAllBranch]);
 
   const handleToggleMyTasks = () => {
     playSound('click');
@@ -62,8 +70,11 @@ export function FilterBar({
           <span>Мои задачи</span>
         </button>
 
-        {/* Team Avatars Bar */}
-        <div className="team-filter-list" title="Фильтр по сотруднику">
+        {/* Team Avatars Bar with Branch Indicator */}
+        <div className="team-filter-list" title="Фильтр по сотруднику (Московский филиал)">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingLeft: '4px', fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-dim)' }}>
+            <span>📍 Москва ({displayedMembers.length}):</span>
+          </div>
           <button
             type="button"
             className={`team-avatar-all ${!selectedAssigneeId ? 'selected' : ''}`}

@@ -94,9 +94,10 @@ export function TaskCard({
     window.open(`/#task/${task.id}`, '_blank');
   };
 
-  const handleMouseDown = (e) => {
+  const handleMiddleClick = (e) => {
     if (e.button === 1) { // Middle mouse wheel click!
       e.preventDefault();
+      e.stopPropagation();
       window.open(`/#task/${task.id}`, '_blank');
     }
   };
@@ -134,13 +135,17 @@ export function TaskCard({
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => onEdit(task)}
-      onMouseDown={handleMouseDown}
+      onMouseDown={handleMiddleClick}
+      onAuxClick={handleMiddleClick}
     >
       {/* Top Metadata: Department Badge, Section Tag, Project Tag, Priority Indicator, Actions */}
       <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.55rem' }}>
         <div className="card-tags-group" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
           {/* Smart Task ID (e.g. СВН.25261) */}
-          <span
+          <a
+            href={`#task/${task.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               fontFamily: 'var(--font-mono, monospace)',
               fontSize: '0.7rem',
@@ -152,12 +157,22 @@ export function TaskCard({
               border: '1px solid var(--border-subtle, rgba(255,255,255,0.14))',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '3px'
+              gap: '3px',
+              textDecoration: 'none',
+              cursor: 'pointer'
             }}
-            title={`Уникальный ID задачи: ${task.display_id || task.id}`}
+            onClick={(e) => {
+              if (!e.ctrlKey && !e.metaKey && e.button !== 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                onEdit(task);
+              }
+            }}
+            onAuxClick={handleMiddleClick}
+            title={`Уникальный ID задачи: ${task.display_id || task.id} (Колёсико мыши — в новой вкладке)`}
           >
             🏷️ {task.display_id || task.id}
-          </span>
+          </a>
 
           {/* Department Badge (YouGile Department Tag) */}
           <span
@@ -261,20 +276,40 @@ export function TaskCard({
             </button>
           )}
 
-          <button
-            type="button"
+          <a
+            href={`#task/${task.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="btn-icon"
-            style={{ width: 20, height: 20, padding: 0, opacity: 0.55 }}
-            onClick={handleOpenInNewTab}
+            style={{ width: 20, height: 20, padding: 0, opacity: 0.55, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: 'inherit' }}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            onAuxClick={handleMiddleClick}
             title="Открыть задачу в новой вкладке (Jira / колёсиком мыши)"
           >
             <ExternalLink size={12} />
-          </button>
+          </a>
         </div>
       </div>
 
-      {/* Title */}
-      <div className="card-title">{renderWithMentions(task.title, teamMembers)}</div>
+      {/* Title with native middle-click new tab support */}
+      <a
+        href={`#task/${task.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="card-title"
+        style={{ textDecoration: 'none', color: 'inherit', display: 'block', cursor: 'pointer' }}
+        onClick={(e) => {
+          if (!e.ctrlKey && !e.metaKey && e.button !== 1) {
+            e.preventDefault();
+            onEdit(task);
+          }
+        }}
+        onAuxClick={handleMiddleClick}
+      >
+        {renderWithMentions(task.title, teamMembers)}
+      </a>
 
       {/* Description Preview */}
       {task.description && (

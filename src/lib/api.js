@@ -22,7 +22,8 @@ import {
   INITIAL_TASKS, 
   DEFAULT_SECTIONS, 
   DEFAULT_COLUMNS, 
-  DEPARTMENTS 
+  DEPARTMENTS,
+  generateTaskDisplayId
 } from './constants';
 
 export const INITIAL_DEPARTMENTS = DEPARTMENTS;
@@ -326,55 +327,83 @@ export async function fetchServerInfo() {
 }
 
 // ------------------------------------------------------------------------------
-// TASKS API
+// TASKS API (BULLETPROOF PERSISTENCE & MERGING)
 // ------------------------------------------------------------------------------
 export async function fetchAllTasks() {
+  const localTasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
   try {
     const res = await fetch(`${API_BASE}/api/tasks`);
-    if (res.ok) {
-      const data = await res.json();
-      setLocalData(STORAGE_KEY_TASKS, data);
-      return data;
+    const serverTasks = await safeParseJson(res);
+    if (Array.isArray(serverTasks)) {
+      // Merge: keep local tasks that aren't on server yet, or update with newer server version
+      const serverMap = new Map(serverTasks.map((t) => [String(t.id), t]));
+      const localOnly = localTasks.filter((lt) => !serverMap.has(String(lt.id)));
+      const merged = [...serverTasks, ...localOnly];
+      setLocalData(STORAGE_KEY_TASKS, merged);
+      return merged;
     }
   } catch {}
-  return getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+  return localTasks;
 }
 
 export async function saveTask(task) {
-  const displayId = task.display_id || generateTaskDisplayId(task.section);
+  const genId = typeof generateTaskDisplayId === 'function' ? generateTaskDisplayId(task.section) : `${task.section || 'УФ'}.${Math.floor(10000 + Math.random() * 90000)}`;
+  const displayId = task.display_id || genId;
+  const id = task.id || `task-uf-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   const taskToSave = {
     ...task,
+    id,
     display_id: displayId,
-    participant_ids: Array.isArray(task.participant_ids) ? task.participant_ids : []
+    participant_ids: Array.isArray(task.participant_ids) ? task.participant_ids : [],
+    updated_at: new Date().toISOString()
   };
 
+  // 1. Immediately persist to localStorage first so it's NEVER lost
+  const localTasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+  const idx = localTasks.findIndex((t) => String(t.id) === String(id));
+  let updatedLocal;
+  if (idx >= 0) {
+    updatedLocal = [...localTasks];
+    updatedLocal[idx] = taskToSave;
+  } else {
+    updatedLocal = [taskToSave, ...localTasks];
+  }
+  setLocalData(STORAGE_KEY_TASKS, updatedLocal);
+
+  // 2. Sync to server in background
   try {
     const res = await fetch(`${API_BASE}/api/tasks`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(taskToSave)
     });
-    if (res.ok) return await res.json();
+    const saved = await safeParseJson(res);
+    if (saved && saved.id) {
+      const freshIndex = updatedLocal.findIndex((t) => String(t.id) === String(saved.id));
+      if (freshIndex >= 0) {
+        updatedLocal[freshIndex] = saved;
+      } else {
+        updatedLocal.unshift(saved);
+      }
+      setLocalData(STORAGE_KEY_TASKS, updatedLocal);
+      return saved;
+    }
   } catch {}
 
-  // Local fallback
-  const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
-  const id = taskToSave.id || `task-uf-${Date.now()}`;
-  const prepared = { ...taskToSave, id, updated_at: new Date().toISOString() };
-  const idx = tasks.findIndex((t) => t.id === id);
-  let updated;
-  if (idx >= 0) {
-    updated = [...tasks];
-    updated[idx] = prepared;
-  } else {
-    updated = [prepared, ...tasks];
-  }
-  setLocalData(STORAGE_KEY_TASKS, updated);
-  return prepared;
+  return taskToSave;
 }
 
 export async function bulkCreateTasks(tasksList) {
   if (!Array.isArray(tasksList) || tasksList.length === 0) return [];
+
+  const localTasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+  const created = tasksList.map((t, i) => ({
+    ...t,
+    id: t.id || `task-uf-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }));
+  setLocalData(STORAGE_KEY_TASKS, [...created, ...localTasks]);
 
   try {
     const res = await fetch(`${API_BASE}/api/tasks/bulk`, {
@@ -382,60 +411,52 @@ export async function bulkCreateTasks(tasksList) {
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ tasks: tasksList })
     });
-    if (res.ok) {
-      const data = await res.json();
-      return data.tasks || [];
+    const data = await safeParseJson(res);
+    if (data && data.tasks) {
+      return data.tasks;
     }
   } catch {}
 
-  // Local fallback
-  const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
-  const created = tasksList.map((t, i) => ({
-    ...t,
-    id: t.id || `task-uf-${Date.now()}-${i}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }));
-  setLocalData(STORAGE_KEY_TASKS, [...created, ...tasks]);
   return created;
 }
 
 export async function updateTaskStatus(taskId, status) {
+  const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+  let updatedTask = null;
+  const updated = tasks.map((t) => {
+    if (String(t.id) === String(taskId)) {
+      const completed_at = status === 'done' ? (t.completed_at || new Date().toISOString()) : t.completed_at;
+      updatedTask = { ...t, status, completed_at, updated_at: new Date().toISOString() };
+      return updatedTask;
+    }
+    return t;
+  });
+  setLocalData(STORAGE_KEY_TASKS, updated);
+
   try {
     const res = await fetch(`${API_BASE}/api/tasks/${taskId}/status`, {
       method: 'PATCH',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ status })
     });
-    if (res.ok) return await res.json();
+    const serverResult = await safeParseJson(res);
+    if (serverResult) return serverResult;
   } catch {}
 
-  // Local fallback
-  const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
-  const updated = tasks.map((t) => {
-    if (t.id === taskId) {
-      const completed_at = status === 'done' ? (t.completed_at || new Date().toISOString()) : t.completed_at;
-      return { ...t, status, completed_at, updated_at: new Date().toISOString() };
-    }
-    return t;
-  });
-  setLocalData(STORAGE_KEY_TASKS, updated);
-  return updated.find((t) => t.id === taskId);
+  return updatedTask || tasks.find((t) => String(t.id) === String(taskId));
 }
 
 export async function deleteTask(taskId) {
+  const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+  const updated = tasks.filter((t) => String(t.id) !== String(taskId));
+  setLocalData(STORAGE_KEY_TASKS, updated);
+
   try {
-    const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    await fetch(`${API_BASE}/api/tasks/${taskId}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
-    if (res.ok) return true;
   } catch {}
-
-  // Local fallback
-  const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
-  const updated = tasks.filter((t) => t.id !== taskId);
-  setLocalData(STORAGE_KEY_TASKS, updated);
   return true;
 }
 
@@ -443,15 +464,19 @@ export async function deleteTask(taskId) {
 // TEAM MEMBERS API
 // ------------------------------------------------------------------------------
 export async function fetchTeamMembers() {
+  const localMembers = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
   try {
     const res = await fetch(`${API_BASE}/api/members`);
-    if (res.ok) {
-      const data = await res.json();
-      setLocalData(STORAGE_KEY_MEMBERS, data);
-      return data;
+    const serverMembers = await safeParseJson(res);
+    if (Array.isArray(serverMembers) && serverMembers.length > 0) {
+      const serverMap = new Map(serverMembers.map((m) => [String(m.id), m]));
+      const localOnly = localMembers.filter((lm) => !serverMap.has(String(lm.id)));
+      const merged = [...serverMembers, ...localOnly];
+      setLocalData(STORAGE_KEY_MEMBERS, merged);
+      return merged;
     }
   } catch {}
-  return getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  return localMembers;
 }
 
 export async function saveTeamMember(member) {
@@ -809,31 +834,30 @@ export async function deleteDepartment(deptId) {
 }
 
 // ------------------------------------------------------------------------------
-// DEPARTMENT CHATS (YOUGILE CHAT FEATURE)
+// DEPARTMENT CHATS & DIRECT MESSAGES (YOUGILE CHAT FEATURE)
 // ------------------------------------------------------------------------------
 export async function fetchChatMessages(departmentId = 'dept-all') {
+  const chats = getLocalData(STORAGE_KEY_CHATS, {});
+  const localList = chats[departmentId] || [];
   try {
     const res = await fetch(`${API_BASE}/api/chats/${encodeURIComponent(departmentId)}`, {
       headers: getAuthHeaders()
     });
-    if (res.ok) return await res.json();
+    const serverList = await safeParseJson(res);
+    if (Array.isArray(serverList)) {
+      const serverIds = new Set(serverList.map((m) => m.id));
+      const localOnly = localList.filter((lm) => !serverIds.has(lm.id));
+      const merged = [...serverList, ...localOnly];
+      chats[departmentId] = merged;
+      setLocalData(STORAGE_KEY_CHATS, chats);
+      return merged;
+    }
   } catch {}
 
-  const chats = getLocalData(STORAGE_KEY_CHATS, {});
-  return chats[departmentId] || [];
+  return localList;
 }
 
 export async function sendChatMessage(departmentId = 'dept-all', { text, quoted_task }) {
-  try {
-    const res = await fetch(`${API_BASE}/api/chats/${encodeURIComponent(departmentId)}`, {
-      method: 'POST',
-      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ text, quoted_task })
-    });
-    if (res.ok) return await res.json();
-  } catch {}
-
-  // Local fallback
   const chats = getLocalData(STORAGE_KEY_CHATS, {});
   if (!chats[departmentId]) chats[departmentId] = [];
 
@@ -842,7 +866,7 @@ export async function sendChatMessage(departmentId = 'dept-all', { text, quoted_
   const currentUser = members.find((m) => m.id === currentUserId) || members[0];
 
   const newMsg = {
-    id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
     department_id: departmentId,
     user_id: currentUser?.id || 'anon',
     user_name: currentUser?.full_name || 'Сотрудник',
@@ -854,8 +878,30 @@ export async function sendChatMessage(departmentId = 'dept-all', { text, quoted_
     created_at: new Date().toISOString()
   };
 
+  // Immediate local save
   chats[departmentId].push(newMsg);
+  if (chats[departmentId].length > 500) {
+    chats[departmentId] = chats[departmentId].slice(-500);
+  }
   setLocalData(STORAGE_KEY_CHATS, chats);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/chats/${encodeURIComponent(departmentId)}`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ text, quoted_task })
+    });
+    const saved = await safeParseJson(res);
+    if (saved && saved.id) {
+      const idx = chats[departmentId].findIndex((m) => m.id === newMsg.id);
+      if (idx >= 0) {
+        chats[departmentId][idx] = saved;
+      }
+      setLocalData(STORAGE_KEY_CHATS, chats);
+      return saved;
+    }
+  } catch {}
+
   return newMsg;
 }
 

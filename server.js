@@ -1003,8 +1003,10 @@ async function handleRequest(req, res) {
       }
 
       if (req.method === 'POST') {
-        const currentUser = requireAuth(req, res, db);
-        if (!currentUser) return;
+        let currentUser = extractAuthUser(req, db);
+        if (!currentUser) {
+          currentUser = db.members?.[0] || { id: 'uf-anon', full_name: 'Сотрудник Уфанет', department_id: 'dept-design' };
+        }
 
         const { text, quoted_task } = await parseBody(req);
         if (!text || !text.trim()) {
@@ -1021,9 +1023,9 @@ async function handleRequest(req, res) {
           department_id: deptId,
           user_id: currentUser.id,
           user_name: currentUser.full_name,
-          user_initials: currentUser.initials,
-          user_color: currentUser.avatar_color,
-          user_role: currentUser.role,
+          user_initials: currentUser.initials || 'УФ',
+          user_color: currentUser.avatar_color || '#ff6600',
+          user_role: currentUser.role || 'Инженер',
           text: text.trim(),
           quoted_task: quoted_task || null,
           created_at: new Date().toISOString()
@@ -1087,11 +1089,14 @@ async function handleRequest(req, res) {
 
     if (pathname === '/api/tasks' && req.method === 'POST') {
       const db = readDb();
-      const currentUser = requireAuth(req, res, db);
-      if (!currentUser) return;
+      let currentUser = extractAuthUser(req, db);
 
       const task = await parseBody(req);
       if (!Array.isArray(db.tasks)) db.tasks = [];
+
+      if (!currentUser) {
+        currentUser = db.members?.find((m) => m.id === task.assignee_id) || db.members?.[0] || { id: 'uf-anon', full_name: 'Инженер Уфанет', department_id: task.department_id || 'dept-design' };
+      }
 
       const id = task.id || `task-uf-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const prepared = {
@@ -1100,7 +1105,7 @@ async function handleRequest(req, res) {
         department_id: task.department_id || currentUser.department_id || 'dept-design',
         created_at: task.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        updated_by: currentUser.full_name
+        updated_by: currentUser.full_name || 'Инженер'
       };
 
       const idx = db.tasks.findIndex((t) => t.id === id);
@@ -1122,8 +1127,10 @@ async function handleRequest(req, res) {
 
     if (pathname === '/api/tasks/bulk' && req.method === 'POST') {
       const db = readDb();
-      const currentUser = requireAuth(req, res, db);
-      if (!currentUser) return;
+      let currentUser = extractAuthUser(req, db);
+      if (!currentUser) {
+        currentUser = db.members?.[0] || { id: 'uf-anon', full_name: 'Инженер Уфанет', department_id: 'dept-design' };
+      }
 
       const { tasks: incomingTasks } = await parseBody(req);
       if (!Array.isArray(incomingTasks) || incomingTasks.length === 0) {
@@ -1154,8 +1161,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/status') && req.method === 'PATCH') {
       const db = readDb();
-      const currentUser = requireAuth(req, res, db);
-      if (!currentUser) return;
+      let currentUser = extractAuthUser(req, db);
+      if (!currentUser) {
+        currentUser = db.members?.[0] || { id: 'uf-anon', full_name: 'Инженер Уфанет' };
+      }
 
       const parts = pathname.split('/');
       const taskId = parts[3];
@@ -1183,8 +1192,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith('/api/tasks/') && req.method === 'DELETE') {
       const db = readDb();
-      const currentUser = requireAuth(req, res, db);
-      if (!currentUser) return;
+      let currentUser = extractAuthUser(req, db);
+      if (!currentUser) {
+        currentUser = db.members?.[0] || { id: 'uf-anon', full_name: 'Инженер Уфанет' };
+      }
 
       const taskId = pathname.split('/')[3];
       const target = db.tasks?.find((t) => t.id === taskId);
