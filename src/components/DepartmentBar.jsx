@@ -7,8 +7,7 @@ export function DepartmentBar({
   departments = DEPARTMENTS,
   activeDepartmentId = 'all',
   onSelectDepartment,
-  tasks = [],
-  onOpenChat
+  tasks = []
 }) {
   const totalTasksCount = tasks.length;
 
@@ -135,28 +134,6 @@ export function DepartmentBar({
         })}
       </div>
 
-      {/* Right: Department Chat Shortcut */}
-      {onOpenChat && (
-        <button
-          type="button"
-          onClick={() => {
-            playSound('click');
-            onOpenChat();
-          }}
-          className="btn btn-secondary"
-          style={{
-            padding: '0.38rem 0.75rem',
-            fontSize: '0.76rem',
-            gap: '6px',
-            flexShrink: 0,
-            border: '1px solid var(--accent-orange, #ff6600)33'
-          }}
-          title="Открыть корпоративный чат отдела (YouGile Chat)"
-        >
-          <MessageSquare size={14} style={{ color: 'var(--accent-orange, #ff6600)' }} />
-          <span>Чат отдела</span>
-        </button>
-      )}
-    </div>
+      </div>
   );
 }

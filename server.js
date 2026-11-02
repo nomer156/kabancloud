@@ -323,95 +323,7 @@ const DEFAULT_SEED = {
     'ТЦ «Планета»'
   ],
   members: DEFAULT_MEMBERS,
-  tasks: [
-    {
-      id: 'task-uf-1',
-      title: 'Трассировка кабельной канализации связи ККС',
-      department_id: 'dept-design',
-      project_code: 'мкр. Затон (Север)',
-      section: 'ККС',
-      status: 'in_progress',
-      priority: 'urgent',
-      assignee_id: 'uf-22222222-2222-2222-2222-222222222222',
-      due_date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-      network_link: '\\\\ufanet-server\\projects\\Затон\\Трасса_ККС.dwg',
-      description: 'Согласовать проход 4-отверстной трубы с городскими коммуникациями (водоканал, теплосети).',
-      checklist: [
-        { id: 'c1', text: 'Запросить топосъемку 1:500', done: true },
-        { id: 'c2', text: 'План расстановки колодцев ККС-2 и ККС-3', done: true },
-        { id: 'c3', text: 'Согласовать пересечения с водопроводом', done: false }
-      ],
-      created_at: new Date(Date.now() - 3 * 86400000).toISOString()
-    },
-    {
-      id: 'task-uf-w1',
-      title: 'Монтаж оптической муфты МТОК и сварка 48 ОВ на магистрали',
-      department_id: 'dept-welders',
-      project_code: 'мкр. Затон (Север)',
-      section: 'ККС',
-      status: 'in_progress',
-      priority: 'urgent',
-      assignee_id: 'uf-weld-1',
-      due_date: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
-      description: 'Разварка кабеля в колодце ККС №14. Контроль затухания.',
-      checklist: [
-        { id: 'cw1', text: 'Вскрытие и вентиляция колодца ККС', done: true },
-        { id: 'cw2', text: 'Сварка 48 ОВ в кассетах', done: true }
-      ],
-      created_at: new Date(Date.now() - 1 * 86400000).toISOString()
-    },
-    {
-      id: 'task-uf-r1',
-      title: 'Устранение затухания оптического волокна на участке Технопарк',
-      department_id: 'dept-rss',
-      project_code: 'Технопарк Уфа',
-      section: 'ККС',
-      status: 'in_progress',
-      priority: 'urgent',
-      assignee_id: 'uf-rss-2',
-      due_date: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
-      description: 'Аварийная заявка от ЦУС: скачок затухания на волокне №7 (+3.4 дБ).',
-      checklist: [
-        { id: 'cr1', text: 'Локализация места повреждения', done: true },
-        { id: 'cr2', text: 'Замена оптического адаптера SC/APC', done: false }
-      ],
-      created_at: new Date(Date.now() - 1 * 86400000).toISOString()
-    },
-    {
-      id: 'task-uf-sb1',
-      title: 'Согласование КП на 1 Гбит/с и 16 камер для БЦ «Салават»',
-      department_id: 'dept-sales-b2b',
-      project_code: 'ТЦ «Планета»',
-      section: 'ВДН',
-      status: 'review',
-      priority: 'urgent',
-      assignee_id: 'uf-salesb2b-1',
-      due_date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-      description: 'Подготовить расчет окупаемости и договор аренды волокон.',
-      checklist: [
-        { id: 'csb1', text: 'Запрос ТУ у отдела проектирования', done: true },
-        { id: 'csb2', text: 'Встреча с генеральным директором БЦ', done: false }
-      ],
-      created_at: new Date(Date.now() - 3 * 86400000).toISOString()
-    },
-    {
-      id: 'task-uf-sc1',
-      title: 'Сбор предзаказов на GPON в частном секторе (120 коттеджей)',
-      department_id: 'dept-sales-b2c',
-      project_code: 'мкр. Затон (Север)',
-      section: 'ЧС',
-      status: 'in_progress',
-      priority: 'urgent',
-      assignee_id: 'uf-salesb2c-1',
-      due_date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-      description: 'Подомовой обход ул. Озерная и Речная. Собрано 74 заявки.',
-      checklist: [
-        { id: 'csc1', text: 'Сбор контактов старших по улицам', done: true },
-        { id: 'csc2', text: 'Передача списка домов в проектирование', done: false }
-      ],
-      created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-    }
-  ],
+  tasks: [],
   notifications: [],
   chats: {
     'dept-all': [],
@@ -485,6 +397,34 @@ function migrateDbSchema(db) {
   } else {
     db.tasks = [...DEFAULT_SEED.tasks];
     modified = true;
+  }
+
+  // 3b. Ensure role_permissions matrix exists
+  if (!db.role_permissions || typeof db.role_permissions !== 'object') {
+    db.role_permissions = {
+      10: { can_manage_roles: true, can_manage_board_settings: true, can_manage_columns: true, can_manage_sections: true, can_create_task: true, can_edit_all_tasks: true, can_edit_own_tasks: true, can_delete_task: true, can_move_task: true, can_assign_members: true, can_chat: true, can_export_import: true },
+      8: { can_manage_roles: false, can_manage_board_settings: false, can_manage_columns: false, can_manage_sections: true, can_create_task: true, can_edit_all_tasks: true, can_edit_own_tasks: true, can_delete_task: true, can_move_task: true, can_assign_members: true, can_chat: true, can_export_import: true },
+      6: { can_manage_roles: false, can_manage_board_settings: false, can_manage_columns: false, can_manage_sections: false, can_create_task: true, can_edit_all_tasks: false, can_edit_own_tasks: true, can_delete_task: false, can_move_task: true, can_assign_members: false, can_chat: true, can_export_import: false },
+      3: { can_manage_roles: false, can_manage_board_settings: false, can_manage_columns: false, can_manage_sections: false, can_create_task: false, can_edit_all_tasks: false, can_edit_own_tasks: false, can_delete_task: false, can_move_task: false, can_assign_members: false, can_chat: true, can_export_import: false },
+      1: { can_manage_roles: false, can_manage_board_settings: false, can_manage_columns: false, can_manage_sections: false, can_create_task: false, can_edit_all_tasks: false, can_edit_own_tasks: false, can_delete_task: false, can_move_task: false, can_assign_members: false, can_chat: false, can_export_import: false }
+    };
+    modified = true;
+  }
+
+  // 3c. Ensure members have role_level
+  if (Array.isArray(db.members)) {
+    db.members.forEach((m) => {
+      if (!m.role_level) {
+        if (m.role && (m.role.includes('Начальник') || m.role.includes('ГИП') || m.role.includes('Бригадир') || m.role.includes('Руководитель'))) {
+          m.role_level = 10;
+        } else if (m.role && (m.role.includes('Ведущий') || m.role.includes('Старший') || m.role.includes('Мастер'))) {
+          m.role_level = 8;
+        } else {
+          m.role_level = 6;
+        }
+        modified = true;
+      }
+    });
   }
 
   // 4. Ensure chats structure exists
@@ -980,6 +920,38 @@ async function handleRequest(req, res) {
         res.end(JSON.stringify(messageObj));
         return;
       }
+    }
+
+    // ------------------ PERMISSIONS MATRIX API (LEVEL 10 EXCLUSIVE) ------------------ //
+    if (pathname === '/api/permissions' && req.method === 'GET') {
+      const db = readDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(db.role_permissions || null));
+      return;
+    }
+
+    if (pathname === '/api/permissions' && req.method === 'POST') {
+      const db = readDb();
+      const currentUser = requireAuth(req, res, db);
+      if (!currentUser) return;
+
+      const userLevel = Number(currentUser.role_level) || 6;
+      if (userLevel < 10) {
+        Logger.audit('PERMISSIONS_EDIT_FORBIDDEN', currentUser.id, { role_level: userLevel }, ip);
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Только начальник отдела (10 уровень) может изменять матрицу прав', code: 'FORBIDDEN' }));
+        return;
+      }
+
+      const incoming = await parseBody(req);
+      db.role_permissions = incoming;
+      writeDb(db);
+      broadcastEvent('PERMISSIONS_UPDATED', db.role_permissions);
+      Logger.audit('PERMISSIONS_MATRIX_SAVED', currentUser.id, {}, ip);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(db.role_permissions));
+      return;
     }
 
     // ------------------ TASKS API (PROTECTED WRITES) ------------------ //

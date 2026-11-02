@@ -40,7 +40,8 @@ import {
   KST_OPTIONS, 
   KIZM_OPTIONS, 
   KSL_OPTIONS,
-  DEPARTMENTS
+  DEPARTMENTS,
+  generateTaskDisplayId
 } from '../lib/constants';
 import { playSound } from '../lib/sound';
 import { MentionAutocompleteDropdown, extractMentionTargets, renderWithMentions } from '../lib/mentions';
@@ -105,6 +106,9 @@ export function TaskModal({
   const [isUploading, setIsUploading] = useState(false);
 
   // 2. Паспортные настройки & ЗП (Правая карточка)
+  const [displayId, setDisplayId] = useState(() => taskToEdit?.display_id || '');
+  const [participantIds, setParticipantIds] = useState(() => Array.isArray(taskToEdit?.participant_ids) ? taskToEdit.participant_ids : []);
+  const [newSubtaskAssignee, setNewSubtaskAssignee] = useState('');
   const [departmentId, setDepartmentId] = useState(() => taskToEdit?.department_id || currentUser?.department_id || 'dept-design');
   const [section, setSection] = useState('ВДН');
   const [projectCode, setProjectCode] = useState('');
@@ -266,10 +270,12 @@ export function TaskModal({
     const newItem = {
       id: `c-${Date.now()}`,
       text: newChecklistText.trim(),
+      assignee_id: newSubtaskAssignee || null,
       done: false
     };
     setChecklist([...checklist, newItem]);
     setNewChecklistText('');
+    setNewSubtaskAssignee('');
     playSound('click');
   };
 
@@ -572,7 +578,9 @@ export function TaskModal({
     const taskData = {
       ...(taskToEdit || {}),
       id: taskToEdit?.id,
+      display_id: (displayId || taskToEdit?.display_id || generateTaskDisplayId(section)).trim(),
       department_id: departmentId || 'dept-design',
+      participant_ids: participantIds || [],
       title: title.trim(),
       address: address.trim() || null,
       project_code: finalProject,

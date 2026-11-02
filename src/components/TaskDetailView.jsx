@@ -147,6 +147,8 @@ export function TaskDetailView({
   const [projectCode, setProjectCode] = useState(task?.project_code || '');
   const [section, setSection] = useState(task?.section || 'ВДН');
   const [status, setStatus] = useState(task?.status || 'backlog');
+  const [displayId, setDisplayId] = useState(task?.display_id || '');
+  const [participantIds, setParticipantIds] = useState(() => Array.isArray(task?.participant_ids) ? task.participant_ids : []);
   const [priority, setPriority] = useState(task?.priority || 'medium');
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id || '');
   const [dueDate, setDueDate] = useState(task?.due_date || '');
@@ -274,6 +276,8 @@ export function TaskDetailView({
     if (task && task.id !== currentLoadedTaskIdRef.current) {
       currentLoadedTaskIdRef.current = task.id;
       setDepartmentId(task.department_id || 'dept-design');
+      setDisplayId(task.display_id || '');
+      setParticipantIds(Array.isArray(task.participant_ids) ? task.participant_ids : []);
       setTitle(task.title || '');
       setProjectCode(task.project_code || '');
       setSection(task.section || 'ВДН');
@@ -645,6 +649,8 @@ export function TaskDetailView({
     const updatedTask = {
       ...task,
       department_id: extraOverrides.department_id !== undefined ? extraOverrides.department_id : departmentId,
+      display_id: extraOverrides.display_id !== undefined ? extraOverrides.display_id : (displayId || task.display_id || ''),
+      participant_ids: extraOverrides.participant_ids !== undefined ? extraOverrides.participant_ids : participantIds,
       title: extraOverrides.title !== undefined ? extraOverrides.title.trim() : title.trim(),
       address: extraOverrides.address !== undefined ? (extraOverrides.address ? extraOverrides.address.trim() : null) : (address.trim() || null),
       project_code: extraOverrides.project_code !== undefined ? extraOverrides.project_code : projectCode,
@@ -1808,7 +1814,7 @@ export function TaskDetailView({
           <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
             <div style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-dim)', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>Параметры задачи</span>
-              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>#{task.id}</span>
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-orange)', fontWeight: 800 }}>🏷️ {task.display_id || task.id}</span>
             </div>
 
             {/* Status (Column) with colored dot */}
@@ -1905,6 +1911,67 @@ export function TaskDetailView({
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Соисполнители / Участники из других отделов */}
+            <div className="form-group">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Users size={13} style={{ color: '#8b5cf6' }} />
+                  <span>Соисполнители (все отделы)</span>
+                </label>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                  {participantIds.length} выбрано
+                </span>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '4px',
+                  maxHeight: '105px',
+                  overflowY: 'auto',
+                  padding: '6px',
+                  background: 'var(--bg-card)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
+                {teamMembers.map((m) => {
+                  const isSelected = participantIds.includes(m.id);
+                  const dMeta = DEPARTMENTS.find((d) => d.id === m.department_id) || DEPARTMENTS[0];
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        const next = isSelected ? participantIds.filter((id) => id !== m.id) : [...participantIds, m.id];
+                        setParticipantIds(next);
+                        handleSaveAll({ participant_ids: next });
+                        playSound('click');
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '2px 7px',
+                        borderRadius: '5px',
+                        border: isSelected ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                        background: isSelected ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
+                        color: isSelected ? '#c4b5fd' : 'var(--text-muted)',
+                        fontSize: '0.72rem',
+                        fontWeight: isSelected ? 800 : 500,
+                        cursor: 'pointer'
+                      }}
+                      title={`${m.full_name} (${dMeta.name})`}
+                    >
+                      <span>{dMeta.icon}</span>
+                      <span>{m.full_name}</span>
+                      {isSelected && <span>✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Section / Mark with vivid badge */}

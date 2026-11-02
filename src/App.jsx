@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { COLUMNS, DEFAULT_COLUMNS, DEPARTMENTS } from './lib/constants';
+import { COLUMNS, DEFAULT_COLUMNS, DEPARTMENTS, DEFAULT_PERMISSIONS, hasPermission } from './lib/constants';
 import { 
   fetchAllTasks, 
   saveTask, 
@@ -23,12 +23,13 @@ import {
   markAllNotificationsRead,
   deleteNotification,
   bulkCreateTasks,
-  logoutUser
+  logoutUser,
+  fetchPermissions
 } from './lib/api';
 import { playSound } from './lib/sound';
 import { Header } from './components/Header';
 import { DepartmentBar } from './components/DepartmentBar';
-import { DepartmentChatModal } from './components/DepartmentChatModal';
+import { ChatSidebar } from './components/ChatSidebar';
 import { FilterBar } from './components/FilterBar';
 import { KanbanColumn } from './components/KanbanColumn';
 import { TaskModal } from './components/TaskModal';
@@ -79,6 +80,8 @@ export default function App() {
   const [departments, setDepartments] = useState(DEPARTMENTS);
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => localStorage.getItem('kaban_active_department') || 'all');
   const [currentUser, setCurrentUser] = useState(null);
+  const [permissionsMatrix, setPermissionsMatrix] = useState(DEFAULT_PERMISSIONS);
+  const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(() => localStorage.getItem('kaban_chat_open') !== 'false');
   const [loading, setLoading] = useState(true);
 
   // Filters state
@@ -130,14 +133,15 @@ export default function App() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns, loadedNotifs, loadedDepts] = await Promise.all([
+      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns, loadedNotifs, loadedDepts, loadedPerms] = await Promise.all([
         fetchAllTasks(),
         fetchTeamMembers(),
         fetchProjectsList(),
         fetchSectionsList(),
         fetchColumnsList(),
         fetchNotifications(),
-        fetchDepartments()
+        fetchDepartments(),
+        fetchPermissions()
       ]);
 
       setTasks(loadedTasks || []);
@@ -147,6 +151,7 @@ export default function App() {
       setColumns(loadedColumns && loadedColumns.length > 0 ? loadedColumns : DEFAULT_COLUMNS || COLUMNS);
       setNotifications(loadedNotifs || []);
       setDepartments(loadedDepts && loadedDepts.length > 0 ? loadedDepts : DEPARTMENTS);
+      if (loadedPerms) setPermissionsMatrix(loadedPerms);
 
       // Restore current user from localStorage if exists
       const savedUserId = localStorage.getItem('kaban_current_user_id');
@@ -204,6 +209,8 @@ export default function App() {
         setColumns(event.payload);
       } else if (event.type === 'DEPARTMENTS_UPDATED') {
         setDepartments(event.payload);
+      } else if (event.type === 'PERMISSIONS_UPDATED') {
+        setPermissionsMatrix(event.payload);
       } else if (event.type === 'NEW_CHAT_MESSAGE') {
         const { message } = event.payload || {};
         if (message && message.user_id !== currentUserRef.current?.id) {
@@ -270,10 +277,12 @@ export default function App() {
   // Filter tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      // 0. Department filter
+      // 0. Department filter (includes cross-department collaborative tasks)
       if (activeDepartmentId && activeDepartmentId !== 'all') {
         const taskDept = task.department_id || 'dept-design';
-        if (taskDept !== activeDepartmentId) {
+        const isParticipant = Array.isArray(task.participant_ids) && currentUser && task.participant_ids.includes(currentUser.id) && (currentUser.department_id === activeDepartmentId);
+        const isAssignee = currentUser && task.assignee_id === currentUser.id && (currentUser.department_id === activeDepartmentId);
+        if (taskDept !== activeDepartmentId && !isParticipant && !isAssignee) {
           return false;
         }
       }
@@ -313,6 +322,10 @@ export default function App() {
 
   // Handle Drag & Drop move
   const handleDropTask = async (taskId, newStatus) => {
+    if (!hasPermission(currentUser, 'can_move_task', permissionsMatrix)) {
+      showToast('У вашего уровня доступа нет прав на перемещение карточек', '🔒');
+      return;
+    }
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === newStatus) return;
 
@@ -377,6 +390,10 @@ export default function App() {
   // YouGile Inline Task Creation in any Column
   const handleInlineCreateTask = async (columnId, title) => {
     if (!title || !title.trim()) return;
+    if (!hasPermission(currentUser, 'can_create_task', permissionsMatrix)) {
+      showToast('У вашего уровня доступа нет прав на создание задач', '🔒');
+      return;
+    }
     const dept = activeDepartmentId !== 'all' ? activeDepartmentId : (currentUser?.department_id || 'dept-design');
     const newTask = {
       id: `task-uf-${Date.now()}`,
@@ -395,7 +412,7 @@ export default function App() {
   // YouGile Share Task to Chat
   const handleShareTaskToChat = (task) => {
     setChatPreQuotedTask(task);
-    setIsChatModalOpen(true);
+    setIsChatSidebarOpen(true);
     playSound('click');
   };
 
@@ -684,7 +701,6 @@ export default function App() {
             onOpenColumnsModal={() => setIsColumnsModalOpen(true)}
             onOpenImportModal={() => setIsImportModalOpen(true)}
             onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
-            onOpenChat={() => setIsChatModalOpen(true)}
             activeView={activeView}
             onSelectView={setActiveView}
             notifications={notifications}
@@ -703,7 +719,6 @@ export default function App() {
               localStorage.setItem('kaban_active_department', id);
             }}
             tasks={tasks}
-            onOpenChat={() => setIsChatModalOpen(true)}
           />
 
           {/* Filter and Search Bar */}
@@ -731,26 +746,46 @@ export default function App() {
 
           {/* Main View: Board vs Monthly Report */}
           {activeView === 'board' ? (
-            <main className="board-container">
-              {columns.map((col) => {
-                const colTasks = filteredTasks.filter((t) => t.status === col.id);
+            <div className="board-and-sidebar-workspace" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <main className="board-container" style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                {columns.map((col) => {
+                  const colTasks = filteredTasks.filter((t) => t.status === col.id);
 
-                return (
-                  <KanbanColumn
-                    key={col.id}
-                    column={col}
-                    tasks={colTasks}
-                    teamMembers={teamMembers}
-                    sections={sections}
-                    onEditTask={handleEditTask}
-                    onQuickAddTask={handleQuickAdd}
-                    onInlineCreateTask={handleInlineCreateTask}
-                    onShareToChat={handleShareTaskToChat}
-                    onDropTask={handleDropTask}
-                  />
-                );
-              })}
-            </main>
+                  return (
+                    <KanbanColumn
+                      key={col.id}
+                      column={col}
+                      tasks={colTasks}
+                      teamMembers={teamMembers}
+                      sections={sections}
+                      onEditTask={handleEditTask}
+                      onQuickAddTask={handleQuickAdd}
+                      onInlineCreateTask={handleInlineCreateTask}
+                      onShareToChat={handleShareTaskToChat}
+                      onDropTask={handleDropTask}
+                    />
+                  );
+                })}
+              </main>
+
+              {/* Right Embedded Sidebar Chat (YouGile Right Dock Panel) */}
+              <ChatSidebar
+                currentUser={currentUser}
+                departments={departments}
+                tasks={tasks}
+                teamMembers={teamMembers}
+                onOpenTask={(id) => {
+                  window.location.hash = '#task/' + id;
+                }}
+                preQuotedTask={chatPreQuotedTask}
+                onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
+                isOpen={isChatSidebarOpen}
+                onToggleOpen={(open) => {
+                  setIsChatSidebarOpen(open);
+                  localStorage.setItem('kaban_chat_open', String(open));
+                }}
+              />
+            </div>
           ) : (
             <MonthlyReport
               tasks={tasks}
@@ -838,23 +873,7 @@ export default function App() {
         showToast={showToast}
       />
 
-      {/* YouGile Department Chat Modal with Task Quoting */}
-      <DepartmentChatModal
-        isOpen={isChatModalOpen}
-        onClose={() => {
-          setIsChatModalOpen(false);
-          setChatPreQuotedTask(null);
-        }}
-        currentUser={currentUser}
-        activeDepartmentId={activeDepartmentId}
-        departments={departments}
-        tasks={tasks}
-        onOpenTask={(id) => {
-          setIsChatModalOpen(false);
-          window.location.hash = '#task/' + id;
-        }}
-        preQuotedTask={chatPreQuotedTask}
-      />
+
 
       {/* Auth Modal (can be opened as dialog to switch profile or re-auth) */}
       <AuthModal

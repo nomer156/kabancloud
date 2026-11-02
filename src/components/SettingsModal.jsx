@@ -14,7 +14,8 @@ import {
   FileText
 } from 'lucide-react';
 import { playSound } from '../lib/sound';
-import { fetchDepartments, saveDepartment, deleteDepartment, fetchFeedback, sendFeedback } from '../lib/api';
+import { fetchDepartments, saveDepartment, deleteDepartment, fetchFeedback, sendFeedback, fetchPermissions, savePermissions } from '../lib/api';
+import { ROLE_LEVELS, PERMISSION_DEFINITIONS, DEFAULT_PERMISSIONS, hasPermission } from '../lib/constants';
 
 export function SettingsModal({
   isOpen,
@@ -22,7 +23,10 @@ export function SettingsModal({
   currentUser,
   showToast
 }) {
-  const [activeTab, setActiveTab] = useState('feedback'); // 'feedback' or 'departments'
+  const [activeTab, setActiveTab] = useState('feedback'); // 'feedback' | 'departments' | 'permissions'
+  const [permissionsMatrix, setPermissionsMatrix] = useState(DEFAULT_PERMISSIONS);
+  const [permsSaving, setPermsSaving] = useState(false);
+  const [permsSaved, setPermsSaved] = useState(false);
   
   // Departments state
   const [departments, setDepartments] = useState([]);
@@ -42,7 +46,9 @@ export function SettingsModal({
     if (isOpen) {
       loadDepartments();
       loadFeedback();
+      loadPerms();
       setFeedbackSuccess(false);
+      setPermsSaved(false);
     }
   }, [isOpen]);
 
@@ -64,6 +70,42 @@ export function SettingsModal({
       setFeedbackList(data || []);
     } catch (err) {
       console.error('Ошибка загрузки списка пожеланий:', err);
+    }
+  };
+
+  const loadPerms = async () => {
+    try {
+      const data = await fetchPermissions();
+      if (data) setPermissionsMatrix(data);
+    } catch {}
+  };
+
+  const handleTogglePermission = (lvl, permKey) => {
+    if (Number(lvl) >= 10) return; // Level 10 always has full access
+    setPermissionsMatrix((prev) => {
+      const lvlPerms = prev[lvl] || {};
+      return {
+        ...prev,
+        [lvl]: {
+          ...lvlPerms,
+          [permKey]: !lvlPerms[permKey]
+        }
+      };
+    });
+  };
+
+  const handleSavePerms = async () => {
+    setPermsSaving(true);
+    try {
+      await savePermissions(permissionsMatrix);
+      setPermsSaved(true);
+      playSound('success');
+      if (showToast) showToast('Матрица прав и уровней доступа обновлена!');
+      setTimeout(() => setPermsSaved(false), 3000);
+    } catch (err) {
+      console.error('Ошибка сохранения прав:', err);
+    } finally {
+      setPermsSaving(false);
     }
   };
 
@@ -260,6 +302,19 @@ export function SettingsModal({
             <Building2 size={15} />
             <span>Отделы компании (архитектура)</span>
           </button>
+
+          <button
+            type="button"
+            className={`btn ${activeTab === 'permissions' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem', gap: '6px' }}
+            onClick={() => {
+              setActiveTab('permissions');
+              playSound('click');
+            }}
+          >
+            <ShieldCheck size={15} />
+            <span>Роли и уровни (1..10)</span>
+          </button>
         </div>
 
         {/* Modal Body */}
@@ -436,6 +491,141 @@ export function SettingsModal({
                   </div>
                 </div>
               )}
+            </div>
+          ) : activeTab === 'permissions' ? (
+            /* TAB: PERMISSIONS & ROLE LEVELS (1..10) */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Header explanation */}
+              <div
+                style={{
+                  background: 'rgba(255, 102, 0, 0.08)',
+                  border: '1px solid rgba(255, 102, 0, 0.25)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.85rem 1.1rem',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem'
+                }}
+              >
+                <ShieldCheck size={22} style={{ color: 'var(--accent-orange)', flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Иерархическая матрица прав доступа филиала (1–10 уровни)
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.45 }}>
+                    Начальник отдела (10 уровень) имеет полный доступ ко всем функциям и может настраивать разрешения для инженеров, ведущих специалистов и стажеров.
+                  </div>
+                </div>
+              </div>
+
+              {/* Roles levels overview chips */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.5rem' }}>
+                {ROLE_LEVELS.map((rl) => {
+                  const isMyLevel = Number(currentUser?.role_level) === rl.level;
+                  return (
+                    <div
+                      key={rl.level}
+                      style={{
+                        padding: '0.65rem 0.8rem',
+                        borderRadius: '8px',
+                        background: isMyLevel ? 'rgba(255,102,0,0.12)' : 'var(--bg-secondary)',
+                        border: isMyLevel ? '2px solid var(--accent-orange)' : '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '3px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: rl.badgeColor, background: `${rl.badgeColor}22`, padding: '1px 6px', borderRadius: '4px' }}>
+                          Уровень {rl.level}
+                        </span>
+                        {isMyLevel && <span style={{ fontSize: '0.66rem', color: 'var(--accent-orange)', fontWeight: 800 }}>Ваш уровень</span>}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
+                        {rl.name}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', lineHeight: 1.3 }}>
+                        {rl.desc}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Permissions matrix table */}
+              <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <th style={{ padding: '0.6rem 0.8rem', color: 'var(--text-muted)' }}>Разрешение / Функция</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#ef4444' }}>Ур. 10 (Нач.)</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#f97316' }}>Ур. 8 (Вед.)</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#0284c7' }}>Ур. 6 (Инж.)</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#10b981' }}>Ур. 3 (Стаж.)</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#64748b' }}>Ур. 1 (Гость)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PERMISSION_DEFINITIONS.map((def, idx) => (
+                      <tr
+                        key={def.key}
+                        style={{
+                          borderBottom: '1px solid var(--border-subtle)',
+                          background: idx % 2 === 0 ? 'var(--bg-secondary)' : 'transparent'
+                        }}
+                      >
+                        <td style={{ padding: '0.5rem 0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                          {def.name}
+                        </td>
+
+                        {[10, 8, 6, 3, 1].map((lvl) => {
+                          const isAllowed = lvl === 10 ? true : Boolean(permissionsMatrix[lvl]?.[def.key]);
+                          const isChief = Number(currentUser?.role_level) >= 10;
+                          return (
+                            <td key={lvl} style={{ padding: '0.5rem', textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={isAllowed}
+                                disabled={lvl === 10 || !isChief}
+                                onChange={() => handleTogglePermission(lvl, def.key)}
+                                style={{
+                                  cursor: (lvl === 10 || !isChief) ? 'default' : 'pointer',
+                                  accentColor: 'var(--accent-orange, #ff6600)',
+                                  width: 15,
+                                  height: 15
+                                }}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Actions footer */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.4rem' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>
+                  {Number(currentUser?.role_level) >= 10 ? (
+                    <span style={{ color: '#10b981' }}>✓ Вы начальник отдела: можете изменять флаги матрицы</span>
+                  ) : (
+                    <span>🔒 Только начальник отдела (10 уровень) может сохранять изменения</span>
+                  )}
+                </div>
+
+                {Number(currentUser?.role_level) >= 10 && (
+                  <button
+                    type="button"
+                    onClick={handleSavePerms}
+                    disabled={permsSaving}
+                    className="btn btn-primary"
+                    style={{ padding: '0.45rem 1rem', fontSize: '0.8rem', gap: '6px' }}
+                  >
+                    <span>{permsSaving ? 'Сохранение...' : permsSaved ? '✓ Сохранено!' : 'Сохранить матрицу прав'}</span>
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             /* TAB: DEPARTMENTS */

@@ -42,7 +42,6 @@ export function Header({
   onOpenColumnsModal,
   onOpenImportModal,
   onOpenSettingsModal,
-  onOpenChat,
   activeView,
   onSelectView,
   notifications = [],
@@ -240,21 +239,7 @@ export function Header({
           );
         })()}
 
-        {/* YouGile Department Chat Button */}
-        {onOpenChat && (
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={() => {
-              playSound('click');
-              onOpenChat();
-            }}
-            title="Корпоративный чат отделов (YouGile)"
-            style={{ color: 'var(--accent-orange, #ff6600)' }}
-          >
-            <MessageSquare size={18} />
-          </button>
-        )}
+
 
         {/* Notifications & Mentions Center (Bell Icon) */}
         <div style={{ position: 'relative' }}>

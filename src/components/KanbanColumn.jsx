@@ -110,76 +110,116 @@ export function KanbanColumn({
         </button>
       </div>
 
-      {/* Inline Quick Add Form (YouGile style) */}
-      {isAddingInline && (
-        <div
-          style={{
-            margin: '0.5rem 0.65rem 0.75rem 0.65rem',
-            padding: '0.65rem 0.75rem',
-            background: 'var(--bg-card, #1c2233)',
-            border: '1.5px solid var(--accent-orange, #ff6600)',
-            borderRadius: 'var(--radius-md, 10px)',
-            boxShadow: '0 4px 16px rgba(255, 102, 0, 0.2)'
-          }}
-        >
-          <textarea
-            ref={inputRef}
-            rows={2}
-            placeholder="Что нужно сделать? Введите название и нажмите Enter..."
-            value={inlineTitle}
-            onChange={(e) => setInlineTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
+      {/* Top Action Area: Inline Form or Top "+ Добавить задачу" Button */}
+      <div style={{ padding: '0.45rem 0.65rem 0.25rem 0.65rem' }}>
+        {isAddingInline ? (
+          /* Inline Quick Add Form (At the TOP of column) */
+          <div
             style={{
-              width: '100%',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-main, #f8fafc)',
-              fontSize: '0.84rem',
-              resize: 'none',
-              outline: 'none',
-              fontFamily: 'inherit'
+              padding: '0.65rem 0.75rem',
+              background: 'var(--bg-card, #1c2233)',
+              border: '1.5px solid var(--accent-orange, #ff6600)',
+              borderRadius: 'var(--radius-md, 10px)',
+              boxShadow: '0 4px 16px rgba(255, 102, 0, 0.25)',
+              animation: 'fadeIn 0.15s ease'
             }}
-          />
+          >
+            <textarea
+              ref={inputRef}
+              rows={2}
+              placeholder="Что нужно сделать? Введите название и нажмите Enter..."
+              value={inlineTitle}
+              onChange={(e) => setInlineTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-main, #f8fafc)',
+                fontSize: '0.84rem',
+                resize: 'none',
+                outline: 'none',
+                fontFamily: 'inherit'
+              }}
+            />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.45rem', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.45rem', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={handleSubmitInline}
+                  disabled={!inlineTitle.trim()}
+                  className="btn btn-primary"
+                  style={{ padding: '0.35rem 0.65rem', fontSize: '0.74rem', gap: '4px' }}
+                >
+                  <span>Добавить</span>
+                  <ArrowRight size={12} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCancelInline();
+                    onQuickAddTask(column.id);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ padding: '0.35rem 0.65rem', fontSize: '0.74rem' }}
+                  title="Открыть полную карточку с подробными параметрами"
+                >
+                  Развернуть ↗
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={handleSubmitInline}
-                disabled={!inlineTitle.trim()}
-                className="btn btn-primary"
-                style={{ padding: '0.35rem 0.65rem', fontSize: '0.74rem', gap: '4px' }}
+                onClick={handleCancelInline}
+                className="btn-icon"
+                style={{ width: 24, height: 24, padding: 0 }}
+                title="Отмена (Esc)"
               >
-                <span>Добавить</span>
-                <ArrowRight size={12} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleCancelInline();
-                  onQuickAddTask(column.id);
-                }}
-                className="btn btn-secondary"
-                style={{ padding: '0.35rem 0.65rem', fontSize: '0.74rem' }}
-                title="Открыть полную карточку с подробными параметрами"
-              >
-                Развернуть ↗
+                <X size={14} />
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleCancelInline}
-              className="btn-icon"
-              style={{ width: 24, height: 24, padding: 0 }}
-              title="Отмена (Esc)"
-            >
-              <X size={14} />
-            </button>
           </div>
-        </div>
-      )}
+        ) : (
+          /* YouGile Column TOP "+ Добавить задачу" Button */
+          <button
+            type="button"
+            onClick={handleStartInline}
+            className="column-add-task-top-btn"
+            style={{
+              width: '100%',
+              padding: '0.55rem 0.75rem',
+              borderRadius: 'var(--radius-md, 8px)',
+              border: '1px dashed var(--border-subtle, rgba(255,255,255,0.15))',
+              background: 'rgba(255, 255, 255, 0.02)',
+              color: 'var(--text-muted, #94a3b8)',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-orange, #ff6600)';
+              e.currentTarget.style.background = 'rgba(255, 102, 0, 0.1)';
+              e.currentTarget.style.color = 'var(--accent-orange, #ff6600)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-subtle, rgba(255,255,255,0.15))';
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+              e.currentTarget.style.color = 'var(--text-muted, #94a3b8)';
+            }}
+            title="Быстро создать задачу в начале колонки"
+          >
+            <Plus size={15} style={{ color: 'var(--accent-orange, #ff6600)' }} />
+            <span>Добавить задачу</span>
+          </button>
+        )}
+      </div>
 
       {/* Cards List */}
       <div className="column-cards-list">
@@ -195,50 +235,11 @@ export function KanbanColumn({
           />
         ))}
 
-        {tasks.length === 0 && !isAddingInline && (
+        {tasks.length === 0 && (
           <div className="column-empty-state">
             <Inbox size={24} style={{ opacity: 0.3 }} />
             <span>В этой колонке нет задач</span>
           </div>
-        )}
-
-        {/* YouGile Column Bottom Quick Add Button */}
-        {!isAddingInline && (
-          <button
-            type="button"
-            onClick={handleStartInline}
-            className="column-add-task-btn"
-            style={{
-              width: '100%',
-              margin: '0.45rem 0',
-              padding: '0.6rem 0.8rem',
-              borderRadius: 'var(--radius-md, 8px)',
-              border: '1px dashed var(--border-subtle, rgba(255,255,255,0.12))',
-              background: 'transparent',
-              color: 'var(--text-muted, #94a3b8)',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--accent-orange, #ff6600)';
-              e.currentTarget.style.background = 'rgba(255, 102, 0, 0.08)';
-              e.currentTarget.style.color = 'var(--accent-orange, #ff6600)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-subtle, rgba(255,255,255,0.12))';
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--text-muted, #94a3b8)';
-            }}
-          >
-            <Plus size={15} />
-            <span>Добавить задачу</span>
-          </button>
         )}
       </div>
     </div>

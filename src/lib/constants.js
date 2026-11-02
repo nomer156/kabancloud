@@ -275,6 +275,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Алексей Смирнов',
     department_id: 'dept-design',
     role: 'Начальник отдела проектирования / ГИП',
+    role_level: 10,
     initials: 'АС',
     avatar_color: '#ff6600',
     specialty: 'ГИП'
@@ -284,6 +285,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Мария Воронова',
     department_id: 'dept-design',
     role: 'Ведущий инженер ВОЛС',
+    role_level: 8,
     initials: 'МВ',
     avatar_color: '#ff8800',
     specialty: 'ВОЛС'
@@ -293,6 +295,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Дмитрий Ковалёв',
     department_id: 'dept-design',
     role: 'Инженер СКС и передачи данных',
+    role_level: 6,
     initials: 'ДК',
     avatar_color: '#0284c7',
     specialty: 'СКС'
@@ -302,6 +305,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Елена Васильева',
     department_id: 'dept-design',
     role: 'Инженер видеонаблюдения и СКУД',
+    role_level: 6,
     initials: 'ЕВ',
     avatar_color: '#10b981',
     specialty: 'ВН'
@@ -313,6 +317,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Ильдар Басыров',
     department_id: 'dept-welders',
     role: 'Бригадир сварщиков ВОЛС',
+    role_level: 10,
     initials: 'ИБ',
     avatar_color: '#f59e0b',
     specialty: 'Муфты МТОК'
@@ -322,6 +327,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Руслан Хабибов',
     department_id: 'dept-welders',
     role: 'Мастер-сварщик оптических линий',
+    role_level: 8,
     initials: 'РХ',
     avatar_color: '#d97706',
     specialty: 'Сварка ОВ'
@@ -331,6 +337,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Артур Гареев',
     department_id: 'dept-welders',
     role: 'Инженер-рефлектометрист',
+    role_level: 6,
     initials: 'АГ',
     avatar_color: '#f97316',
     specialty: 'Рефлектометрия'
@@ -342,6 +349,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Михаил Ахметов',
     department_id: 'dept-rss',
     role: 'Начальник участка РСС',
+    role_level: 10,
     initials: 'МА',
     avatar_color: '#0284c7',
     specialty: 'ЛКС / Эксплуатация'
@@ -351,6 +359,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Денис Фёдоров',
     department_id: 'dept-rss',
     role: 'Инженер эксплуатации сетей связи',
+    role_level: 8,
     initials: 'ДФ',
     avatar_color: '#0ea5e9',
     specialty: 'Аварийная служба'
@@ -360,6 +369,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Салават Зарипов',
     department_id: 'dept-rss',
     role: 'Мастер ЛКС РСС',
+    role_level: 6,
     initials: 'СЗ',
     avatar_color: '#38bdf8',
     specialty: 'Линейные сооружения'
@@ -371,6 +381,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Ольга Кузнецова',
     department_id: 'dept-sales-b2b',
     role: 'Руководитель группы корпоративных продаж',
+    role_level: 10,
     initials: 'ОК',
     avatar_color: '#8b5cf6',
     specialty: 'B2B Клиенты'
@@ -380,6 +391,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Тимур Насыров',
     department_id: 'dept-sales-b2b',
     role: 'Ведущий менеджер корпоративного отдела',
+    role_level: 8,
     initials: 'ТН',
     avatar_color: '#a855f7',
     specialty: 'Договоры ЮЛ'
@@ -391,6 +403,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Алина Яковлева',
     department_id: 'dept-sales-b2c',
     role: 'Старший менеджер розничных продаж',
+    role_level: 10,
     initials: 'АЯ',
     avatar_color: '#10b981',
     specialty: 'B2C Клиенты'
@@ -400,6 +413,7 @@ export const INITIAL_MEMBERS = [
     full_name: 'Вадим Мусин',
     department_id: 'dept-sales-b2c',
     role: 'Менеджер по подключению МКД и ЧС',
+    role_level: 6,
     initials: 'ВМ',
     avatar_color: '#059669',
     specialty: 'Подключения GPON'
@@ -414,231 +428,132 @@ export const INITIAL_PROJECTS = [
   'ТЦ «Планета»'
 ];
 
-export const INITIAL_TASKS = [
-  // 1. Проектировщики
-  {
-    id: 'task-uf-1',
-    title: 'Трассировка кабельной канализации связи ККС',
-    department_id: 'dept-design',
-    project_code: 'мкр. Затон (Север)',
-    section: 'ККС',
-    status: 'in_progress',
-    priority: 'urgent',
-    assignee_id: 'uf-22222222-2222-2222-2222-222222222222',
-    due_date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-    network_link: '\\\\ufanet-server\\projects\\Затон\\Трасса_ККС.dwg',
-    description: 'Согласовать проход 4-отверстной трубы с городскими коммуникациями (водоканал, теплосети).',
-    checklist: [
-      { id: 'c1', text: 'Запросить топосъемку 1:500', done: true, assignee_id: 'uf-22222222-2222-2222-2222-222222222222' },
-      { id: 'c2', text: 'План расстановки колодцев ККС-2 и ККС-3', done: true, assignee_id: 'uf-22222222-2222-2222-2222-222222222222' },
-      { id: 'c3', text: 'Согласовать пересечения с водопроводом', done: false, assignee_id: 'uf-11111111-1111-1111-1111-111111111111' }
-    ],
-    erp_project_id: 'PRJ-10482',
-    erp_task_number: 'TASK-84920',
-    house_id: '',
-    hours_spent: '14',
-    work_type: 'Разработка проектной документации',
-    created_at: new Date(Date.now() - 3 * 86400000).toISOString()
-  },
-  {
-    id: 'task-uf-2',
-    title: 'Проект видеонаблюдения ВДН дворовой территории и паркинга',
-    department_id: 'dept-design',
-    project_code: 'ЖК «Агидель»',
-    section: 'ВДН',
-    status: 'in_progress',
-    priority: 'urgent',
-    assignee_id: 'uf-33333333-3333-3333-3333-333333333333',
-    due_date: new Date(Date.now() + 4 * 86400000).toISOString().split('T')[0],
-    network_link: '\\\\ufanet-server\\projects\\Агидель\\Схема_Камер.dwg',
-    description: 'Охват въездных ворот, детских площадок и подземного паркинга. Расчет архива NVR на 30 дней.',
-    checklist: [
-      { id: 'c1', text: 'Расстановка 48 IP-камер 4K', done: true },
-      { id: 'c2', text: 'Кабельный журнал и расчет PoE-бюджета', done: true },
-      { id: 'c3', text: 'Согласование зон обзора с заказчиком', done: false }
-    ],
-    erp_project_id: 'PRJ-9021',
-    erp_task_number: 'TASK-71024',
-    house_id: 'ДОМ-44',
-    hours_spent: '20',
-    work_type: 'Рабочая документация (РД)',
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-  {
-    id: 'task-uf-3',
-    title: 'Сети связи и умная домофония СКУД МКД',
-    department_id: 'dept-design',
-    project_code: 'ЖК «Агидель»',
-    section: 'МКЖ',
-    status: 'review',
-    priority: 'medium',
-    assignee_id: 'uf-44444444-4444-4444-4444-444444444444',
-    due_date: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
-    network_link: '\\\\ufanet-server\\projects\\Агидель\\МКЖ_Домофоны.pdf',
-    description: 'Интеграция вызывных панелей Уфанет Умный дом на 12 подъездов с распознаванием лиц и приложением.',
-    checklist: [
-      { id: 'c1', text: 'Схемы стояков связи по секциям', done: true },
-      { id: 'c2', text: 'Спецификация оптических кроссов и шкафов', done: true },
-      { id: 'c3', text: 'Финальная подпись начальника отдела', done: false }
-    ],
-    erp_project_id: 'PRJ-9021',
-    erp_task_number: 'TASK-71030',
-    house_id: 'ДОМ-44',
-    hours_spent: '16',
-    work_type: 'Выпуск в печать и монтаж',
-    created_at: new Date(Date.now() - 4 * 86400000).toISOString()
-  },
+// Чистый список задач для боевого использования филиалом (без тестового мусора)
+export const INITIAL_TASKS = [];
 
-  // 2. Сварщики
-  {
-    id: 'task-uf-w1',
-    title: 'Монтаж оптической муфты МТОК и сварка 48 ОВ на магистрали',
-    department_id: 'dept-welders',
-    project_code: 'мкр. Затон (Север)',
-    section: 'ККС',
-    status: 'in_progress',
-    priority: 'urgent',
-    assignee_id: 'uf-weld-1',
-    due_date: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
-    network_link: '\\\\ufanet-server\\projects\\Сварка\\Затон_МТОК_12.dwg',
-    description: 'Разварка распределительного кабеля в колодце ККС №14. Контроль коэффициента затухания на 1310/1550 нм.',
-    checklist: [
-      { id: 'cw1', text: 'Вскрытие и вентиляция колодца ККС', done: true },
-      { id: 'cw2', text: 'Сварка 48 ОВ в кассетах муфты МТОК', done: true },
-      { id: 'cw3', text: 'Герметизация муфты термоусадкой', done: false }
-    ],
-    created_at: new Date(Date.now() - 1 * 86400000).toISOString()
-  },
-  {
-    id: 'task-uf-w2',
-    title: 'Паспортизация и рефлектометрия волокон ЖК «Северный»',
-    department_id: 'dept-welders',
-    project_code: 'ЖК «Агидель»',
-    section: 'ОДРС',
-    status: 'backlog',
-    priority: 'medium',
-    assignee_id: 'uf-weld-3',
-    due_date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-    description: 'Снятие рефлектограмм по трассе от кросса ODF до оптических розеток в подъездах. Составление паспорта трассы.',
-    checklist: [
-      { id: 'cw4', text: 'Калибровка оптического рефлектометра', done: false },
-      { id: 'cw5', text: 'Замеры оптических линий 96 ОВ', done: false }
-    ],
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-
-  // 3. РСС
-  {
-    id: 'task-uf-r1',
-    title: 'Устранение затухания оптического волокна на участке Технопарк',
-    department_id: 'dept-rss',
-    project_code: 'Технопарк Уфа',
-    section: 'ККС',
-    status: 'in_progress',
-    priority: 'urgent',
-    assignee_id: 'uf-rss-2',
-    due_date: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
-    description: 'Аварийная заявка от ЦУС: скачок затухания на волокне №7 (+3.4 дБ). Проверить переходные пигтейлы в кроссе.',
-    checklist: [
-      { id: 'cr1', text: 'Локализация места повреждения по рефлектометру', done: true },
-      { id: 'cr2', text: 'Замена оптического адаптера SC/APC', done: true },
-      { id: 'cr3', text: 'Контрольный тест пропускной способности', done: false }
-    ],
-    created_at: new Date(Date.now() - 1 * 86400000).toISOString()
-  },
-  {
-    id: 'task-uf-r2',
-    title: 'Плановое ТО шкафов связи и замена резервных АКБ',
-    department_id: 'dept-rss',
-    project_code: 'Квартал 4 (Центр)',
-    section: 'ЭОМ',
-    status: 'backlog',
-    priority: 'low',
-    assignee_id: 'uf-rss-3',
-    due_date: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
-    description: 'Проверка систем охлаждения, чистка фильтров и замена 4 аккумуляторов ИБП 12В 17Ач.',
-    checklist: [
-      { id: 'cr4', text: 'Осмотр состояния кабельных вводов', done: false },
-      { id: 'cr5', text: 'Тест перехода на резервное питание', done: false }
-    ],
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-
-  // 4. Отдел продаж ЮЛ (B2B)
-  {
-    id: 'task-uf-sb1',
-    title: 'Согласование КП на 1 Гбит/с и 16 камер для БЦ «Салават»',
-    department_id: 'dept-sales-b2b',
-    project_code: 'ТЦ «Планета»',
-    section: 'ВДН',
-    status: 'review',
-    priority: 'urgent',
-    assignee_id: 'uf-salesb2b-1',
-    due_date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-    description: 'Подготовить расчет окупаемости и договор аренды волокон. Запросить у проектировщиков расчет трассы подключения.',
-    checklist: [
-      { id: 'csb1', text: 'Запрос ТУ у отдела проектирования', done: true },
-      { id: 'csb2', text: 'Формирование коммерческого предложения', done: true },
-      { id: 'csb3', text: 'Встреча с генеральным директором БЦ', done: false }
-    ],
-    created_at: new Date(Date.now() - 3 * 86400000).toISOString()
-  },
-  {
-    id: 'task-uf-sb2',
-    title: 'Подготовка договора и ТУ на подключение ТЦ «Планета»',
-    department_id: 'dept-sales-b2b',
-    project_code: 'ТЦ «Планета»',
-    section: 'МКЖ',
-    status: 'in_progress',
-    priority: 'medium',
-    assignee_id: 'uf-salesb2b-2',
-    due_date: new Date(Date.now() + 4 * 86400000).toISOString().split('T')[0],
-    description: 'Организация выделенного оптического ввода для якорных арендаторов.',
-    checklist: [
-      { id: 'csb4', text: 'Сверка схемы расположения павильонов', done: true },
-      { id: 'csb5', text: 'Согласование юридических условий', done: false }
-    ],
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-
-  // 5. Отдел продаж ФЛ (B2C)
-  {
-    id: 'task-uf-sc1',
-    title: 'Сбор предзаказов на GPON в частном секторе (120 коттеджей)',
-    department_id: 'dept-sales-b2c',
-    project_code: 'мкр. Затон (Север)',
-    section: 'ЧС',
-    status: 'in_progress',
-    priority: 'urgent',
-    assignee_id: 'uf-salesb2c-1',
-    due_date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-    description: 'Поквартирный/подомовой обход ул. Озерная и Речная. Собрано 74 заявки на интернет + умный домофон.',
-    checklist: [
-      { id: 'csc1', text: 'Расклейка информационных стендов', done: true },
-      { id: 'csc2', text: 'Сбор контактов старших по улицам', done: true },
-      { id: 'csc3', text: 'Передача списка домов в проектирование', done: false }
-    ],
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-  {
-    id: 'task-uf-sc2',
-    title: 'Заявка на умную домофонию ТСЖ «Агидель-3» (240 квартир)',
-    department_id: 'dept-sales-b2c',
-    project_code: 'ЖК «Агидель»',
-    section: 'СКУД',
-    status: 'review',
-    priority: 'medium',
-    assignee_id: 'uf-salesb2c-2',
-    due_date: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
-    description: 'Проведено голосование собственников, кворум 78% за замену старых трубок на приложение Уфанет.',
-    checklist: [
-      { id: 'csc4', text: 'Проверка протокола общего собрания', done: true },
-      { id: 'csc5', text: 'Заказ вызывных панелей на склад', done: false }
-    ],
-    created_at: new Date(Date.now() - 4 * 86400000).toISOString()
-  }
+// ==============================================================================
+// УРОВНИ ДОСТУПА И СИСТЕМА ПРАВ (1..10)
+// ==============================================================================
+export const ROLE_LEVELS = [
+  { level: 10, name: 'Начальник отдела / ГИП', desc: 'Полный доступ, управление правами, настройками и структурой', badgeColor: '#ef4444' },
+  { level: 8, name: 'Ведущий инженер / Старший специалист', desc: 'Создание/редактирование любых задач, согласование, управление разделами', badgeColor: '#f97316' },
+  { level: 6, name: 'Инженер / Специалист', desc: 'Ведение своих задач, комментирование, отметка подзадач, чат', badgeColor: '#0284c7' },
+  { level: 3, name: 'Младший специалист / Стажёр', desc: 'Просмотр задач, выполнение назначенных подзадач, чат', badgeColor: '#10b981' },
+  { level: 1, name: 'Наблюдатель / Гость', desc: 'Только чтение без права изменений и отправки сообщений', badgeColor: '#64748b' }
 ];
 
+export const PERMISSION_DEFINITIONS = [
+  { key: 'can_manage_roles', name: 'Управление уровнями доступа и правами', minLevel: 10 },
+  { key: 'can_manage_board_settings', name: 'Настройки доски и отделов', minLevel: 10 },
+  { key: 'can_manage_columns', name: 'Управление этапами (колонками)', minLevel: 10 },
+  { key: 'can_manage_sections', name: 'Управление марками и разделами проектов', minLevel: 8 },
+  { key: 'can_create_task', name: 'Создание новых задач', minLevel: 6 },
+  { key: 'can_edit_all_tasks', name: 'Редактирование любых задач отдела', minLevel: 8 },
+  { key: 'can_edit_own_tasks', name: 'Редактирование собственных задач', minLevel: 6 },
+  { key: 'can_delete_task', name: 'Удаление задач с доски', minLevel: 8 },
+  { key: 'can_move_task', name: 'Перемещение карточек по колонкам', minLevel: 6 },
+  { key: 'can_assign_members', name: 'Назначение ответственных инженеров', minLevel: 8 },
+  { key: 'can_chat', name: 'Отправка сообщений в чат отдела', minLevel: 3 },
+  { key: 'can_export_import', name: 'Импорт из ERP и выгрузка отчетов', minLevel: 8 }
+];
+
+export const DEFAULT_PERMISSIONS = {
+  10: {
+    can_manage_roles: true,
+    can_manage_board_settings: true,
+    can_manage_columns: true,
+    can_manage_sections: true,
+    can_create_task: true,
+    can_edit_all_tasks: true,
+    can_edit_own_tasks: true,
+    can_delete_task: true,
+    can_move_task: true,
+    can_assign_members: true,
+    can_chat: true,
+    can_export_import: true
+  },
+  8: {
+    can_manage_roles: false,
+    can_manage_board_settings: false,
+    can_manage_columns: false,
+    can_manage_sections: true,
+    can_create_task: true,
+    can_edit_all_tasks: true,
+    can_edit_own_tasks: true,
+    can_delete_task: true,
+    can_move_task: true,
+    can_assign_members: true,
+    can_chat: true,
+    can_export_import: true
+  },
+  6: {
+    can_manage_roles: false,
+    can_manage_board_settings: false,
+    can_manage_columns: false,
+    can_manage_sections: false,
+    can_create_task: true,
+    can_edit_all_tasks: false,
+    can_edit_own_tasks: true,
+    can_delete_task: false,
+    can_move_task: true,
+    can_assign_members: false,
+    can_chat: true,
+    can_export_import: false
+  },
+  3: {
+    can_manage_roles: false,
+    can_manage_board_settings: false,
+    can_manage_columns: false,
+    can_manage_sections: false,
+    can_create_task: false,
+    can_edit_all_tasks: false,
+    can_edit_own_tasks: false,
+    can_delete_task: false,
+    can_move_task: false,
+    can_assign_members: false,
+    can_chat: true,
+    can_export_import: false
+  },
+  1: {
+    can_manage_roles: false,
+    can_manage_board_settings: false,
+    can_manage_columns: false,
+    can_manage_sections: false,
+    can_create_task: false,
+    can_edit_all_tasks: false,
+    can_edit_own_tasks: false,
+    can_delete_task: false,
+    can_move_task: false,
+    can_assign_members: false,
+    can_chat: false,
+    can_export_import: false
+  }
+};
+
+export function hasPermission(user, permKey, customPermissions = null) {
+  if (!user) return false;
+  const level = Number(user.role_level) || 6;
+  if (level >= 10) return true;
+
+  const matrix = customPermissions || DEFAULT_PERMISSIONS;
+  const userPerms = matrix[level];
+  if (userPerms && typeof userPerms[permKey] === 'boolean') {
+    return userPerms[permKey];
+  }
+  const def = PERMISSION_DEFINITIONS.find((p) => p.key === permKey);
+  if (def) return level >= def.minLevel;
+  return false;
+}
+
+// Генерация смарт-ID задачи: [МАРКА/РАЗДЕЛ].[НОМЕР], например СВН.25261 или ВДН.1042
+export function generateTaskDisplayId(section = 'ВДН', existingNumber = null) {
+  const prefix = (section || 'УФ').trim().toUpperCase().replace(/[^A-ZА-Я0-9]/gi, '') || 'УФ';
+  if (existingNumber) {
+    return prefix + '.' + existingNumber;
+  }
+  const num = Math.floor(10000 + Math.random() * 90000);
+  return prefix + '.' + num;
+}
 
 // Helper to format long folder paths to show the tail (e.g. "...\Folder\Subfolder")
 export function formatPathEnd(path, maxLength = 26) {

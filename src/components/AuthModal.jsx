@@ -251,162 +251,169 @@ export function AuthModal({
       {/* TAB 1: 1-CLICK LOGIN */}
       {activeTab === 'login' && (
         <div>
-          {/* Quick Department Filter Bar */}
-          <div style={{ marginBottom: '0.85rem' }}>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-dim, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.45rem' }}>
-              Фильтр по отделу:
-            </div>
-            <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '4px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedDeptFilter('all');
-                  playSound('click');
-                }}
-                style={{
-                  padding: '0.35rem 0.65rem',
-                  borderRadius: 'var(--radius-sm, 6px)',
-                  border: selectedDeptFilter === 'all' ? '1px solid var(--accent-orange, #ff6600)' : '1px solid var(--border-subtle, #334155)',
-                  background: selectedDeptFilter === 'all' ? 'rgba(255,102,0,0.15)' : 'var(--bg-secondary, #0f172a)',
-                  color: selectedDeptFilter === 'all' ? 'var(--accent-orange, #ff6600)' : 'var(--text-muted, #94a3b8)',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Все отделы ({teamMembers.length})
-              </button>
-
-              {departments.map((dept) => {
-                const count = teamMembers.filter((m) => m.department_id === dept.id).length;
-                const isSelected = selectedDeptFilter === dept.id;
-                return (
-                  <button
-                    key={dept.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDeptFilter(dept.id);
-                      playSound('click');
-                    }}
-                    style={{
-                      padding: '0.35rem 0.65rem',
-                      borderRadius: 'var(--radius-sm, 6px)',
-                      border: isSelected ? `1px solid ${dept.color}` : '1px solid var(--border-subtle, #334155)',
-                      background: isSelected ? `${dept.color}22` : 'var(--bg-secondary, #0f172a)',
-                      color: isSelected ? dept.color : 'var(--text-muted, #94a3b8)',
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <span>{dept.icon}</span>
-                    <span>{dept.name} ({count})</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Search Input */}
-          <div style={{ position: 'relative', marginBottom: '1rem' }}>
-            <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim, #64748b)' }} />
+          {/* Privacy Search Input (Скрытый вход) */}
+          <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
+            <Search size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim, #64748b)' }} />
             <input
               type="text"
-              placeholder="Найти себя по имени или должности..."
+              placeholder="Введите ваше имя, фамилию или табельный..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
               className="form-input"
               style={{
                 width: '100%',
-                paddingLeft: '2.2rem',
-                paddingTop: '0.55rem',
-                paddingBottom: '0.55rem',
-                fontSize: '0.82rem',
-                background: 'var(--bg-secondary, #0f172a)'
+                paddingLeft: '2.4rem',
+                paddingTop: '0.75rem',
+                paddingBottom: '0.75rem',
+                fontSize: '0.9rem',
+                background: 'var(--bg-secondary, #0f172a)',
+                border: searchQuery.trim().length >= 2 ? '1px solid var(--accent-orange, #ff6600)' : '1px solid var(--border-subtle, #334155)',
+                boxShadow: searchQuery.trim().length >= 2 ? '0 0 15px rgba(255,102,0,0.2)' : 'none'
               }}
             />
           </div>
 
-          {/* Members List */}
-          <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', paddingRight: '2px' }}>
-            {filteredMembers.map((member) => {
-              const deptMeta = departments.find((d) => d.id === member.department_id) || departments[0];
-              const isCurrent = currentUser?.id === member.id;
-              return (
-                <button
-                  key={member.id}
-                  type="button"
-                  onClick={() => handleQuickLogin(member)}
-                  className="engineer-login-chip"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.65rem',
-                    padding: '0.65rem 0.75rem',
-                    background: isCurrent ? 'rgba(255, 102, 0, 0.12)' : 'var(--bg-secondary, #0f172a)',
-                    border: isCurrent ? '2px solid var(--accent-orange, #ff6600)' : '1px solid var(--border-subtle, #334155)',
-                    borderRadius: 'var(--radius-md, 10px)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    color: 'var(--text-main, #f8fafc)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = member.avatar_color || '#ff6600';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = `0 6px 14px ${member.avatar_color || '#ff6600'}22`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = isCurrent ? 'var(--accent-orange, #ff6600)' : 'var(--border-subtle, #334155)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <div
+          {/* If search query has less than 2 characters: show privacy placeholder */}
+          {searchQuery.trim().length < 2 ? (
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '2.5rem 1.2rem',
+                background: 'rgba(255, 255, 255, 0.02)',
+                borderRadius: 'var(--radius-md, 12px)',
+                border: '1px dashed var(--border-subtle, #334155)',
+                marginBottom: '0.5rem'
+              }}
+            >
+              <ShieldCheck size={44} style={{ color: 'var(--accent-orange, #ff6600)', opacity: 0.85, marginBottom: '0.75rem' }} />
+              <div style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
+                Скрытый защищённый вход
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim, #64748b)', maxWidth: '380px', margin: '0.45rem auto 0', lineHeight: 1.5 }}>
+                В целях конфиденциальности список сотрудников филиала скрыт. Введите от <b>2-х символов</b> вашей фамилии или имени, чтобы подтвердить вход.
+              </p>
+            </div>
+          ) : (
+            /* When 2 or more characters entered: reveal matching profiles */
+            <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.55rem', paddingRight: '2px' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-dim, #64748b)', marginBottom: '0.2rem' }}>
+                Найдено совпадений: <b>{filteredMembers.length}</b>
+              </div>
+
+              {filteredMembers.map((member) => {
+                const deptMeta = departments.find((d) => d.id === member.department_id) || departments[0];
+                const level = Number(member.role_level) || 6;
+                const levelBadge = level >= 10 ? '👑 ГИП / Нач.' : level >= 8 ? '⭐ Ведущий' : level >= 6 ? '⚡ Инженер' : '👤';
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => handleQuickLogin(member)}
+                    className="engineer-login-chip"
                     style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: '50%',
-                      background: member.avatar_color || '#ff6600',
-                      color: '#ffffff',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 800,
-                      fontSize: '0.84rem',
-                      flexShrink: 0
+                      justifyContent: 'space-between',
+                      gap: '0.8rem',
+                      padding: '0.75rem 0.9rem',
+                      background: 'var(--bg-secondary, #0f172a)',
+                      border: '1px solid var(--border-subtle, #334155)',
+                      borderRadius: 'var(--radius-md, 10px)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      color: 'var(--text-main, #f8fafc)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = member.avatar_color || '#ff6600';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = `0 6px 14px ${member.avatar_color || '#ff6600'}22`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-subtle, #334155)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    {member.initials || 'УФ'}
-                  </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: '50%',
+                          background: member.avatar_color || '#ff6600',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: '0.88rem',
+                          flexShrink: 0
+                        }}
+                      >
+                        {member.initials || 'УФ'}
+                      </div>
 
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: '0.84rem', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {member.full_name}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: deptMeta.color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>{deptMeta.icon}</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deptMeta.name}</span>
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-dim, #64748b)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {member.role}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.88rem', fontWeight: 800 }}>
+                            {member.full_name}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.64rem',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              color: 'var(--text-muted, #94a3b8)',
+                              fontWeight: 700
+                            }}
+                          >
+                            {levelBadge} (Ур.{level})
+                          </span>
+                        </div>
 
-            {filteredMembers.length === 0 && (
-              <div style={{ gridColumn: '1 / -1', padding: '2rem', textAlign: 'center', color: 'var(--text-dim, #64748b)', fontSize: '0.84rem' }}>
-                Сотрудники не найдены. Перейдите во вкладку <b>«Новый сотрудник»</b> чтобы зарегистрироваться!
-              </div>
-            )}
-          </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                          <span style={{ fontSize: '0.72rem', color: deptMeta.color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <span>{deptMeta.icon}</span>
+                            <span>{deptMeta.name}</span>
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim, #64748b)' }}>
+                            • {member.role}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-orange, #ff6600)', fontSize: '0.76rem', fontWeight: 700 }}>
+                      <span>Войти</span>
+                      <ArrowRight size={14} />
+                    </div>
+                  </button>
+                );
+              })}
+
+              {filteredMembers.length === 0 && (
+                <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-dim, #64748b)', fontSize: '0.84rem' }}>
+                  Сотрудник с именем «{searchQuery}» не найден.
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('register');
+                        setRegFullName(searchQuery.trim());
+                      }}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.78rem', padding: '0.4rem 0.8rem' }}
+                    >
+                      Зарегистрироваться как новый сотрудник
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

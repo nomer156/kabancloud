@@ -139,6 +139,26 @@ export function TaskCard({
       {/* Top Metadata: Department Badge, Section Tag, Project Tag, Priority Indicator, Actions */}
       <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.55rem' }}>
         <div className="card-tags-group" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
+          {/* Smart Task ID (e.g. СВН.25261) */}
+          <span
+            style={{
+              fontFamily: 'var(--font-mono, monospace)',
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: 'rgba(255, 255, 255, 0.07)',
+              color: 'var(--text-main, #f8fafc)',
+              border: '1px solid var(--border-subtle, rgba(255,255,255,0.14))',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px'
+            }}
+            title={`Уникальный ID задачи: ${task.display_id || task.id}`}
+          >
+            🏷️ {task.display_id || task.id}
+          </span>
+
           {/* Department Badge (YouGile Department Tag) */}
           <span
             className="badge-dept"
@@ -159,6 +179,27 @@ export function TaskCard({
             <span>{deptMeta.icon}</span>
             <span>{deptMeta.name}</span>
           </span>
+
+          {/* Cross-Department Collaborators badge */}
+          {Array.isArray(task.participant_ids) && task.participant_ids.length > 0 && (
+            <span
+              style={{
+                fontSize: '0.67rem',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                background: 'rgba(139, 92, 246, 0.15)',
+                color: '#c4b5fd',
+                border: '1px solid rgba(139, 92, 246, 0.35)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                fontWeight: 700
+              }}
+              title={`Соисполнители из других отделов: ${task.participant_ids.map(pid => teamMembers.find(m => m.id === pid)?.full_name).filter(Boolean).join(', ')}`}
+            >
+              👥 +{task.participant_ids.length} соисп.
+            </span>
+          )}
 
           {/* Main Project Section Badge (ВДН, ККС, МКЖ...) */}
           <span

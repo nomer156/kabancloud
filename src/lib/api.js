@@ -15,6 +15,7 @@ const STORAGE_KEY_NOTIFS = 'ufanet_local_notifications_v1';
 const STORAGE_KEY_CHATS = 'ufanet_local_chats_v1';
 const STORAGE_KEY_CUSTOM_IP = 'ufanet_custom_lan_ip';
 const STORAGE_KEY_AUTH_USER_ID = 'kaban_current_user_id';
+const STORAGE_KEY_PERMISSIONS = 'kaban_role_permissions';
 
 import { 
   INITIAL_MEMBERS, 
@@ -157,6 +158,25 @@ export async function registerUser({ full_name, department_id, role, avatar_colo
 }
 
 export async function checkAuthSession() {
+  // Check URL query parameters for Salary Site SSO (e.g. ?sso_id=... or ?user_id=...)
+  if (typeof window !== 'undefined' && window.location.search) {
+    const params = new URLSearchParams(window.location.search);
+    const ssoId = params.get('sso_id') || params.get('user_id') || params.get('sso_token') || params.get('uid');
+    if (ssoId) {
+      setCurrentUserId(ssoId);
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }
+
+  // Check corporate cookie
+  if (typeof document !== 'undefined' && document.cookie) {
+    const cookieMatch = document.cookie.match(/(?:pp_user_id|ufanet_user_id|salary_user_id)=([^;]+)/);
+    if (cookieMatch && !getCurrentUserId()) {
+      setCurrentUserId(decodeURIComponent(cookieMatch[1]));
+    }
+  }
+
   const userId = getCurrentUserId();
   if (!userId) return null;
 
@@ -206,19 +226,26 @@ export async function fetchAllTasks() {
 }
 
 export async function saveTask(task) {
+  const displayId = task.display_id || generateTaskDisplayId(task.section);
+  const taskToSave = {
+    ...task,
+    display_id: displayId,
+    participant_ids: Array.isArray(task.participant_ids) ? task.participant_ids : []
+  };
+
   try {
     const res = await fetch(`${API_BASE}/api/tasks`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(task)
+      body: JSON.stringify(taskToSave)
     });
     if (res.ok) return await res.json();
   } catch {}
 
   // Local fallback
   const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
-  const id = task.id || `task-uf-${Date.now()}`;
-  const prepared = { ...task, id, updated_at: new Date().toISOString() };
+  const id = taskToSave.id || `task-uf-${Date.now()}`;
+  const prepared = { ...taskToSave, id, updated_at: new Date().toISOString() };
   const idx = tasks.findIndex((t) => t.id === id);
   let updated;
   if (idx >= 0) {
@@ -352,6 +379,43 @@ export async function deleteTeamMember(memberId) {
   const updated = members.filter((m) => m.id !== memberId);
   setLocalData(STORAGE_KEY_MEMBERS, updated);
   return true;
+}
+
+
+// ------------------------------------------------------------------------------
+// ROLE PERMISSIONS MATRIX API (LEVEL 10)
+// ------------------------------------------------------------------------------
+export async function fetchPermissions() {
+  try {
+    const res = await fetch(`${API_BASE}/api/permissions`, {
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data) {
+        setLocalData(STORAGE_KEY_PERMISSIONS, data);
+        return data;
+      }
+    }
+  } catch {}
+  return getLocalData(STORAGE_KEY_PERMISSIONS, DEFAULT_PERMISSIONS);
+}
+
+export async function savePermissions(matrix) {
+  try {
+    const res = await fetch(`${API_BASE}/api/permissions`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(matrix)
+    });
+    if (res.ok) {
+      const saved = await res.json();
+      setLocalData(STORAGE_KEY_PERMISSIONS, saved);
+      return saved;
+    }
+  } catch {}
+  setLocalData(STORAGE_KEY_PERMISSIONS, matrix);
+  return matrix;
 }
 
 // ------------------------------------------------------------------------------
