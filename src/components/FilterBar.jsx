@@ -21,22 +21,13 @@ export function FilterBar({
   activeDepartmentId = 'all'
 }) {
   const isMyTasksActive = Boolean(currentUser && selectedAssigneeId === currentUser.id);
-  const [showAllBranch, setShowAllBranch] = React.useState(true);
-
-  // All Moscow branch members visible across all departments
+  // Strictly show members of the active department
   const displayedMembers = React.useMemo(() => {
-    if (!showAllBranch && activeDepartmentId && activeDepartmentId !== 'all') {
-      const inDept = teamMembers.filter((m) => (m.department_id || 'dept-design') === activeDepartmentId);
-      if (inDept.length > 0) return inDept;
-    }
-    // Put current department first, followed by other branch members
     if (activeDepartmentId && activeDepartmentId !== 'all') {
-      const inDept = teamMembers.filter((m) => (m.department_id || 'dept-design') === activeDepartmentId);
-      const others = teamMembers.filter((m) => (m.department_id || 'dept-design') !== activeDepartmentId);
-      return [...inDept, ...others];
+      return teamMembers.filter((m) => (m.department_id || 'dept-design') === activeDepartmentId);
     }
     return teamMembers;
-  }, [teamMembers, activeDepartmentId, showAllBranch]);
+  }, [teamMembers, activeDepartmentId]);
 
   const handleToggleMyTasks = () => {
     playSound('click');

@@ -305,7 +305,7 @@ export function ChatSidebar({
     if (e.button === 1) { // Middle click / mouse wheel
       e.preventDefault();
       e.stopPropagation();
-      window.open(`/#task/${targetId}`, '_blank');
+      window.open(`/#task/${encodeURIComponent(targetId)}`, '_blank');
     }
   };
 
@@ -335,7 +335,7 @@ export function ChatSidebar({
               e.preventDefault();
               e.stopPropagation();
               if (e.ctrlKey || e.metaKey) {
-                window.open(`/#task/${resolvedId}`, '_blank');
+                window.open(`/#task/${encodeURIComponent(resolvedId)}`, '_blank');
               } else {
                 onOpenTask && onOpenTask(resolvedId);
               }
@@ -387,7 +387,7 @@ export function ChatSidebar({
               e.preventDefault();
               e.stopPropagation();
               if (e.ctrlKey || e.metaKey) {
-                window.open(`/#task/${resolvedId}`, '_blank');
+                window.open(`/#task/${encodeURIComponent(resolvedId)}`, '_blank');
               } else {
                 onOpenTask && onOpenTask(resolvedId);
               }
@@ -879,24 +879,28 @@ export function ChatSidebar({
                 >
                   {/* Author Name and Time */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.68rem', color: 'var(--text-dim, #64748b)', padding: '0 4px' }}>
-                    {!isMe && (
-                      <span style={{ fontWeight: 800, color: msg.user_color || 'var(--accent-orange)' }}>
-                        {msg.user_name}
-                      </span>
-                    )}
+                    <span style={{ fontWeight: 800, color: isMe ? 'var(--accent-orange)' : (msg.user_color || 'var(--accent-orange)') }}>
+                      {isMe ? 'Вы' : msg.user_name}
+                    </span>
                     <span>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                   </div>
 
                   {/* Message Bubble */}
                   <div
                     style={{
-                      maxWidth: '92%',
-                      padding: '0.55rem 0.75rem',
-                      borderRadius: '12px',
-                      background: isMe ? 'var(--accent-orange, #ff6600)' : 'var(--bg-card, #1c2233)',
-                      color: isMe ? '#ffffff' : 'var(--text-main, #f8fafc)',
-                      border: isMe ? 'none' : '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
-                      boxShadow: isMe ? '0 4px 12px rgba(255,102,0,0.25)' : '0 2px 6px rgba(0,0,0,0.2)',
+                      maxWidth: '88%',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: isMe ? '14px 14px 3px 14px' : '14px 14px 14px 3px',
+                      background: isMe 
+                        ? 'linear-gradient(135deg, rgba(255, 102, 0, 0.22) 0%, rgba(255, 102, 0, 0.12) 100%)' 
+                        : 'var(--bg-card, #1c2233)',
+                      color: 'var(--text-main, #f8fafc)',
+                      border: isMe 
+                        ? '1px solid rgba(255, 102, 0, 0.38)' 
+                        : '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
+                      boxShadow: isMe 
+                        ? '0 3px 10px rgba(255, 102, 0, 0.15)' 
+                        : '0 2px 6px rgba(0,0,0,0.25)',
                       fontSize: '0.82rem',
                       lineHeight: 1.45,
                       wordBreak: 'break-word'
@@ -904,26 +908,25 @@ export function ChatSidebar({
                   >
                     {/* Quoted Task Card (if present) with middle click support */}
                     {msg.quoted_task && (
-                      <a
-                        href={`#task/${msg.quoted_task.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <span
                         onClick={(e) => {
-                          if (!e.ctrlKey && !e.metaKey && e.button !== 1) {
-                            e.preventDefault();
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.ctrlKey || e.metaKey) {
+                            window.open(`/#task/${encodeURIComponent(msg.quoted_task.id)}`, '_blank');
+                          } else {
                             onOpenTask && onOpenTask(msg.quoted_task.id);
                           }
                         }}
                         onAuxClick={(e) => handleMiddleClickTask(e, msg.quoted_task.id)}
                         style={{
                           display: 'block',
-                          textDecoration: 'none',
                           color: 'inherit',
                           marginBottom: '0.45rem',
                           padding: '0.45rem 0.6rem',
                           borderRadius: '8px',
-                          background: isMe ? 'rgba(0,0,0,0.2)' : 'rgba(255,102,0,0.1)',
-                          borderLeft: `3px solid ${isMe ? '#ffffff' : 'var(--accent-orange)'}`,
+                          background: isMe ? 'rgba(0,0,0,0.25)' : 'rgba(255,102,0,0.1)',
+                          borderLeft: '3px solid var(--accent-orange)',
                           cursor: 'pointer'
                         }}
                         title="Открыть задачу (Колёсиком мыши — в новой вкладке)"
@@ -937,7 +940,7 @@ export function ChatSidebar({
                         <div style={{ fontSize: '0.74rem', fontWeight: 700, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {msg.quoted_task.title}
                         </div>
-                      </a>
+                      </span>
                     )}
 
                     {/* Message Text with interactive tags */}

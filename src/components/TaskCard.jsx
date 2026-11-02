@@ -91,14 +91,14 @@ export function TaskCard({
   // Open in new tab (Jira full page view)
   const handleOpenInNewTab = (e) => {
     e.stopPropagation();
-    window.open(`/#task/${task.id}`, '_blank');
+    window.open(`/#task/${encodeURIComponent(task.id)}`, '_blank');
   };
 
   const handleMiddleClick = (e) => {
     if (e.button === 1) { // Middle mouse wheel click!
       e.preventDefault();
       e.stopPropagation();
-      window.open(`/#task/${task.id}`, '_blank');
+      window.open(`/#task/${encodeURIComponent(task.id)}`, '_blank');
     }
   };
 
@@ -273,7 +273,7 @@ export function TaskCard({
             style={{ width: 20, height: 20, padding: 0, opacity: 0.55, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'inherit' }}
             onClick={(e) => {
               e.stopPropagation();
-              window.open(`/#task/${task.id}`, '_blank');
+              window.open(`/#task/${encodeURIComponent(task.id)}`, '_blank');
             }}
             title="Открыть задачу в новой вкладке (Jira / колёсиком мыши)"
           >

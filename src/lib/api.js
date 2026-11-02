@@ -345,9 +345,17 @@ export async function fetchAllTasks() {
 }
 
 export async function saveTask(task) {
-  const genId = typeof generateTaskDisplayId === 'function' ? generateTaskDisplayId(task.section) : `${task.section || 'УФ'}.${Math.floor(10000 + Math.random() * 90000)}`;
-  const displayId = task.display_id || genId;
-  const id = task.id || `task-uf-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  const localTasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
+  const sec = task.section || 'ВДН';
+  const proj = task.project_code || task.project_cipher || '';
+  
+  // Clean, human-readable ID consisting of Section (mark) and Project Cipher: e.g. ВДН.ПР-2026-01
+  let id = task.id;
+  if (!id || id.startsWith('task-uf-') || id.startsWith('temp-')) {
+    id = generateTaskDisplayId(sec, proj, localTasks);
+  }
+  const displayId = id;
+
   const taskToSave = {
     ...task,
     id,
@@ -357,8 +365,7 @@ export async function saveTask(task) {
   };
 
   // 1. Immediately persist to localStorage first so it's NEVER lost
-  const localTasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
-  const idx = localTasks.findIndex((t) => String(t.id) === String(id));
+  const idx = localTasks.findIndex((t) => String(t.id).toLowerCase() === String(id).toLowerCase() || String(t.display_id || '').toLowerCase() === String(id).toLowerCase());
   let updatedLocal;
   if (idx >= 0) {
     updatedLocal = [...localTasks];
@@ -421,8 +428,9 @@ export async function bulkCreateTasks(tasksList) {
 export async function updateTaskStatus(taskId, status) {
   const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
   let updatedTask = null;
+  const cleanId = String(taskId || '').trim().toLowerCase();
   const updated = tasks.map((t) => {
-    if (String(t.id) === String(taskId)) {
+    if (String(t.id).toLowerCase() === cleanId || String(t.display_id || '').toLowerCase() === cleanId) {
       const completed_at = status === 'done' ? (t.completed_at || new Date().toISOString()) : t.completed_at;
       updatedTask = { ...t, status, completed_at, updated_at: new Date().toISOString() };
       return updatedTask;
@@ -432,7 +440,7 @@ export async function updateTaskStatus(taskId, status) {
   setLocalData(STORAGE_KEY_TASKS, updated);
 
   try {
-    const res = await fetch(`${API_BASE}/api/tasks/${taskId}/status`, {
+    const res = await fetch(`${API_BASE}/api/tasks/${encodeURIComponent(taskId)}/status`, {
       method: 'PATCH',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ status })
@@ -441,16 +449,17 @@ export async function updateTaskStatus(taskId, status) {
     if (serverResult) return serverResult;
   } catch {}
 
-  return updatedTask || tasks.find((t) => String(t.id) === String(taskId));
+  return updatedTask || tasks.find((t) => String(t.id).toLowerCase() === cleanId || String(t.display_id || '').toLowerCase() === cleanId);
 }
 
 export async function deleteTask(taskId) {
   const tasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
-  const updated = tasks.filter((t) => String(t.id) !== String(taskId));
+  const cleanId = String(taskId || '').trim().toLowerCase();
+  const updated = tasks.filter((t) => String(t.id).toLowerCase() !== cleanId && String(t.display_id || '').toLowerCase() !== cleanId);
   setLocalData(STORAGE_KEY_TASKS, updated);
 
   try {
-    await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    await fetch(`${API_BASE}/api/tasks/${encodeURIComponent(taskId)}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -710,35 +719,38 @@ export async function savePermissions(matrix) {
 // PROJECTS, SECTIONS, COLUMNS
 // ------------------------------------------------------------------------------
 export async function fetchProjectsList() {
+  const localProjects = getLocalData(STORAGE_KEY_PROJECTS, INITIAL_PROJECTS);
   try {
     const res = await fetch(`${API_BASE}/api/projects`);
-    if (res.ok) {
-      const data = await res.json();
-      setLocalData(STORAGE_KEY_PROJECTS, data);
-      return data;
+    const serverProjects = await safeParseJson(res);
+    if (Array.isArray(serverProjects) && serverProjects.length > 0) {
+      const merged = Array.from(new Set([...serverProjects, ...localProjects]));
+      setLocalData(STORAGE_KEY_PROJECTS, merged);
+      return merged;
     }
   } catch {}
-  return getLocalData(STORAGE_KEY_PROJECTS, INITIAL_PROJECTS);
+  return localProjects;
 }
 
 export async function addProjectItem(name) {
+  const projects = getLocalData(STORAGE_KEY_PROJECTS, INITIAL_PROJECTS);
+  const updated = projects.includes(name) ? projects : [...projects, name];
+  setLocalData(STORAGE_KEY_PROJECTS, updated);
+
   try {
     const res = await fetch(`${API_BASE}/api/projects`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name })
     });
-    if (res.ok) return await res.json();
+    const serverData = await safeParseJson(res);
+    if (Array.isArray(serverData)) {
+      setLocalData(STORAGE_KEY_PROJECTS, serverData);
+      return serverData;
+    }
   } catch {}
 
-  // Local fallback
-  const projects = getLocalData(STORAGE_KEY_PROJECTS, INITIAL_PROJECTS);
-  if (!projects.includes(name)) {
-    const updated = [...projects, name];
-    setLocalData(STORAGE_KEY_PROJECTS, updated);
-    return updated;
-  }
-  return projects;
+  return updated;
 }
 
 export async function deleteProjectItem(name) {
@@ -749,52 +761,69 @@ export async function deleteProjectItem(name) {
 }
 
 export async function fetchSectionsList() {
+  const localSections = getLocalData(STORAGE_KEY_SECTIONS, DEFAULT_SECTIONS);
   try {
     const res = await fetch(`${API_BASE}/api/sections`);
-    if (res.ok) {
-      const data = await res.json();
-      setLocalData(STORAGE_KEY_SECTIONS, data);
-      return data;
+    const serverSections = await safeParseJson(res);
+    if (Array.isArray(serverSections) && serverSections.length > 0) {
+      // Merge: preserve custom local sections not present on server
+      const serverMap = new Map(serverSections.map((s) => [s.id, s]));
+      const localOnly = (localSections || []).filter((ls) => !serverMap.has(ls.id));
+      const merged = [...serverSections, ...localOnly];
+      setLocalData(STORAGE_KEY_SECTIONS, merged);
+      return merged;
     }
   } catch {}
-  return getLocalData(STORAGE_KEY_SECTIONS, DEFAULT_SECTIONS);
+  return localSections;
 }
 
 export async function saveSectionsList(sections) {
+  setLocalData(STORAGE_KEY_SECTIONS, sections);
   try {
     const res = await fetch(`${API_BASE}/api/sections`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(sections)
     });
-    if (res.ok) return await res.json();
+    const serverResult = await safeParseJson(res);
+    if (Array.isArray(serverResult) && serverResult.length > 0) {
+      setLocalData(STORAGE_KEY_SECTIONS, serverResult);
+      return serverResult;
+    }
   } catch {}
-  setLocalData(STORAGE_KEY_SECTIONS, sections);
   return sections;
 }
 
 export async function fetchColumnsList() {
+  const localColumns = getLocalData(STORAGE_KEY_COLUMNS, DEFAULT_COLUMNS);
   try {
     const res = await fetch(`${API_BASE}/api/columns`);
-    if (res.ok) {
-      const data = await res.json();
-      setLocalData(STORAGE_KEY_COLUMNS, data);
-      return data;
+    const serverColumns = await safeParseJson(res);
+    if (Array.isArray(serverColumns) && serverColumns.length > 0) {
+      const serverMap = new Map(serverColumns.map((c) => [c.id, c]));
+      const localOnly = (localColumns || []).filter((lc) => !serverMap.has(lc.id));
+      const merged = [...serverColumns, ...localOnly];
+      setLocalData(STORAGE_KEY_COLUMNS, merged);
+      return merged;
     }
   } catch {}
-  return getLocalData(STORAGE_KEY_COLUMNS, DEFAULT_COLUMNS);
+  return localColumns;
 }
 
 export async function saveColumnsList(columns) {
+  setLocalData(STORAGE_KEY_COLUMNS, columns);
   try {
     const res = await fetch(`${API_BASE}/api/columns`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(columns)
     });
-    if (res.ok) return await res.json();
+    const serverResult = await safeParseJson(res);
+    if (Array.isArray(serverResult) && serverResult.length > 0) {
+      setLocalData(STORAGE_KEY_COLUMNS, serverResult);
+      return serverResult;
+    }
   } catch {}
-  setLocalData(STORAGE_KEY_COLUMNS, columns);
   return columns;
 }
 
@@ -802,15 +831,19 @@ export async function saveColumnsList(columns) {
 // DEPARTMENTS API
 // ------------------------------------------------------------------------------
 export async function fetchDepartments() {
+  const localDepts = getLocalData(STORAGE_KEY_DEPTS, DEPARTMENTS);
   try {
     const res = await fetch(`${API_BASE}/api/departments`);
-    if (res.ok) {
-      const data = await res.json();
-      setLocalData(STORAGE_KEY_DEPTS, data);
-      return data;
+    const serverDepts = await safeParseJson(res);
+    if (Array.isArray(serverDepts) && serverDepts.length > 0) {
+      const serverMap = new Map(serverDepts.map((d) => [d.id, d]));
+      const localOnly = (localDepts || []).filter((ld) => !serverMap.has(ld.id));
+      const merged = [...serverDepts, ...localOnly];
+      setLocalData(STORAGE_KEY_DEPTS, merged);
+      return merged;
     }
   } catch {}
-  return getLocalData(STORAGE_KEY_DEPTS, INITIAL_DEPARTMENTS);
+  return localDepts;
 }
 
 export async function saveDepartment(dept) {

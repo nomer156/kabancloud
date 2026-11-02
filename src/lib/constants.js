@@ -572,14 +572,33 @@ export function hasPermission(user, permKey, customPermissions = null) {
   return false;
 }
 
-// Генерация смарт-ID задачи: [МАРКА/РАЗДЕЛ].[НОМЕР], например СВН.25261 или ВДН.1042
-export function generateTaskDisplayId(section = 'ВДН', existingNumber = null) {
-  const prefix = (section || 'УФ').trim().toUpperCase().replace(/[^A-ZА-Я0-9]/gi, '') || 'УФ';
-  if (existingNumber) {
-    return prefix + '.' + existingNumber;
+// Генерация ID задачи: [МАРКА/РАЗДЕЛ].[ШИФР ПРОЕКТА] (например: ВДН.ПР-2026-01 или ВДН.БШ)
+export function generateTaskDisplayId(section = 'ВДН', projectCode = '', existingList = []) {
+  const sec = (section || 'УФ').trim().toUpperCase().replace(/[^A-ZА-Я0-9]/gi, '') || 'УФ';
+  const cipher = (projectCode || '').trim();
+  const base = cipher ? `${sec}.${cipher}` : `${sec}.БШ`;
+
+  if (!Array.isArray(existingList) || existingList.length === 0) {
+    return base;
   }
-  const num = Math.floor(10000 + Math.random() * 90000);
-  return prefix + '.' + num;
+
+  const exists = existingList.some(
+    (t) => String(t.id || '').toLowerCase() === base.toLowerCase() || String(t.display_id || '').toLowerCase() === base.toLowerCase()
+  );
+  if (!exists) {
+    return base;
+  }
+
+  let counter = 2;
+  while (
+    existingList.some(
+      (t) => String(t.id || '').toLowerCase() === `${base}-${counter}`.toLowerCase() ||
+             String(t.display_id || '').toLowerCase() === `${base}-${counter}`.toLowerCase()
+    )
+  ) {
+    counter++;
+  }
+  return `${base}-${counter}`;
 }
 
 // Helper to format long folder paths to show the tail (e.g. "...\Folder\Subfolder")

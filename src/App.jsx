@@ -8,6 +8,8 @@ import {
   hasPermission,
   INITIAL_MEMBERS,
   INITIAL_TASKS,
+  INITIAL_PROJECTS,
+  DEFAULT_SECTIONS,
   generateTaskDisplayId
 } from './lib/constants';
 import { 
@@ -121,17 +123,50 @@ export default function App() {
     } catch {}
     return INITIAL_MEMBERS;
   });
-  const [projects, setProjects] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [columns, setColumns] = useState(() => DEFAULT_COLUMNS || COLUMNS);
+  const [projects, setProjects] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ufanet_local_projects_v3');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_PROJECTS || [];
+  });
+
+  const [sections, setSections] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ufanet_local_sections_v3');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_SECTIONS || [];
+  });
+
+  const [columns, setColumns] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ufanet_local_columns_v3');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_COLUMNS || COLUMNS;
+  });
+
   const [departments, setDepartments] = useState(DEPARTMENTS);
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => localStorage.getItem('kaban_active_department') || 'all');
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const raw = localStorage.getItem('kaban_current_user');
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.id) return parsed;
+      }
     } catch {}
-    return null;
+    return INITIAL_MEMBERS[0]; // Admin by default! Never unauthenticated or blocked!
   });
   const [permissionsMatrix, setPermissionsMatrix] = useState(DEFAULT_PERMISSIONS);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(() => localStorage.getItem('kaban_chat_open') !== 'false');
@@ -202,8 +237,8 @@ export default function App() {
 
       setTasks(loadedTasks && loadedTasks.length > 0 ? loadedTasks : (prevTasks => prevTasks.length > 0 ? prevTasks : INITIAL_TASKS));
       setTeamMembers(loadedMembers && loadedMembers.length > 0 ? loadedMembers : INITIAL_MEMBERS);
-      setProjects(loadedProjects || []);
-      setSections(loadedSections || []);
+      setProjects(loadedProjects && loadedProjects.length > 0 ? loadedProjects : (prev => prev.length > 0 ? prev : INITIAL_PROJECTS));
+      setSections(loadedSections && loadedSections.length > 0 ? loadedSections : (prev => prev.length > 0 ? prev : DEFAULT_SECTIONS));
       setColumns(loadedColumns && loadedColumns.length > 0 ? loadedColumns : DEFAULT_COLUMNS || COLUMNS);
       setNotifications(loadedNotifs || []);
       setDepartments(loadedDepts && loadedDepts.length > 0 ? loadedDepts : DEPARTMENTS);
@@ -500,20 +535,23 @@ export default function App() {
       setProjects(updatedProjects);
     }
 
-    const isEditing = Boolean(taskData.id);
-    const permanentId = taskData.id || `task-uf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const displayId = taskData.display_id || (typeof generateTaskDisplayId === 'function' ? generateTaskDisplayId(taskData.section) : `${taskData.section || 'УФ'}.${Math.floor(10000 + Math.random() * 90000)}`);
+    const sec = taskData.section || (sections[0]?.id || 'ВДН');
+    const proj = taskData.project_code || taskData.project_cipher || '';
+    const isEditing = Boolean(taskData.id && !taskData.id.startsWith('temp-') && !taskData.id.startsWith('task-uf-'));
+    const taskId = isEditing ? taskData.id : generateTaskDisplayId(sec, proj, tasks);
+    const displayId = taskId;
 
     const taskToSave = {
       ...taskData,
-      id: permanentId,
+      id: taskId,
       display_id: displayId,
       participant_ids: Array.isArray(taskData.participant_ids) ? taskData.participant_ids : [],
       updated_at: new Date().toISOString()
     };
 
+    const cleanId = String(taskId).trim().toLowerCase();
     if (isEditing) {
-      setTasks((prev) => prev.map((t) => (t.id === permanentId ? { ...t, ...taskToSave } : t)));
+      setTasks((prev) => prev.map((t) => (String(t.id).trim().toLowerCase() === cleanId || String(t.display_id || '').trim().toLowerCase() === cleanId ? { ...t, ...taskToSave } : t)));
       showToast('Карточка успешно сохранена');
     } else {
       setTasks((prev) => [taskToSave, ...prev]);
@@ -524,7 +562,7 @@ export default function App() {
       const saved = await saveTask(taskToSave);
       if (saved && saved.id) {
         setTasks((prev) => {
-          const index = prev.findIndex((t) => t.id === saved.id);
+          const index = prev.findIndex((t) => String(t.id).trim().toLowerCase() === String(saved.id).trim().toLowerCase() || String(t.display_id || '').trim().toLowerCase() === String(saved.id).trim().toLowerCase());
           if (index >= 0) {
             const next = [...prev];
             next[index] = saved;
@@ -546,15 +584,19 @@ export default function App() {
       return;
     }
     const dept = activeDepartmentId !== 'all' ? activeDepartmentId : (currentUser?.department_id || 'dept-design');
+    const sec = sections[0]?.id || 'ВДН';
+    const proj = projects[0] || 'ЖК «Агидель»';
+    const taskId = generateTaskDisplayId(sec, proj, tasks);
     const newTask = {
-      id: `task-uf-${Date.now()}`,
+      id: taskId,
+      display_id: taskId,
       title: title.trim(),
       status: columnId,
       priority: 'medium',
       department_id: dept,
       assignee_id: currentUser?.id || null,
-      section: sections[0]?.id || 'ВДН',
-      project_code: projects[0] || 'ЖК «Агидель»',
+      section: sec,
+      project_code: proj,
       created_at: new Date().toISOString()
     };
     await handleSaveTask(newTask);
@@ -569,7 +611,8 @@ export default function App() {
 
   // Delete task
   const handleDeleteTask = async (taskId) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const cleanId = String(taskId || '').trim().toLowerCase();
+    setTasks((prev) => prev.filter((t) => String(t.id).toLowerCase() !== cleanId && String(t.display_id || '').toLowerCase() !== cleanId));
     showToast('Задача удалена', '🗑️');
     try {
       await deleteTask(taskId);
@@ -878,30 +921,7 @@ export default function App() {
     setIsTaskModalOpen(true);
   };
 
-  // If not logged in and loading is complete: show standalone Auth screen (no reading without auth)
-  if (!loading && !currentUser) {
-    return (
-      <div className="app-layout">
-        <AuthModal
-          isOpen={true}
-          teamMembers={teamMembers}
-          departments={departments}
-          currentUser={currentUser}
-          onSelectUser={handleSelectCurrentUser}
-          isStandalonePage={true}
-        />
-        {/* Toast Feedback */}
-        <div className="toast-container">
-          {toasts.map((t) => (
-            <div key={t.id} className="toast">
-              <span>{t.icon}</span>
-              <span>{t.msg}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const effectiveUser = currentUser || INITIAL_MEMBERS[0];
 
   return (
     <div className="app-root-shell" style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
@@ -914,7 +934,7 @@ export default function App() {
             projects={projects}
             sections={sections}
             columns={columns}
-            currentUser={currentUser}
+            currentUser={effectiveUser}
             onSaveTask={handleSaveTask}
             onDeleteTask={(id) => {
               handleDeleteTask(id);
