@@ -403,27 +403,58 @@ export default function App() {
     logoutUser();
     localStorage.removeItem('kaban_current_user');
     localStorage.removeItem('kaban_current_user_id');
-    setCurrentUser(null);
+    setCurrentUser(INITIAL_MEMBERS[0]);
+    setIsAuthModalOpen(true);
     playSound('click');
-    showToast('Вы вышли из профиля', '👋');
+    showToast('Выберите профиль сотрудника для входа', '🔐');
   };
 
   // Active task for full-page Jira view
   const activeDetailTask = useMemo(() => {
     if (!detailTaskId) return null;
-    const cleanId = String(detailTaskId).trim().toLowerCase();
+    let cleanId = String(detailTaskId).trim().toLowerCase();
+    try {
+      cleanId = decodeURIComponent(cleanId);
+    } catch {}
     const cleanIdWithoutHash = cleanId.replace(/^#/, '');
+
+    const stripChars = (s) => String(s || '').toLowerCase().replace(/[^a-zа-я0-9]/gi, '');
+    const strippedClean = stripChars(cleanIdWithoutHash);
 
     const matchTask = (t) => {
       if (!t) return false;
       const tid = String(t.id || '').trim().toLowerCase();
       const tdisp = String(t.display_id || '').trim().toLowerCase();
-      return (
+      
+      // 1. Direct or without-hash match
+      if (
         tid === cleanId ||
         tdisp === cleanId ||
         tid === cleanIdWithoutHash ||
         tdisp === cleanIdWithoutHash
-      );
+      ) {
+        return true;
+      }
+
+      // 2. Loose match ignoring URL-encoding (%20), punctuation, Russian quotes « », dashes
+      if (strippedClean && (stripChars(tid) === strippedClean || stripChars(tdisp) === strippedClean)) {
+        return true;
+      }
+
+      // 3. Normalized cipher match (e.g. if URL is ВДН.АГИДЕЛЬ and task had ВДН.ЖК «Агидель»)
+      try {
+        const decoded = decodeURIComponent(cleanIdWithoutHash).toLowerCase();
+        if (
+          tid === decoded ||
+          tdisp === decoded ||
+          stripChars(tid) === stripChars(decoded) ||
+          stripChars(tdisp) === stripChars(decoded)
+        ) {
+          return true;
+        }
+      } catch {}
+
+      return false;
     };
 
     const inState = tasks.find(matchTask);
@@ -536,7 +567,7 @@ export default function App() {
     }
 
     const sec = taskData.section || (sections[0]?.id || 'ВДН');
-    const proj = taskData.project_code || taskData.project_cipher || '';
+    const proj = taskData.project_cipher || taskData.project_code || '';
     const isEditing = Boolean(taskData.id && !taskData.id.startsWith('temp-') && !taskData.id.startsWith('task-uf-'));
     const taskId = isEditing ? taskData.id : generateTaskDisplayId(sec, proj, tasks);
     const displayId = taskId;
@@ -973,9 +1004,10 @@ export default function App() {
           <Header
             tasks={tasks}
             teamMembers={teamMembers}
-            currentUser={currentUser}
+            currentUser={effectiveUser}
             onSelectCurrentUser={handleSelectCurrentUser}
             onLogout={handleLogout}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onOpenNewTask={() => handleQuickAdd(columns[0]?.id || 'backlog')}

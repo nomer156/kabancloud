@@ -347,7 +347,7 @@ export async function fetchAllTasks() {
 export async function saveTask(task) {
   const localTasks = getLocalData(STORAGE_KEY_TASKS, INITIAL_TASKS);
   const sec = task.section || 'ВДН';
-  const proj = task.project_code || task.project_cipher || '';
+  const proj = task.project_cipher || task.project_code || '';
   
   // Clean, human-readable ID consisting of Section (mark) and Project Cipher: e.g. ВДН.ПР-2026-01
   let id = task.id;

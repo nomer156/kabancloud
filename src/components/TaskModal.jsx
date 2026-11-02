@@ -578,7 +578,7 @@ export function TaskModal({
     const taskData = {
       ...(taskToEdit || {}),
       id: taskToEdit?.id,
-      display_id: (displayId || taskToEdit?.display_id || generateTaskDisplayId(section, finalProject || projectCipher)).trim(),
+      display_id: (displayId || taskToEdit?.display_id || generateTaskDisplayId(section, projectCipher || finalProject)).trim(),
       department_id: departmentId || 'dept-design',
       participant_ids: participantIds || [],
       title: title.trim(),

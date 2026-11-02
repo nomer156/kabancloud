@@ -572,18 +572,38 @@ export function hasPermission(user, permKey, customPermissions = null) {
   return false;
 }
 
-// Генерация ID задачи: [МАРКА/РАЗДЕЛ].[ШИФР ПРОЕКТА] (например: ВДН.ПР-2026-01 или ВДН.БШ)
+// Очистка и получение лаконичного шифра проекта без пробелов, кавычек и спецсимволов
+export function cleanProjectCipher(val) {
+  if (!val) return '';
+  let str = String(val).trim();
+  // Убираем русские и английские кавычки « », " ", ' ', ` `
+  str = str.replace(/[«»"'`]/g, '');
+  // Убираем типовые приставки: "ЖК ", "мкр. ", "ТЦ ", "ТРЦ ", "АО ", "ООО "
+  str = str.replace(/^(жк|мкр\.?|тц|трц|ао|ооо|зао)\s+/i, '');
+  // Убираем текст в скобках, например "(Север)", "(Центр)"
+  str = str.replace(/\s*\([^)]*\)/g, '');
+  // Заменяем пробелы, слэши, подчеркивания на одиночный дефис
+  str = str.replace(/[\s_—–/.]+/g, '-');
+  // Убираем любые недопустимые для URL символы
+  str = str.replace(/[^A-Za-zА-Яа-я0-9\-]/g, '');
+  // Срезаем дефисы по краям
+  str = str.replace(/^-+|-+$/g, '');
+  return str.toUpperCase().trim();
+}
+
+// Генерация чистого ID задачи: [МАРКА/РАЗДЕЛ].[ШИФР ПРОЕКТА] (например: ВДН.АГИДЕЛЬ или ВДН.ПР-2026-01)
 export function generateTaskDisplayId(section = 'ВДН', projectCode = '', existingList = []) {
   const sec = (section || 'УФ').trim().toUpperCase().replace(/[^A-ZА-Я0-9]/gi, '') || 'УФ';
-  const cipher = (projectCode || '').trim();
+  const cipher = cleanProjectCipher(projectCode);
   const base = cipher ? `${sec}.${cipher}` : `${sec}.БШ`;
 
   if (!Array.isArray(existingList) || existingList.length === 0) {
     return base;
   }
 
+  const cleanBase = base.toLowerCase();
   const exists = existingList.some(
-    (t) => String(t.id || '').toLowerCase() === base.toLowerCase() || String(t.display_id || '').toLowerCase() === base.toLowerCase()
+    (t) => String(t.id || '').toLowerCase() === cleanBase || String(t.display_id || '').toLowerCase() === cleanBase
   );
   if (!exists) {
     return base;
@@ -592,8 +612,8 @@ export function generateTaskDisplayId(section = 'ВДН', projectCode = '', exis
   let counter = 2;
   while (
     existingList.some(
-      (t) => String(t.id || '').toLowerCase() === `${base}-${counter}`.toLowerCase() ||
-             String(t.display_id || '').toLowerCase() === `${base}-${counter}`.toLowerCase()
+      (t) => String(t.id || '').toLowerCase() === `${cleanBase}-${counter}` ||
+             String(t.display_id || '').toLowerCase() === `${cleanBase}-${counter}`
     )
   ) {
     counter++;

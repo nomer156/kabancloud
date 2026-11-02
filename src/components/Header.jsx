@@ -52,7 +52,8 @@ export function Header({
   onMarkAllNotificationsRead,
   onDeleteNotification,
   onOpenTaskFromNotification,
-  onLogout
+  onLogout,
+  onOpenAuthModal
 }) {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -255,22 +256,20 @@ export function Header({
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                      {currentUser ? currentUser.full_name : 'Инженер'}
+                      {currentUser ? currentUser.full_name : 'admin'}
                     </span>
-                    {currentUser && (
-                      <span
-                        style={{
-                          fontSize: '0.64rem',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          background: `${userDept.color}22`,
-                          color: userDept.color,
-                          fontWeight: 700
-                        }}
-                      >
-                        {userDept.icon} {userDept.name}
-                      </span>
-                    )}
+                    <span
+                      style={{
+                        fontSize: '0.64rem',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        background: `${userDept.color}22`,
+                        color: userDept.color,
+                        fontWeight: 700
+                      }}
+                    >
+                      {userDept.icon} {userDept.name}
+                    </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
@@ -290,12 +289,16 @@ export function Header({
                 className="btn btn-secondary"
                 onClick={() => {
                   playSound('click');
-                  if (onLogout) onLogout();
+                  if (onOpenAuthModal) {
+                    onOpenAuthModal();
+                  } else if (onLogout) {
+                    onLogout();
+                  }
                 }}
-                title="Сменить сотрудника / выйти"
+                title="Сменить сотрудника / войти под другим профилем"
                 style={{ padding: '0.38rem 0.65rem', fontSize: '0.74rem', gap: '5px' }}
               >
-                <LogOut size={13} style={{ color: 'var(--accent-rose, #ef4444)' }} />
+                <UserCog size={13} style={{ color: 'var(--accent-orange, #ff6600)' }} />
                 <span>Сменить</span>
               </button>
             </div>
