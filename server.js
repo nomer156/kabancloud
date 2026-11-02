@@ -174,140 +174,170 @@ const DEFAULT_COLUMNS = [
 ];
 
 const DEFAULT_MEMBERS = [
-  // Проектировщики
   {
-    id: 'uf-11111111-1111-1111-1111-111111111111',
-    full_name: 'Алексей Смирнов',
-    department_id: 'dept-design',
-    role: 'Начальник отдела проектирования / ГИП',
-    initials: 'АС',
-    avatar_color: '#ff6600',
-    specialty: 'ГИП'
+    "id": "uf-admin-root",
+    "full_name": "admin",
+    "department_id": "dept-design",
+    "role": "Главный администратор системы",
+    "role_level": 10,
+    "initials": "AD",
+    "avatar_color": "#ef4444",
+    "specialty": "Администрирование (Полный доступ)",
+    "workstation_id": "vlxproject00"
   },
   {
-    id: 'uf-22222222-2222-2222-2222-222222222222',
-    full_name: 'Мария Воронова',
-    department_id: 'dept-design',
-    role: 'Ведущий инженер ВОЛС',
-    initials: 'МВ',
-    avatar_color: '#ff8800',
-    specialty: 'ВОЛС'
+    "id": "uf-11111111-1111-1111-1111-111111111111",
+    "full_name": "Алексей Смирнов",
+    "department_id": "dept-design",
+    "role": "Начальник отдела проектирования / ГИП",
+    "role_level": 10,
+    "initials": "АС",
+    "avatar_color": "#ff6600",
+    "specialty": "ГИП",
+    "workstation_id": "vlxproject01"
   },
   {
-    id: 'uf-33333333-3333-3333-3333-333333333333',
-    full_name: 'Дмитрий Ковалёв',
-    department_id: 'dept-design',
-    role: 'Инженер СКС и передачи данных',
-    initials: 'ДК',
-    avatar_color: '#0284c7',
-    specialty: 'СКС'
+    "id": "uf-22222222-2222-2222-2222-222222222222",
+    "full_name": "Мария Воронова",
+    "department_id": "dept-design",
+    "role": "Ведущий инженер ВОЛС",
+    "role_level": 8,
+    "initials": "МВ",
+    "avatar_color": "#ff8800",
+    "specialty": "ВОЛС",
+    "workstation_id": "vlxproject02"
   },
   {
-    id: 'uf-44444444-4444-4444-4444-444444444444',
-    full_name: 'Елена Васильева',
-    department_id: 'dept-design',
-    role: 'Инженер видеонаблюдения и СКУД',
-    initials: 'ЕВ',
-    avatar_color: '#10b981',
-    specialty: 'ВН'
-  },
-
-  // Сварщики
-  {
-    id: 'uf-weld-1',
-    full_name: 'Ильдар Басыров',
-    department_id: 'dept-welders',
-    role: 'Бригадир сварщиков ВОЛС',
-    initials: 'ИБ',
-    avatar_color: '#f59e0b',
-    specialty: 'Муфты МТОК'
+    "id": "uf-33333333-3333-3333-3333-333333333333",
+    "full_name": "Дмитрий Ковалёв",
+    "department_id": "dept-design",
+    "role": "Инженер СКС и передачи данных",
+    "role_level": 6,
+    "initials": "ДК",
+    "avatar_color": "#0284c7",
+    "specialty": "СКС",
+    "workstation_id": "vlxproject03"
   },
   {
-    id: 'uf-weld-2',
-    full_name: 'Руслан Хабибов',
-    department_id: 'dept-welders',
-    role: 'Мастер-сварщик оптических линий',
-    initials: 'РХ',
-    avatar_color: '#d97706',
-    specialty: 'Сварка ОВ'
+    "id": "uf-44444444-4444-4444-4444-444444444444",
+    "full_name": "Елена Васильева",
+    "department_id": "dept-design",
+    "role": "Инженер видеонаблюдения и СКУД",
+    "role_level": 6,
+    "initials": "ЕВ",
+    "avatar_color": "#10b981",
+    "specialty": "ВН",
+    "workstation_id": "vlxproject04"
   },
   {
-    id: 'uf-weld-3',
-    full_name: 'Артур Гареев',
-    department_id: 'dept-welders',
-    role: 'Инженер-рефлектометрист',
-    initials: 'АГ',
-    avatar_color: '#f97316',
-    specialty: 'Рефлектометрия'
-  },
-
-  // РСС
-  {
-    id: 'uf-rss-1',
-    full_name: 'Михаил Ахметов',
-    department_id: 'dept-rss',
-    role: 'Начальник участка РСС',
-    initials: 'МА',
-    avatar_color: '#0284c7',
-    specialty: 'ЛКС / Эксплуатация'
+    "id": "uf-weld-1",
+    "full_name": "Ильдар Басыров",
+    "department_id": "dept-welders",
+    "role": "Бригадир сварщиков ВОЛС",
+    "role_level": 10,
+    "initials": "ИБ",
+    "avatar_color": "#f59e0b",
+    "specialty": "Муфты МТОК",
+    "workstation_id": "vlxproject05"
   },
   {
-    id: 'uf-rss-2',
-    full_name: 'Денис Фёдоров',
-    department_id: 'dept-rss',
-    role: 'Инженер эксплуатации сетей связи',
-    initials: 'ДФ',
-    avatar_color: '#0ea5e9',
-    specialty: 'Аварийная служба'
+    "id": "uf-weld-2",
+    "full_name": "Руслан Хабибов",
+    "department_id": "dept-welders",
+    "role": "Мастер-сварщик оптических линий",
+    "role_level": 8,
+    "initials": "РХ",
+    "avatar_color": "#d97706",
+    "specialty": "Сварка ОВ",
+    "workstation_id": "vlxproject06"
   },
   {
-    id: 'uf-rss-3',
-    full_name: 'Салават Зарипов',
-    department_id: 'dept-rss',
-    role: 'Мастер ЛКС РСС',
-    initials: 'СЗ',
-    avatar_color: '#38bdf8',
-    specialty: 'Линейные сооружения'
-  },
-
-  // Отдел продаж ЮЛ
-  {
-    id: 'uf-salesb2b-1',
-    full_name: 'Ольга Кузнецова',
-    department_id: 'dept-sales-b2b',
-    role: 'Руководитель группы корпоративных продаж',
-    initials: 'ОК',
-    avatar_color: '#8b5cf6',
-    specialty: 'B2B Клиенты'
+    "id": "uf-weld-3",
+    "full_name": "Артур Гареев",
+    "department_id": "dept-welders",
+    "role": "Инженер-рефлектометрист",
+    "role_level": 6,
+    "initials": "АГ",
+    "avatar_color": "#f97316",
+    "specialty": "Рефлектометрия",
+    "workstation_id": "vlxproject07"
   },
   {
-    id: 'uf-salesb2b-2',
-    full_name: 'Тимур Насыров',
-    department_id: 'dept-sales-b2b',
-    role: 'Ведущий менеджер корпоративного отдела',
-    initials: 'ТН',
-    avatar_color: '#a855f7',
-    specialty: 'Договоры ЮЛ'
-  },
-
-  // Отдел продаж ФЛ
-  {
-    id: 'uf-salesb2c-1',
-    full_name: 'Алина Яковлева',
-    department_id: 'dept-sales-b2c',
-    role: 'Старший менеджер розничных продаж',
-    initials: 'АЯ',
-    avatar_color: '#10b981',
-    specialty: 'B2C Клиенты'
+    "id": "uf-rss-1",
+    "full_name": "Михаил Ахметов",
+    "department_id": "dept-rss",
+    "role": "Начальник участка РСС",
+    "role_level": 10,
+    "initials": "МА",
+    "avatar_color": "#0284c7",
+    "specialty": "ЛКС / Эксплуатация",
+    "workstation_id": "vlxproject08"
   },
   {
-    id: 'uf-salesb2c-2',
-    full_name: 'Вадим Мусин',
-    department_id: 'dept-sales-b2c',
-    role: 'Менеджер по подключению МКД и ЧС',
-    initials: 'ВМ',
-    avatar_color: '#059669',
-    specialty: 'Подключения GPON'
+    "id": "uf-rss-2",
+    "full_name": "Денис Фёдоров",
+    "department_id": "dept-rss",
+    "role": "Инженер эксплуатации сетей связи",
+    "role_level": 8,
+    "initials": "ДФ",
+    "avatar_color": "#0ea5e9",
+    "specialty": "Аварийная служба",
+    "workstation_id": "vlxproject09"
+  },
+  {
+    "id": "uf-rss-3",
+    "full_name": "Салават Зарипов",
+    "department_id": "dept-rss",
+    "role": "Мастер ЛКС РСС",
+    "role_level": 6,
+    "initials": "СЗ",
+    "avatar_color": "#38bdf8",
+    "specialty": "Линейные сооружения",
+    "workstation_id": "vlxproject10"
+  },
+  {
+    "id": "uf-salesb2b-1",
+    "full_name": "Ольга Кузнецова",
+    "department_id": "dept-sales-b2b",
+    "role": "Руководитель группы корпоративных продаж",
+    "role_level": 10,
+    "initials": "ОК",
+    "avatar_color": "#8b5cf6",
+    "specialty": "B2B Клиенты",
+    "workstation_id": "vlxproject11"
+  },
+  {
+    "id": "uf-salesb2b-2",
+    "full_name": "Тимур Насыров",
+    "department_id": "dept-sales-b2b",
+    "role": "Ведущий менеджер корпоративного отдела",
+    "role_level": 8,
+    "initials": "ТН",
+    "avatar_color": "#a855f7",
+    "specialty": "Договоры ЮЛ",
+    "workstation_id": "vlxproject12"
+  },
+  {
+    "id": "uf-salesb2c-1",
+    "full_name": "Алина Яковлева",
+    "department_id": "dept-sales-b2c",
+    "role": "Старший менеджер розничных продаж",
+    "role_level": 10,
+    "initials": "АЯ",
+    "avatar_color": "#10b981",
+    "specialty": "B2C Клиенты",
+    "workstation_id": "vlxproject13"
+  },
+  {
+    "id": "uf-salesb2c-2",
+    "full_name": "Вадим Мусин",
+    "department_id": "dept-sales-b2c",
+    "role": "Менеджер по подключению МКД и ЧС",
+    "role_level": 6,
+    "initials": "ВМ",
+    "avatar_color": "#059669",
+    "specialty": "Подключения GPON",
+    "workstation_id": "vlxproject14"
   }
 ];
 
@@ -520,6 +550,7 @@ function writeDb(data) {
 // ------------------------------------------------------------------------------
 function extractAuthUser(req, db) {
   const headerUserId = req.headers['x-user-id'];
+  const headerPc = req.headers['x-workstation'];
   const authHeader = req.headers['authorization'];
   let candidateId = headerUserId;
 
@@ -532,8 +563,38 @@ function extractAuthUser(req, db) {
     if (match) candidateId = decodeURIComponent(match[1]);
   }
 
-  if (!candidateId) return null;
-  return db.members?.find((m) => m.id === candidateId) || null;
+  // Workstation cookie / header
+  let candidatePc = headerPc;
+  if (!candidatePc && req.headers.cookie) {
+    const pcMatch = req.headers.cookie.match(/kaban_pc=([^;]+)/);
+    if (pcMatch) candidatePc = decodeURIComponent(pcMatch[1]);
+  }
+
+  // URL query parameter ?pc=... or ?userId=...
+  if (!candidateId && !candidatePc && req.url) {
+    try {
+      const parsed = new URL(req.url, 'http://localhost');
+      candidateId = parsed.searchParams.get('userId') || parsed.searchParams.get('uid');
+      candidatePc = parsed.searchParams.get('pc') || parsed.searchParams.get('workstation');
+    } catch {}
+  }
+
+  if (candidateId) {
+    if (candidateId === 'admin') {
+      const admin = db.members?.find((m) => m.full_name?.toLowerCase() === 'admin' || m.id === 'uf-admin-root');
+      if (admin) return admin;
+    }
+    const found = db.members?.find((m) => m.id === candidateId || m.full_name?.toLowerCase() === candidateId.toLowerCase());
+    if (found) return found;
+  }
+
+  if (candidatePc) {
+    const norm = candidatePc.trim().toLowerCase();
+    const foundByPc = db.members?.find((m) => m.workstation_id?.toLowerCase() === norm);
+    if (foundByPc) return foundByPc;
+  }
+
+  return null;
 }
 
 function requireAuth(req, res, db) {
@@ -728,23 +789,69 @@ async function handleRequest(req, res) {
 
     // 2. POST /api/auth/login (1-Click Login by memberId)
     if (pathname === '/api/auth/login' && req.method === 'POST') {
-      const { memberId } = await parseBody(req);
+      const { memberId, workstation, username } = await parseBody(req);
       const db = readDb();
-      const member = db.members?.find((m) => m.id === memberId);
+      let member = null;
+
+      if (username === 'admin' || memberId === 'admin' || memberId === 'uf-admin-root') {
+        member = db.members?.find((m) => m.full_name?.toLowerCase() === 'admin' || m.id === 'uf-admin-root');
+      } else if (memberId) {
+        member = db.members?.find((m) => m.id === memberId || m.full_name?.toLowerCase() === memberId.toLowerCase());
+      } else if (workstation) {
+        const norm = workstation.trim().toLowerCase();
+        member = db.members?.find((m) => m.workstation_id?.toLowerCase() === norm);
+      }
 
       if (!member) {
-        Logger.audit('AUTH_LOGIN_FAILED', 'unknown', { memberId }, ip);
+        Logger.audit('AUTH_LOGIN_FAILED', 'unknown', { memberId, workstation, username }, ip);
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Сотрудник не найден' }));
+        res.end(JSON.stringify({ error: 'Сотрудник или рабочее место не найдено' }));
         return;
       }
 
-      Logger.audit('AUTH_LOGIN_SUCCESS', member.id, { name: member.full_name, dept: member.department_id }, ip);
-      res.setHeader('Set-Cookie', `kaban_uid=${encodeURIComponent(member.id)}; Path=/; SameSite=Lax; Max-Age=31536000`);
+      // If workstation was passed with login, bind it to member
+      if (workstation && !member.workstation_id) {
+        member.workstation_id = workstation.trim().toLowerCase();
+        writeDb(db);
+        broadcastEvent('MEMBERS_UPDATED', db.members);
+      }
+
+      Logger.audit('AUTH_LOGIN_SUCCESS', member.id, { name: member.full_name, dept: member.department_id, pc: member.workstation_id }, ip);
+      res.setHeader('Set-Cookie', [
+        `kaban_uid=${encodeURIComponent(member.id)}; Path=/; SameSite=Lax; Max-Age=31536000`,
+        `kaban_pc=${encodeURIComponent(member.workstation_id || '')}; Path=/; SameSite=Lax; Max-Age=31536000`
+      ]);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, user: member }));
       return;
     }
+
+    // 2b. POST /api/auth/bind-workstation (Bind PC hostname like vlxproject04 to employee)
+    if (pathname === '/api/auth/bind-workstation' && req.method === 'POST') {
+      const { memberId, workstation } = await parseBody(req);
+      if (!memberId || !workstation) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Не указан ID сотрудника или имя ПК' }));
+        return;
+      }
+      const db = readDb();
+      const member = db.members?.find((m) => m.id === memberId);
+      if (member) {
+        member.workstation_id = workstation.trim().toLowerCase();
+        writeDb(db);
+        broadcastEvent('MEMBERS_UPDATED', db.members);
+        Logger.audit('WORKSTATION_BOUND', member.id, { name: member.full_name, workstation: member.workstation_id }, ip);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, user: member }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Сотрудник не найден' }));
+      }
+      return;
+    }
+
+
+
 
     // 3. POST /api/auth/register (Zero-password fast registration)
     if (pathname === '/api/auth/register' && req.method === 'POST') {

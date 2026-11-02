@@ -79,7 +79,13 @@ export default function App() {
   const [columns, setColumns] = useState(() => DEFAULT_COLUMNS || COLUMNS);
   const [departments, setDepartments] = useState(DEPARTMENTS);
   const [activeDepartmentId, setActiveDepartmentId] = useState(() => localStorage.getItem('kaban_active_department') || 'all');
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem('kaban_current_user');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return null;
+  });
   const [permissionsMatrix, setPermissionsMatrix] = useState(DEFAULT_PERMISSIONS);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(() => localStorage.getItem('kaban_chat_open') !== 'false');
   const [loading, setLoading] = useState(true);
@@ -153,13 +159,42 @@ export default function App() {
       setDepartments(loadedDepts && loadedDepts.length > 0 ? loadedDepts : DEPARTMENTS);
       if (loadedPerms) setPermissionsMatrix(loadedPerms);
 
-      // Restore current user from localStorage if exists
-      const savedUserId = localStorage.getItem('kaban_current_user_id');
-      const found = loadedMembers?.find((m) => m.id === savedUserId);
-      if (found) {
-        setCurrentUser(found);
-      } else {
-        setCurrentUser(null);
+      // Check Workstation parameter in URL: ?pc=vlxproject04 or ?workstation=...
+      let pcFromUrl = null;
+      if (typeof window !== 'undefined' && window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const rawPc = urlParams.get('pc') || urlParams.get('workstation') || urlParams.get('device');
+        if (rawPc) {
+          pcFromUrl = rawPc.toLowerCase().startsWith('vlxproject') ? rawPc.toLowerCase() : `vlxproject${rawPc.padStart(2, '0').toLowerCase()}`;
+          localStorage.setItem('kaban_workstation', pcFromUrl);
+        }
+      }
+
+      const activePc = pcFromUrl || (typeof localStorage !== 'undefined' ? localStorage.getItem('kaban_workstation') : null);
+
+      // Restore user:
+      let matchedUser = null;
+      if (activePc) {
+        matchedUser = (loadedMembers || []).find((m) => m.workstation_id?.toLowerCase() === activePc.toLowerCase());
+      }
+      if (!matchedUser) {
+        const savedUserId = localStorage.getItem('kaban_current_user_id');
+        matchedUser = (loadedMembers || []).find((m) => m.id === savedUserId);
+      }
+      if (!matchedUser) {
+        try {
+          const cachedRaw = localStorage.getItem('kaban_current_user');
+          if (cachedRaw) matchedUser = JSON.parse(cachedRaw);
+        } catch {}
+      }
+
+      if (matchedUser) {
+        setCurrentUser(matchedUser);
+        localStorage.setItem('kaban_current_user', JSON.stringify(matchedUser));
+        localStorage.setItem('kaban_current_user_id', matchedUser.id);
+        if (matchedUser.department_id && !localStorage.getItem('kaban_active_department')) {
+          setActiveDepartmentId(matchedUser.department_id);
+        }
       }
     } catch (err) {
       console.error('Ошибка загрузки данных:', err);
@@ -247,7 +282,13 @@ export default function App() {
   const handleSelectCurrentUser = (user) => {
     if (!user) return;
     setCurrentUser(user);
-    if (user?.id) localStorage.setItem('kaban_current_user_id', user.id);
+    if (user?.id) {
+      localStorage.setItem('kaban_current_user_id', user.id);
+      localStorage.setItem('kaban_current_user', JSON.stringify(user));
+    }
+    if (user?.workstation_id) {
+      localStorage.setItem('kaban_workstation', user.workstation_id);
+    }
     if (user?.department_id) {
       setActiveDepartmentId(user.department_id);
       localStorage.setItem('kaban_active_department', user.department_id);
@@ -257,6 +298,8 @@ export default function App() {
 
   const handleLogout = () => {
     logoutUser();
+    localStorage.removeItem('kaban_current_user');
+    localStorage.removeItem('kaban_current_user_id');
     setCurrentUser(null);
     playSound('click');
     showToast('Вы вышли из профиля', '👋');
@@ -637,7 +680,9 @@ export default function App() {
   }
 
   return (
-    <div className="app-layout">
+    <div className="app-root-shell" style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
+      {/* Left Column: Full Main Workspace */}
+      <div className="app-main-workspace" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Detail Task Page (Jira view in new tab or direct link) */}
       {detailTaskId ? (
         activeDetailTask ? (
@@ -744,10 +789,10 @@ export default function App() {
             activeDepartmentId={activeDepartmentId}
           />
 
-          {/* Main View: Board vs Monthly Report */}
-          {activeView === 'board' ? (
-            <div className="board-and-sidebar-workspace" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              <main className="board-container" style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+          {/* Main Workspace View: Board vs Monthly Report */}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+            {activeView === 'board' ? (
+              <main className="board-container" style={{ flex: 1, minWidth: 0, overflowX: 'auto', display: 'flex' }}>
                 {columns.map((col) => {
                   const colTasks = filteredTasks.filter((t) => t.status === col.id);
 
@@ -767,39 +812,41 @@ export default function App() {
                   );
                 })}
               </main>
-
-              {/* Right Embedded Sidebar Chat (YouGile Right Dock Panel) */}
-              <ChatSidebar
-                currentUser={currentUser}
-                departments={departments}
+            ) : (
+              <MonthlyReport
                 tasks={tasks}
                 teamMembers={teamMembers}
-                onOpenTask={(id) => {
-                  window.location.hash = '#task/' + id;
-                }}
-                preQuotedTask={chatPreQuotedTask}
-                onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
-                isOpen={isChatSidebarOpen}
-                onToggleOpen={(open) => {
-                  setIsChatSidebarOpen(open);
-                  localStorage.setItem('kaban_chat_open', String(open));
-                }}
+                sections={sections}
+                selectedAssigneeId={selectedAssigneeId}
+                selectedMember={selectedFilterMember}
+                onSelectAssignee={setSelectedAssigneeId}
+                onEditTask={handleEditTask}
+                theme={theme}
               />
-            </div>
-          ) : (
-            <MonthlyReport
-              tasks={tasks}
-              teamMembers={teamMembers}
-              sections={sections}
-              selectedAssigneeId={selectedAssigneeId}
-              selectedMember={selectedFilterMember}
-              onSelectAssignee={setSelectedAssigneeId}
-              onEditTask={handleEditTask}
-              theme={theme}
-            />
-          )}
+            )}
+          </div>
         </>
       )}
+
+            </div>
+
+      {/* Right Column: Full-Height Docked Chat Sidebar (Stretches from very bottom to very top of screen 100vh!) */}
+      <ChatSidebar
+        currentUser={currentUser}
+        departments={departments}
+        tasks={tasks}
+        teamMembers={teamMembers}
+        onOpenTask={(id) => {
+          window.location.hash = '#task/' + id;
+        }}
+        preQuotedTask={chatPreQuotedTask}
+        onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
+        isOpen={isChatSidebarOpen}
+        onToggleOpen={(open) => {
+          setIsChatSidebarOpen(open);
+          localStorage.setItem('kaban_chat_open', String(open));
+        }}
+      />
 
       {/* Task Creation / Editing Modal */}
       <TaskModal

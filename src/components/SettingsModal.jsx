@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   HelpCircle,
-  FileText
+  FileText,
+  ShieldCheck
 } from 'lucide-react';
 import { playSound } from '../lib/sound';
 import { fetchDepartments, saveDepartment, deleteDepartment, fetchFeedback, sendFeedback, fetchPermissions, savePermissions } from '../lib/api';

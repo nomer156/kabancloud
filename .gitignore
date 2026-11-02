@@ -43,6 +43,7 @@ DEV_MEMORY.md
 data/logs/
 data/ssl/
 data/.db_key
+data/.db_checksum
 data/backups/
 
 # Scratch and temp files

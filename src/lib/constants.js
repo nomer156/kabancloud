@@ -269,6 +269,19 @@ export const PRIORITIES = [
 ];
 
 export const INITIAL_MEMBERS = [
+  // 0. Главный Администратор (Admin)
+  {
+    id: 'uf-admin-root',
+    full_name: 'admin',
+    department_id: 'dept-design',
+    role: 'Главный администратор системы',
+    role_level: 10,
+    initials: 'AD',
+    avatar_color: '#ef4444',
+    specialty: 'Администрирование (Полный доступ)',
+    workstation_id: 'vlxproject00'
+  },
+
   // 1. Проектировщики
   {
     id: 'uf-11111111-1111-1111-1111-111111111111',
@@ -278,7 +291,8 @@ export const INITIAL_MEMBERS = [
     role_level: 10,
     initials: 'АС',
     avatar_color: '#ff6600',
-    specialty: 'ГИП'
+    specialty: 'ГИП',
+    workstation_id: 'vlxproject01'
   },
   {
     id: 'uf-22222222-2222-2222-2222-222222222222',
@@ -288,7 +302,8 @@ export const INITIAL_MEMBERS = [
     role_level: 8,
     initials: 'МВ',
     avatar_color: '#ff8800',
-    specialty: 'ВОЛС'
+    specialty: 'ВОЛС',
+    workstation_id: 'vlxproject02'
   },
   {
     id: 'uf-33333333-3333-3333-3333-333333333333',
@@ -298,7 +313,8 @@ export const INITIAL_MEMBERS = [
     role_level: 6,
     initials: 'ДК',
     avatar_color: '#0284c7',
-    specialty: 'СКС'
+    specialty: 'СКС',
+    workstation_id: 'vlxproject03'
   },
   {
     id: 'uf-44444444-4444-4444-4444-444444444444',
@@ -308,7 +324,8 @@ export const INITIAL_MEMBERS = [
     role_level: 6,
     initials: 'ЕВ',
     avatar_color: '#10b981',
-    specialty: 'ВН'
+    specialty: 'ВН',
+    workstation_id: 'vlxproject04'
   },
 
   // 2. Сварщики
@@ -320,7 +337,8 @@ export const INITIAL_MEMBERS = [
     role_level: 10,
     initials: 'ИБ',
     avatar_color: '#f59e0b',
-    specialty: 'Муфты МТОК'
+    specialty: 'Муфты МТОК',
+    workstation_id: 'vlxproject05'
   },
   {
     id: 'uf-weld-2',
@@ -330,7 +348,8 @@ export const INITIAL_MEMBERS = [
     role_level: 8,
     initials: 'РХ',
     avatar_color: '#d97706',
-    specialty: 'Сварка ОВ'
+    specialty: 'Сварка ОВ',
+    workstation_id: 'vlxproject06'
   },
   {
     id: 'uf-weld-3',
@@ -340,7 +359,8 @@ export const INITIAL_MEMBERS = [
     role_level: 6,
     initials: 'АГ',
     avatar_color: '#f97316',
-    specialty: 'Рефлектометрия'
+    specialty: 'Рефлектометрия',
+    workstation_id: 'vlxproject07'
   },
 
   // 3. РСС
@@ -352,7 +372,8 @@ export const INITIAL_MEMBERS = [
     role_level: 10,
     initials: 'МА',
     avatar_color: '#0284c7',
-    specialty: 'ЛКС / Эксплуатация'
+    specialty: 'ЛКС / Эксплуатация',
+    workstation_id: 'vlxproject08'
   },
   {
     id: 'uf-rss-2',
@@ -362,7 +383,8 @@ export const INITIAL_MEMBERS = [
     role_level: 8,
     initials: 'ДФ',
     avatar_color: '#0ea5e9',
-    specialty: 'Аварийная служба'
+    specialty: 'Аварийная служба',
+    workstation_id: 'vlxproject09'
   },
   {
     id: 'uf-rss-3',
@@ -372,7 +394,8 @@ export const INITIAL_MEMBERS = [
     role_level: 6,
     initials: 'СЗ',
     avatar_color: '#38bdf8',
-    specialty: 'Линейные сооружения'
+    specialty: 'Линейные сооружения',
+    workstation_id: 'vlxproject10'
   },
 
   // 4. Отдел продаж ЮЛ (B2B)
@@ -384,7 +407,8 @@ export const INITIAL_MEMBERS = [
     role_level: 10,
     initials: 'ОК',
     avatar_color: '#8b5cf6',
-    specialty: 'B2B Клиенты'
+    specialty: 'B2B Клиенты',
+    workstation_id: 'vlxproject11'
   },
   {
     id: 'uf-salesb2b-2',
@@ -394,7 +418,8 @@ export const INITIAL_MEMBERS = [
     role_level: 8,
     initials: 'ТН',
     avatar_color: '#a855f7',
-    specialty: 'Договоры ЮЛ'
+    specialty: 'Договоры ЮЛ',
+    workstation_id: 'vlxproject12'
   },
 
   // 5. Отдел продаж ФЛ (B2C)
@@ -406,7 +431,8 @@ export const INITIAL_MEMBERS = [
     role_level: 10,
     initials: 'АЯ',
     avatar_color: '#10b981',
-    specialty: 'B2C Клиенты'
+    specialty: 'B2C Клиенты',
+    workstation_id: 'vlxproject13'
   },
   {
     id: 'uf-salesb2c-2',
@@ -416,7 +442,8 @@ export const INITIAL_MEMBERS = [
     role_level: 6,
     initials: 'ВМ',
     avatar_color: '#059669',
-    specialty: 'Подключения GPON'
+    specialty: 'Подключения GPON',
+    workstation_id: 'vlxproject14'
   }
 ];
 

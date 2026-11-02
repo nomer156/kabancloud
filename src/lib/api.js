@@ -56,10 +56,14 @@ export function setCurrentUserId(userId) {
 
 export function getAuthHeaders(extra = {}) {
   const userId = getCurrentUserId();
+  const workstation = typeof localStorage !== 'undefined' ? localStorage.getItem('kaban_workstation') : '';
   const headers = { ...extra };
   if (userId) {
     headers['x-user-id'] = userId;
     headers['authorization'] = `Bearer ${userId}`;
+  }
+  if (workstation) {
+    headers['x-workstation'] = workstation;
   }
   return headers;
 }
@@ -77,8 +81,31 @@ export function setCustomLanIp(ip) {
 }
 
 // ------------------------------------------------------------------------------
-// AUTHENTICATION API (ZERO-PASSWORD)
+// AUTHENTICATION API (ZERO-PASSWORD + WORKSTATION PC + ADMIN)
 // ------------------------------------------------------------------------------
+export function getSavedCurrentUser() {
+  try {
+    const raw = localStorage.getItem('kaban_current_user');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+export function saveCurrentUserLocally(user) {
+  if (!user) {
+    localStorage.removeItem('kaban_current_user');
+    localStorage.removeItem(STORAGE_KEY_AUTH_USER_ID);
+    return;
+  }
+  try {
+    localStorage.setItem('kaban_current_user', JSON.stringify(user));
+    localStorage.setItem(STORAGE_KEY_AUTH_USER_ID, user.id);
+    if (user.workstation_id) {
+      localStorage.setItem('kaban_workstation', user.workstation_id);
+    }
+  } catch {}
+}
+
 export async function fetchAuthMembers() {
   try {
     const res = await fetch(`${API_BASE}/api/auth/members`);
@@ -91,17 +118,23 @@ export async function fetchAuthMembers() {
   return getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
 }
 
-export async function loginUser(memberId) {
+export async function loginUser(param) {
+  const payload = typeof param === 'string' ? { memberId: param } : (param || {});
   try {
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberId })
+      body: JSON.stringify(payload)
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.user?.id) {
-        setCurrentUserId(data.user.id);
+      if (data.user) {
+        saveCurrentUserLocally(data.user);
+        const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+        const idx = members.findIndex((m) => m.id === data.user.id);
+        if (idx >= 0) members[idx] = data.user;
+        else members.unshift(data.user);
+        setLocalData(STORAGE_KEY_MEMBERS, members);
       }
       return data.user;
     }
@@ -109,24 +142,73 @@ export async function loginUser(memberId) {
 
   // Local fallback
   const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
-  const found = members.find((m) => m.id === memberId);
+  let found = null;
+  if (payload.username === 'admin' || payload.memberId === 'admin' || payload.memberId === 'uf-admin-root') {
+    found = members.find((m) => m.full_name?.toLowerCase() === 'admin' || m.id === 'uf-admin-root');
+  } else if (payload.memberId) {
+    found = members.find((m) => m.id === payload.memberId || m.full_name?.toLowerCase() === payload.memberId.toLowerCase());
+  } else if (payload.workstation) {
+    const norm = payload.workstation.trim().toLowerCase();
+    found = members.find((m) => m.workstation_id?.toLowerCase() === norm);
+  }
+
   if (found) {
-    setCurrentUserId(found.id);
+    saveCurrentUserLocally(found);
   }
   return found || null;
 }
 
-export async function registerUser({ full_name, department_id, role, avatar_color, initials, specialty }) {
+export async function bindWorkstation(memberId, workstation) {
+  const norm = workstation.trim().toLowerCase();
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/bind-workstation`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ memberId, workstation: norm })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.user) saveCurrentUserLocally(data.user);
+      return data.user;
+    }
+  } catch {}
+
+  // Local fallback
+  const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  const m = members.find((x) => x.id === memberId);
+  if (m) {
+    m.workstation_id = norm;
+    setLocalData(STORAGE_KEY_MEMBERS, members);
+    saveCurrentUserLocally(m);
+    return m;
+  }
+  return null;
+}
+
+export async function registerUser({ full_name, department_id, role, role_level, avatar_color, initials, specialty, workstation_id }) {
+  const payload = { 
+    full_name, 
+    department_id: department_id || 'dept-design', 
+    role: role || 'Инженер', 
+    role_level: role_level || 6,
+    avatar_color: avatar_color || '#ff6600', 
+    initials, 
+    specialty,
+    workstation_id: (workstation_id || '').trim().toLowerCase()
+  };
+
   try {
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name, department_id, role, avatar_color, initials, specialty })
+      body: JSON.stringify(payload)
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.user?.id) {
-        setCurrentUserId(data.user.id);
+      if (data.user) {
+        saveCurrentUserLocally(data.user);
+        const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+        setLocalData(STORAGE_KEY_MEMBERS, [data.user, ...members]);
       }
       return data.user;
     }
@@ -144,36 +226,64 @@ export async function registerUser({ full_name, department_id, role, avatar_colo
   const newUser = {
     id,
     full_name: full_name.trim(),
-    department_id: department_id || 'dept-design',
-    role: role?.trim() || 'Инженер',
+    department_id: payload.department_id,
+    role: payload.role,
+    role_level: payload.role_level,
     initials: computedInitials,
-    avatar_color: avatar_color || '#ff6600',
-    specialty: specialty?.trim() || ''
+    avatar_color: payload.avatar_color,
+    specialty: payload.specialty || '',
+    workstation_id: payload.workstation_id
   };
 
-  const updated = [...members, newUser];
+  const updated = [newUser, ...members];
   setLocalData(STORAGE_KEY_MEMBERS, updated);
-  setCurrentUserId(id);
+  saveCurrentUserLocally(newUser);
   return newUser;
 }
 
 export async function checkAuthSession() {
-  // Check URL query parameters for Salary Site SSO (e.g. ?sso_id=... or ?user_id=...)
+  let workstationParam = null;
   if (typeof window !== 'undefined' && window.location.search) {
     const params = new URLSearchParams(window.location.search);
     const ssoId = params.get('sso_id') || params.get('user_id') || params.get('sso_token') || params.get('uid');
+    const pcParam = params.get('pc') || params.get('workstation') || params.get('device');
     if (ssoId) {
       setCurrentUserId(ssoId);
+    }
+    if (pcParam) {
+      workstationParam = pcParam.toLowerCase().startsWith('vlxproject') ? pcParam.toLowerCase() : `vlxproject${pcParam.padStart(2, '0').toLowerCase()}`;
+      localStorage.setItem('kaban_workstation', workstationParam);
+    }
+    if (ssoId || pcParam) {
       const cleanUrl = window.location.pathname + window.location.hash;
       window.history.replaceState({}, document.title, cleanUrl);
     }
   }
 
-  // Check corporate cookie
+  // 1. Check cached user object in localStorage
+  const cachedUser = getSavedCurrentUser();
+  if (cachedUser) {
+    return cachedUser;
+  }
+
+  // 2. Check workstation in localStorage
+  const savedPc = workstationParam || (typeof localStorage !== 'undefined' ? localStorage.getItem('kaban_workstation') : null);
+  if (savedPc) {
+    const userByPc = await loginUser({ workstation: savedPc });
+    if (userByPc) return userByPc;
+  }
+
+  // 3. Check corporate cookie
   if (typeof document !== 'undefined' && document.cookie) {
     const cookieMatch = document.cookie.match(/(?:pp_user_id|ufanet_user_id|salary_user_id)=([^;]+)/);
     if (cookieMatch && !getCurrentUserId()) {
       setCurrentUserId(decodeURIComponent(cookieMatch[1]));
+    }
+    const pcCookieMatch = document.cookie.match(/kaban_pc=([^;]+)/);
+    if (pcCookieMatch && !savedPc) {
+      const pcVal = decodeURIComponent(pcCookieMatch[1]);
+      const userByCookiePc = await loginUser({ workstation: pcVal });
+      if (userByCookiePc) return userByCookiePc;
     }
   }
 
@@ -186,17 +296,23 @@ export async function checkAuthSession() {
     });
     if (res.ok) {
       const data = await res.json();
-      return data.user || null;
+      if (data.user) {
+        saveCurrentUserLocally(data.user);
+        return data.user;
+      }
     }
   } catch {}
 
-  // Local fallback
   const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
-  return members.find((m) => m.id === userId) || null;
+  const found = members.find((m) => m.id === userId);
+  if (found) {
+    saveCurrentUserLocally(found);
+  }
+  return found || null;
 }
 
 export function logoutUser() {
-  setCurrentUserId(null);
+  saveCurrentUserLocally(null);
 }
 
 // ------------------------------------------------------------------------------
