@@ -24,8 +24,15 @@ import {
   deleteNotification,
   bulkCreateTasks,
   logoutUser,
-  fetchPermissions
+  fetchPermissions,
+  fetchAccessRequests,
+  approveAccessRequest,
+  rejectAccessRequest,
+  verifyTeamMember,
+  saveCurrentUserLocally
 } from './lib/api';
+import { ProfileModal } from './components/ProfileModal';
+import { AccessRequestsModal } from './components/AccessRequestsModal';
 import { playSound } from './lib/sound';
 import { Header } from './components/Header';
 import { DepartmentBar } from './components/DepartmentBar';
@@ -110,6 +117,9 @@ export default function App() {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [chatPreQuotedTask, setChatPreQuotedTask] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isAccessRequestsModalOpen, setIsAccessRequestsModalOpen] = useState(false);
+  const [accessRequests, setAccessRequests] = useState([]);
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
@@ -246,6 +256,14 @@ export default function App() {
         setDepartments(event.payload);
       } else if (event.type === 'PERMISSIONS_UPDATED') {
         setPermissionsMatrix(event.payload);
+      } else if (event.type === 'ACCESS_REQUEST_CREATED') {
+        setAccessRequests((prev) => [event.payload, ...prev]);
+        playSound('alert');
+        showToast(`👑 Заявка на доступ: ${event.payload?.user_name}`, '👑');
+      } else if (event.type === 'ACCESS_REQUEST_RESOLVED') {
+        setAccessRequests((prev) =>
+          prev.map((r) => (r.id === event.payload?.id ? event.payload : r))
+        );
       } else if (event.type === 'NEW_CHAT_MESSAGE') {
         const { message } = event.payload || {};
         if (message && message.user_id !== currentUserRef.current?.id) {
@@ -746,6 +764,9 @@ export default function App() {
             onOpenColumnsModal={() => setIsColumnsModalOpen(true)}
             onOpenImportModal={() => setIsImportModalOpen(true)}
             onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+            onOpenProfileModal={() => setIsProfileModalOpen(true)}
+            accessRequests={accessRequests}
+            onOpenAccessRequestsModal={() => setIsAccessRequestsModalOpen(true)}
             activeView={activeView}
             onSelectView={setActiveView}
             notifications={notifications}
@@ -890,9 +911,35 @@ export default function App() {
           setEditingMemberId(null);
         }}
         teamMembers={teamMembers}
+        currentUser={currentUser}
+        departments={departments}
         onUpdateMember={handleUpdateMember}
         onDeleteMember={handleDeleteMember}
+        onVerifyMember={handleVerifyMember}
         initialEditingId={editingMemberId}
+        showToast={showToast}
+      />
+
+      {/* User Profile Customization Modal */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={currentUser}
+        departments={departments}
+        onSaveProfile={handleSaveProfile}
+        showToast={showToast}
+      />
+
+      {/* Access Requests Modal (Level 10 Chief Rights) */}
+      <AccessRequestsModal
+        isOpen={isAccessRequestsModalOpen}
+        onClose={() => setIsAccessRequestsModalOpen(false)}
+        requests={accessRequests}
+        teamMembers={teamMembers}
+        departments={departments}
+        onApproveRequest={handleApproveAccessRequest}
+        onRejectRequest={handleRejectAccessRequest}
+        showToast={showToast}
       />
 
       {/* Project Sections Management Modal */}

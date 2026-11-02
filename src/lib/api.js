@@ -497,6 +497,136 @@ export async function deleteTeamMember(memberId) {
   return true;
 }
 
+export async function verifyTeamMember(memberId, isVerified = true, roleLevel = undefined, role = undefined) {
+  try {
+    const res = await fetch(`${API_BASE}/api/members/${encodeURIComponent(memberId)}/verify`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ is_verified: isVerified, role_level: roleLevel, role })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.member;
+    }
+  } catch {}
+
+  // Local fallback
+  const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  const m = members.find((x) => x.id === memberId);
+  if (m) {
+    m.is_verified = isVerified;
+    if (roleLevel !== undefined) m.role_level = Number(roleLevel);
+    if (role) m.role = role.trim();
+    setLocalData(STORAGE_KEY_MEMBERS, members);
+    return m;
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------------------
+// ACCESS REQUESTS API (LEVEL 10 CHIEF RIGHTS REQUEST & APPROVAL)
+// ------------------------------------------------------------------------------
+const STORAGE_KEY_ACCESS_REQUESTS = 'kaban_access_requests_v1';
+
+export async function fetchAccessRequests() {
+  try {
+    const res = await fetch(`${API_BASE}/api/access-requests`, {
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setLocalData(STORAGE_KEY_ACCESS_REQUESTS, data);
+      return data;
+    }
+  } catch {}
+  return getLocalData(STORAGE_KEY_ACCESS_REQUESTS, []);
+}
+
+export async function requestChiefAccess({ note, requestedRole = 'Начальник отдела (Ур. 10)' } = {}) {
+  try {
+    const res = await fetch(`${API_BASE}/api/access-requests`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ note, requested_level: 10, requested_role: requestedRole })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch {}
+
+  // Local fallback
+  const cachedUser = getSavedCurrentUser();
+  const current = getLocalData(STORAGE_KEY_ACCESS_REQUESTS, []);
+  const reqItem = {
+    id: `req-${Date.now()}`,
+    user_id: cachedUser?.id || 'anon',
+    user_name: cachedUser?.full_name || 'Инженер',
+    department_id: cachedUser?.department_id || 'dept-design',
+    workstation_id: cachedUser?.workstation_id || '',
+    requested_level: 10,
+    requested_role: requestedRole,
+    note: (note || '').trim(),
+    status: 'pending',
+    created_at: new Date().toISOString()
+  };
+  setLocalData(STORAGE_KEY_ACCESS_REQUESTS, [reqItem, ...current]);
+  return reqItem;
+}
+
+export async function approveAccessRequest(requestId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/access-requests/${encodeURIComponent(requestId)}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch {}
+
+  // Local fallback
+  const list = getLocalData(STORAGE_KEY_ACCESS_REQUESTS, []);
+  const item = list.find((r) => r.id === requestId);
+  if (item) {
+    item.status = 'approved';
+    item.reviewed_at = new Date().toISOString();
+    setLocalData(STORAGE_KEY_ACCESS_REQUESTS, list);
+    // update member
+    const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+    const m = members.find((x) => x.id === item.user_id);
+    if (m) {
+      m.role_level = 10;
+      m.role = item.requested_role || 'Начальник отдела';
+      m.is_verified = true;
+      setLocalData(STORAGE_KEY_MEMBERS, members);
+    }
+    return { success: true, request: item, member: m };
+  }
+  return null;
+}
+
+export async function rejectAccessRequest(requestId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/access-requests/${encodeURIComponent(requestId)}/reject`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const list = getLocalData(STORAGE_KEY_ACCESS_REQUESTS, []);
+  const item = list.find((r) => r.id === requestId);
+  if (item) {
+    item.status = 'rejected';
+    item.reviewed_at = new Date().toISOString();
+    setLocalData(STORAGE_KEY_ACCESS_REQUESTS, list);
+    return { success: true, request: item };
+  }
+  return null;
+}
+
 
 // ------------------------------------------------------------------------------
 // ROLE PERMISSIONS MATRIX API (LEVEL 10)

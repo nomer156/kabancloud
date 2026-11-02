@@ -587,23 +587,38 @@ export function AuthModal({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: member.avatar_color || '#ff6600',
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 800,
-                          fontSize: '0.84rem',
-                          flexShrink: 0
-                        }}
-                      >
-                        {member.initials || 'УФ'}
-                      </div>
+                      {member.avatar_url ? (
+                        <img
+                          src={member.avatar_url}
+                          alt={member.full_name}
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: `2px solid ${member.avatar_color || '#ff6600'}`,
+                            flexShrink: 0
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            background: member.avatar_color || '#ff6600',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '0.84rem',
+                            flexShrink: 0
+                          }}
+                        >
+                          {member.initials || 'УФ'}
+                        </div>
+                      )}
 
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>

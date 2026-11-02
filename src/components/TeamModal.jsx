@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { X, Users, Edit2, Check, Plus, Trash2, Palette, AlertCircle, Building2 } from 'lucide-react';
+import { 
+  X, 
+  Users, 
+  Edit2, 
+  Check, 
+  Plus, 
+  Trash2, 
+  Palette, 
+  AlertCircle, 
+  Building2, 
+  Crown, 
+  ShieldCheck, 
+  Monitor, 
+  CheckCircle2, 
+  Clock 
+} from 'lucide-react';
 import { playSound } from '../lib/sound';
 import { DEPARTMENTS } from '../lib/constants';
 
@@ -26,23 +41,36 @@ export function TeamModal({
   isOpen, 
   onClose, 
   teamMembers, 
+  currentUser,
+  departments = DEPARTMENTS,
   onUpdateMember, 
   onDeleteMember,
-  initialEditingId = null
+  onVerifyMember,
+  initialEditingId = null,
+  showToast
 }) {
   const [editingId, setEditingId] = useState(null);
   const [nameInput, setNameInput] = useState('');
   const [deptInput, setDeptInput] = useState('dept-design');
   const [roleInput, setRoleInput] = useState('');
+  const [levelInput, setLevelInput] = useState(6);
+  const [workstationInput, setWorkstationInput] = useState('');
   const [specialtyInput, setSpecialtyInput] = useState('');
   const [initialsInput, setInitialsInput] = useState('');
   const [colorInput, setColorInput] = useState('#ff6600');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   
+  // Department filter
+  const [activeDeptFilter, setActiveDeptFilter] = useState('all');
+
   // Adding new member state
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDept, setNewDept] = useState('dept-design');
   const [newRole, setNewRole] = useState('Инженер-проектировщик');
+  const [newLevel, setNewLevel] = useState(6);
+  const [newWorkstation, setNewWorkstation] = useState('');
   const [newSpecialty, setNewSpecialty] = useState('ВОЛС');
   const [newInitials, setNewInitials] = useState('');
   const [newColor, setNewColor] = useState('#0284c7');
@@ -54,19 +82,14 @@ export function TeamModal({
     if (isOpen && initialEditingId) {
       const target = teamMembers.find((m) => m.id === initialEditingId);
       if (target) {
-        setEditingId(target.id);
-        setNameInput(target.full_name || '');
-        setRoleInput(target.role || 'Инженер-проектировщик');
-        setSpecialtyInput(target.specialty || '');
-        setInitialsInput(target.initials || 'ИН');
-        setColorInput(target.avatar_color || '#ff6600');
-        setIsAddingNew(false);
-        setDeletingId(null);
+        handleStartEdit(target);
       }
     }
   }, [isOpen, initialEditingId, teamMembers]);
 
   if (!isOpen) return null;
+
+  const isChiefOrAdmin = (Number(currentUser?.role_level) || 0) >= 10 || currentUser?.full_name?.toLowerCase() === 'admin';
 
   const generateInitials = (name) => {
     if (!name) return 'ИН';
@@ -82,9 +105,13 @@ export function TeamModal({
     setNameInput(member.full_name || '');
     setDeptInput(member.department_id || 'dept-design');
     setRoleInput(member.role || 'Инженер-проектировщик');
+    setLevelInput(Number(member.role_level) || 6);
+    setWorkstationInput(member.workstation_id || '');
     setSpecialtyInput(member.specialty || '');
     setInitialsInput(member.initials || generateInitials(member.full_name));
     setColorInput(member.avatar_color || '#ff6600');
+    setPhoneInput(member.phone || '');
+    setEmailInput(member.email || '');
     setIsAddingNew(false);
     setDeletingId(null);
     playSound('click');
@@ -94,14 +121,23 @@ export function TeamModal({
     if (!nameInput.trim()) return;
     const finalInitials = initialsInput.trim() ? initialsInput.trim().toUpperCase() : generateInitials(nameInput);
 
+    let normPc = workstationInput.trim().toLowerCase();
+    if (normPc && !normPc.startsWith('vlxproject')) {
+      normPc = `vlxproject${normPc.padStart(2, '0')}`;
+    }
+
     onUpdateMember({
       ...member,
       full_name: nameInput.trim(),
       department_id: deptInput,
       role: roleInput.trim(),
+      role_level: Number(levelInput) || 6,
+      workstation_id: normPc,
       specialty: specialtyInput.trim(),
       initials: finalInitials,
-      avatar_color: colorInput
+      avatar_color: colorInput,
+      phone: phoneInput.trim(),
+      email: emailInput.trim()
     });
     setEditingId(null);
     playSound('success');
@@ -111,27 +147,36 @@ export function TeamModal({
     e?.preventDefault();
     if (!newName.trim()) return;
 
+    let normPc = newWorkstation.trim().toLowerCase();
+    if (normPc && !normPc.startsWith('vlxproject')) {
+      normPc = `vlxproject${normPc.padStart(2, '0')}`;
+    }
+
     const finalInitials = newInitials.trim() ? newInitials.trim().toUpperCase() : generateInitials(newName);
     const newMember = {
       id: `uf-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       full_name: newName.trim(),
       department_id: newDept,
       role: newRole.trim() || 'Инженер-проектировщик',
+      role_level: Number(newLevel) || 6,
+      workstation_id: normPc,
       specialty: newSpecialty.trim(),
       initials: finalInitials,
-      avatar_color: newColor
+      avatar_color: newColor,
+      is_verified: true
     };
 
     onUpdateMember(newMember);
     setIsAddingNew(false);
     setNewName('');
     setNewInitials('');
+    setNewWorkstation('');
     playSound('success');
   };
 
   const handleDelete = (id) => {
     if (teamMembers.length <= 1) {
-      alert('В отделе должен оставаться хотя бы один проектировщик.');
+      alert('В системе должен оставаться хотя бы один сотрудник.');
       return;
     }
     if (typeof onDeleteMember === 'function') {
@@ -141,32 +186,92 @@ export function TeamModal({
     }
   };
 
-  // Safe overlay click
-  const handleOverlayMouseDown = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
+  const handleToggleVerify = (member) => {
+    const nextState = !member.is_verified;
+    if (onVerifyMember) {
+      onVerifyMember(member.id, nextState);
+    } else {
+      onUpdateMember({ ...member, is_verified: nextState });
+    }
+    playSound('success');
+    if (showToast) {
+      showToast(nextState ? `Сотрудник подтверждён: ${member.full_name}` : `Подтверждение снято: ${member.full_name}`, nextState ? '✓' : '⚠️');
     }
   };
 
+  const filteredMembers = teamMembers.filter((m) => {
+    if (activeDeptFilter === 'all') return true;
+    return (m.department_id || 'dept-design') === activeDeptFilter;
+  });
+
   return (
-    <div className="modal-overlay" onMouseDown={handleOverlayMouseDown}>
-      <div className="modal-content" style={{ maxWidth: '680px' }} onMouseDown={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div 
+        className="modal-content" 
+        style={{ maxWidth: '780px', width: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} 
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
         <div className="modal-header">
           <div className="modal-title">
             <Users size={20} style={{ color: 'var(--accent-orange)' }} />
-            <span>Состав отдела проектирования Уфанет</span>
+            <span>Сотрудники компании • Управление ролями и подтверждение</span>
           </div>
           <button type="button" className="btn-icon" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
 
-        <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+        {/* Department Filter Pills */}
+        <div style={{ display: 'flex', gap: '6px', padding: '0.65rem 1.4rem', background: 'var(--bg-tertiary, #1c2233)', borderBottom: '1px solid var(--border-subtle)', overflowX: 'auto' }}>
+          <button
+            type="button"
+            onClick={() => setActiveDeptFilter('all')}
+            style={{
+              padding: '0.3rem 0.7rem',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '0.76rem',
+              fontWeight: 700,
+              background: activeDeptFilter === 'all' ? 'var(--accent-orange)' : 'var(--bg-secondary)',
+              color: activeDeptFilter === 'all' ? '#fff' : 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+          >
+            Все отделы ({teamMembers.length})
+          </button>
+
+          {departments.map((d) => {
+            const count = teamMembers.filter((m) => (m.department_id || 'dept-design') === d.id).length;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setActiveDeptFilter(d.id)}
+                style={{
+                  padding: '0.3rem 0.7rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  background: activeDeptFilter === d.id ? d.color : 'var(--bg-secondary)',
+                  color: activeDeptFilter === d.id ? '#fff' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {d.icon} {d.name} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="modal-body" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
-              Настройка профилей, должностей, инициалов и фирменных цветов инженеров.
+              Начальники отделов (Ур. 10) подтверждают сотрудников, назначают уровни прав и привязывают рабочие ПК.
             </p>
-            {!isAddingNew && (
+            {!isAddingNew && isChiefOrAdmin && (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -178,7 +283,7 @@ export function TeamModal({
                 }}
               >
                 <Plus size={14} />
-                <span>Добавить проектировщика</span>
+                <span>Добавить сотрудника</span>
               </button>
             )}
           </div>
@@ -194,21 +299,22 @@ export function TeamModal({
                 padding: '1.15rem',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.85rem'
+                gap: '0.85rem',
+                marginTop: '0.75rem'
               }}
             >
               <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--accent-orange)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Plus size={16} />
-                <span>Новый проектировщик / ГИП</span>
+                <span>Новый сотрудник</span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                 <div className="form-group">
-                  <label className="form-label">ФИО инженера *</label>
+                  <label className="form-label">ФИО сотрудника *</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Например: Иван Петров"
+                    placeholder="Иван Петров"
                     value={newName}
                     onChange={(e) => {
                       setNewName(e.target.value);
@@ -219,175 +325,250 @@ export function TeamModal({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Должность / Роль</label>
+                  <label className="form-label">Отдел</label>
+                  <select
+                    className="form-input"
+                    value={newDept}
+                    onChange={(e) => setNewDept(e.target.value)}
+                  >
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Должность</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Инженер-проектировщик"
+                    placeholder="Инженер"
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value)}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Инициалы</label>
+                  <label className="form-label">Уровень прав</label>
+                  <select
+                    className="form-input"
+                    value={newLevel}
+                    onChange={(e) => setNewLevel(e.target.value)}
+                  >
+                    <option value={10}>👑 Ур. 10 — Начальник отдела / Полный доступ</option>
+                    <option value={8}>⭐ Ур. 8 — Ведущий специалист</option>
+                    <option value={6}>⚡ Ур. 6 — Инженер</option>
+                    <option value={3}>👤 Ур. 3 — Младший инженер / Стажёр</option>
+                    <option value={1}>👁️ Ур. 1 — Только просмотр</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">ПК (vlxproject..)</label>
                   <input
                     type="text"
                     className="form-input"
-                    maxLength={3}
-                    placeholder="ИП"
-                    value={newInitials}
-                    onChange={(e) => setNewInitials(e.target.value.toUpperCase())}
-                    style={{ textAlign: 'center', fontWeight: 800 }}
+                    placeholder="vlxproject04"
+                    value={newWorkstation}
+                    onChange={(e) => setNewWorkstation(e.target.value)}
+                    style={{ fontFamily: 'monospace' }}
                   />
                 </div>
               </div>
 
-              {/* Color Picker for new member */}
-              <div className="form-group">
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Palette size={13} />
-                    <span>Цвет аватара:</span>
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: newColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.62rem', fontWeight: 800 }}>
-                      {newInitials || 'НП'}
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem' }}>{newColor}</span>
-                  </div>
-                </label>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  {PRESET_COLORS.map((pc) => (
-                    <button
-                      key={pc.hex}
-                      type="button"
-                      title={pc.name}
-                      onClick={() => setNewColor(pc.hex)}
-                      style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: '50%',
-                        backgroundColor: pc.hex,
-                        border: newColor === pc.hex ? '2px solid #fff' : '2px solid transparent',
-                        boxShadow: newColor === pc.hex ? `0 0 0 2px ${pc.hex}` : 'none',
-                        cursor: 'pointer',
-                        padding: 0
-                      }}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    value={newColor}
-                    onChange={(e) => setNewColor(e.target.value)}
-                    style={{ width: 28, height: 28, borderRadius: '4px', cursor: 'pointer', padding: 0, border: 'none', background: 'transparent' }}
-                    title="Выбрать свой уникальный оттенок"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.3rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setIsAddingNew(false)}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsAddingNew(false)}
+                >
                   Отмена
                 </button>
                 <button type="submit" className="btn btn-primary">
                   <Check size={14} />
-                  <span>Создать профиль</span>
+                  <span>Добавить</span>
                 </button>
               </div>
             </form>
           )}
 
-          {/* Members list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {teamMembers.map((member) => {
+          {/* Members List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.85rem' }}>
+            {filteredMembers.map((member) => {
               const isEditing = editingId === member.id;
               const isDeleting = deletingId === member.id;
+              const deptMeta = departments.find((d) => d.id === member.department_id) || departments[0];
+              const level = Number(member.role_level) || 6;
+              const isVerified = member.is_verified !== false;
 
               return (
                 <div
                   key={member.id}
                   style={{
+                    background: 'var(--bg-secondary, #0f172a)',
+                    border: '1px solid var(--border-subtle, #334155)',
+                    borderRadius: 'var(--radius-md, 10px)',
+                    padding: '0.85rem 1rem',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.75rem',
-                    padding: '0.85rem 1rem',
-                    background: 'var(--bg-tertiary)',
-                    borderRadius: 'var(--radius-md)',
-                    border: isEditing ? '1px solid var(--accent-orange)' : '1px solid var(--border-subtle)',
-                    transition: 'border-color 0.2s ease'
+                    gap: '0.65rem'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                    {/* Avatar Preview */}
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: '50%',
-                        backgroundColor: isEditing ? colorInput : (member.avatar_color || '#ff6600'),
-                        color: 'white',
-                        fontWeight: 800,
-                        fontSize: '0.88rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        boxShadow: 'var(--shadow-sm)',
-                        transition: 'background-color 0.2s ease'
-                      }}
-                    >
-                      {isEditing ? (initialsInput || member.initials) : member.initials}
-                    </div>
-
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)' }}>
-                          {member.full_name}
-                        </span>
-                        <span
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                      {/* Avatar preview */}
+                      {member.avatar_url ? (
+                        <img
+                          src={member.avatar_url}
+                          alt={member.full_name}
                           style={{
-                            fontSize: '0.68rem',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            fontFamily: 'var(--font-mono)',
-                            color: 'var(--text-muted)'
+                            width: 38,
+                            height: 38,
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: `2px solid ${member.avatar_color || '#ff6600'}`
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '50%',
+                            backgroundColor: member.avatar_color || '#ff6600',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.82rem',
+                            fontWeight: 800,
+                            flexShrink: 0
                           }}
                         >
-                          {member.avatar_color}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {member.role || 'Инженер-проектировщик'}
+                          {member.initials || 'ИН'}
+                        </div>
+                      )}
+
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
+                            {member.full_name}
+                          </span>
+
+                          <span
+                            style={{
+                              fontSize: '0.64rem',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: `${deptMeta.color}22`,
+                              color: deptMeta.color,
+                              fontWeight: 700
+                            }}
+                          >
+                            {deptMeta.icon} {deptMeta.name}
+                          </span>
+
+                          {member.workstation_id && (
+                            <span
+                              style={{
+                                fontSize: '0.62rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: 'rgba(2, 132, 199, 0.15)',
+                                color: '#38bdf8',
+                                fontFamily: 'monospace',
+                                fontWeight: 700
+                              }}
+                            >
+                              💻 {member.workstation_id}
+                            </span>
+                          )}
+
+                          {/* Verification badge */}
+                          {isVerified ? (
+                            <span
+                              style={{
+                                fontSize: '0.62rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                color: '#10b981',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              <CheckCircle2 size={10} />
+                              <span>Подтверждён</span>
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: '0.62rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: 'rgba(245, 158, 11, 0.2)',
+                                color: '#f59e0b',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              <Clock size={10} />
+                              <span>Ожидает проверки</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {member.role || deptMeta.name} • Уровень {level}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Action buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {/* Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      {/* Chief confirmation toggle */}
+                      {isChiefOrAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVerify(member)}
+                          className={`btn ${isVerified ? 'btn-secondary' : 'btn-primary'}`}
+                          style={{
+                            padding: '0.28rem 0.65rem',
+                            fontSize: '0.72rem',
+                            gap: '4px'
+                          }}
+                          title={isVerified ? 'Снять подтверждение' : 'Подтвердить сотрудника отдела'}
+                        >
+                          <Check size={12} />
+                          <span>{isVerified ? 'Подтверждён' : 'Подтвердить'}</span>
+                        </button>
+                      )}
+
                       {!isEditing && (
                         <>
                           <button
                             type="button"
                             className="btn-icon"
-                            style={{ width: 32, height: 32 }}
+                            style={{ width: 30, height: 30 }}
                             onClick={() => handleStartEdit(member)}
-                            title="Настроить цвет, имя, должность и инициалы"
+                            title="Редактировать сотрудника"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={13} />
                           </button>
 
-                          {onDeleteMember && teamMembers.length > 1 && (
+                          {isChiefOrAdmin && onDeleteMember && teamMembers.length > 1 && (
                             <button
                               type="button"
                               className="btn-icon btn-icon-danger"
-                              style={{ width: 32, height: 32 }}
+                              style={{ width: 30, height: 30 }}
                               onClick={() => setDeletingId(member.id)}
                               title="Удалить сотрудника"
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={13} />
                             </button>
                           )}
                         </>
@@ -395,7 +576,7 @@ export function TeamModal({
                     </div>
                   </div>
 
-                  {/* Inline delete confirmation */}
+                  {/* Deletion confirmation */}
                   {isDeleting && (
                     <div
                       style={{
@@ -411,7 +592,7 @@ export function TeamModal({
                     >
                       <div style={{ fontSize: '0.78rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <AlertCircle size={14} />
-                        <span>Удалить проектировщика {member.full_name}?</span>
+                        <span>Удалить сотрудника {member.full_name}?</span>
                       </div>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <button
@@ -445,7 +626,7 @@ export function TeamModal({
                         gap: '0.75rem'
                       }}
                     >
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 100px 75px', gap: '0.65rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.65rem' }}>
                         <div className="form-group">
                           <label className="form-label">ФИО сотрудника *</label>
                           <input
@@ -456,131 +637,96 @@ export function TeamModal({
                               setNameInput(e.target.value);
                               setInitialsInput(generateInitials(e.target.value));
                             }}
-                            placeholder="ФИО сотрудника"
                           />
                         </div>
 
                         <div className="form-group">
-                          <label className="form-label">Должность / Роль</label>
+                          <label className="form-label">Отдел</label>
+                          <select
+                            className="form-input"
+                            value={deptInput}
+                            onChange={(e) => setDeptInput(e.target.value)}
+                          >
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Должность</label>
                           <input
                             type="text"
                             className="form-input"
                             value={roleInput}
                             onChange={(e) => setRoleInput(e.target.value)}
-                            placeholder="Должность"
+                          />
+                        </div>
+
+                        {isChiefOrAdmin && (
+                          <div className="form-group">
+                            <label className="form-label">Уровень доступа (роль)</label>
+                            <select
+                              className="form-input"
+                              value={levelInput}
+                              onChange={(e) => setLevelInput(e.target.value)}
+                            >
+                              <option value={10}>👑 Ур. 10 — Начальник / Полный доступ</option>
+                              <option value={8}>⭐ Ур. 8 — Ведущий специалист</option>
+                              <option value={6}>⚡ Ур. 6 — Инженер</option>
+                              <option value={3}>👤 Ур. 3 — Младший специалист / Стажёр</option>
+                              <option value={1}>👁️ Ур. 1 — Только просмотр</option>
+                            </select>
+                          </div>
+                        )}
+
+                        <div className="form-group">
+                          <label className="form-label">Рабочий ПК</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={workstationInput}
+                            onChange={(e) => setWorkstationInput(e.target.value)}
+                            placeholder="vlxproject04"
+                            style={{ fontFamily: 'monospace' }}
                           />
                         </div>
 
                         <div className="form-group">
-                          <label className="form-label">Спец-ция</label>
+                          <label className="form-label">Специализация</label>
                           <input
                             type="text"
                             className="form-input"
                             value={specialtyInput}
-                            onChange={(e) => setSpecialtyInput(e.target.value.toUpperCase())}
-                            placeholder="СКС/ВОЛС"
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label className="form-label">Инициалы</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            maxLength={3}
-                            value={initialsInput}
-                            onChange={(e) => setInitialsInput(e.target.value.toUpperCase())}
-                            style={{ textAlign: 'center', fontWeight: 800 }}
+                            onChange={(e) => setSpecialtyInput(e.target.value)}
+                            placeholder="ВОЛС, СКС..."
                           />
                         </div>
                       </div>
 
-                      {/* Full Color Palette Picker */}
-                      <div className="form-group" style={{ background: 'var(--bg-card)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '6px' }}>
-                          <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Palette size={14} style={{ color: 'var(--accent-orange)' }} />
-                            <span style={{ fontWeight: 700 }}>Цвет аватара инженера:</span>
-                          </label>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {/* Live avatar preview */}
-                            <div
-                              style={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: '50%',
-                                backgroundColor: colorInput,
-                                color: '#ffffff',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '0.74rem',
-                                fontWeight: 800,
-                                boxShadow: '0 0 0 2px var(--bg-card), 0 0 0 4px ' + colorInput
-                              }}
-                            >
-                              {initialsInput || 'ИН'}
-                            </div>
-
-                            {/* Direct Hex code input */}
-                            <input
-                              type="text"
-                              className="form-input"
-                              value={colorInput}
-                              onChange={(e) => setColorInput(e.target.value)}
-                              placeholder="#ff6600"
-                              style={{
-                                width: '90px',
-                                padding: '0.2rem 0.4rem',
-                                fontSize: '0.75rem',
-                                fontFamily: 'var(--font-mono)',
-                                fontWeight: 700,
-                                color: colorInput,
-                                textAlign: 'center'
-                              }}
-                              title="Можно ввести любой HEX-код цвета"
-                            />
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          {PRESET_COLORS.map((pc) => (
-                            <button
-                              key={pc.hex}
-                              type="button"
-                              title={pc.name}
-                              onClick={() => setColorInput(pc.hex)}
-                              style={{
-                                width: 26,
-                                height: 26,
-                                borderRadius: '50%',
-                                backgroundColor: pc.hex,
-                                border: colorInput.toLowerCase() === pc.hex.toLowerCase() ? '2px solid #fff' : '2px solid transparent',
-                                boxShadow: colorInput.toLowerCase() === pc.hex.toLowerCase() ? `0 0 0 2px ${pc.hex}` : 'none',
-                                cursor: 'pointer',
-                                padding: 0,
-                                transform: colorInput.toLowerCase() === pc.hex.toLowerCase() ? 'scale(1.18)' : 'none',
-                                transition: 'transform 0.15s ease'
-                              }}
-                            />
-                          ))}
-
-                          {/* Custom Color Native Input */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '6px' }}>
-                            <input
-                              type="color"
-                              value={colorInput.startsWith('#') && colorInput.length === 7 ? colorInput : '#ff6600'}
-                              onChange={(e) => setColorInput(e.target.value)}
-                              style={{ width: 30, height: 30, borderRadius: '6px', cursor: 'pointer', padding: 0, border: '1px solid var(--border-subtle)', background: 'transparent' }}
-                              title="Открыть палитру Windows / Браузера"
-                            />
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Любой оттенок</span>
-                          </div>
-                        </div>
+                      {/* Color Palette */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Цвет:</span>
+                        {PRESET_COLORS.map((pc) => (
+                          <button
+                            key={pc.hex}
+                            type="button"
+                            title={pc.name}
+                            onClick={() => setColorInput(pc.hex)}
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: '50%',
+                              backgroundColor: pc.hex,
+                              border: colorInput.toLowerCase() === pc.hex.toLowerCase() ? '2px solid #fff' : 'none',
+                              cursor: 'pointer',
+                              padding: 0
+                            }}
+                          />
+                        ))}
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.2rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <button
                           type="button"
                           className="btn btn-secondary"
@@ -596,7 +742,7 @@ export function TeamModal({
                           onClick={() => handleSaveEdit(member)}
                         >
                           <Check size={14} />
-                          <span>Сохранить профиль</span>
+                          <span>Сохранить</span>
                         </button>
                       </div>
                     </div>

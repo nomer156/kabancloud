@@ -855,7 +855,7 @@ async function handleRequest(req, res) {
 
     // 3. POST /api/auth/register (Zero-password fast registration)
     if (pathname === '/api/auth/register' && req.method === 'POST') {
-      const { full_name, department_id, role, avatar_color, initials, specialty } = await parseBody(req);
+      const { full_name, department_id, role, role_level, avatar_color, avatar_url, initials, specialty, workstation_id, phone, email, telegram, office_room } = await parseBody(req);
 
       if (!full_name || !full_name.trim()) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -873,22 +873,38 @@ async function handleRequest(req, res) {
         computedInitials = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}`.toUpperCase() : full_name.slice(0, 2).toUpperCase();
       }
 
+      let normPc = (workstation_id || '').trim().toLowerCase();
+      if (normPc && !normPc.startsWith('vlxproject')) {
+        normPc = `vlxproject${normPc.padStart(2, '0')}`;
+      }
+
       const newMember = {
         id: `uf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         full_name: full_name.trim(),
         department_id: department_id || 'dept-design',
         role: role?.trim() || 'Инженер',
+        role_level: Number(role_level) || 6,
         initials: computedInitials,
         avatar_color: avatar_color || '#ff6600',
-        specialty: specialty?.trim() || ''
+        avatar_url: avatar_url || null,
+        specialty: specialty?.trim() || '',
+        workstation_id: normPc,
+        phone: (phone || '').trim(),
+        email: (email || '').trim(),
+        telegram: (telegram || '').trim(),
+        office_room: (office_room || '').trim(),
+        is_verified: Number(role_level) >= 10
       };
 
       db.members.push(newMember);
       writeDb(db);
       broadcastEvent('MEMBERS_UPDATED', db.members);
 
-      Logger.audit('AUTH_REGISTER_SUCCESS', newMember.id, { name: newMember.full_name, dept: newMember.department_id }, ip);
-      res.setHeader('Set-Cookie', `kaban_uid=${encodeURIComponent(newMember.id)}; Path=/; SameSite=Lax; Max-Age=31536000`);
+      Logger.audit('AUTH_REGISTER_SUCCESS', newMember.id, { name: newMember.full_name, dept: newMember.department_id, pc: newMember.workstation_id }, ip);
+      res.setHeader('Set-Cookie', [
+        `kaban_uid=${encodeURIComponent(newMember.id)}; Path=/; SameSite=Lax; Max-Age=31536000`,
+        `kaban_pc=${encodeURIComponent(newMember.workstation_id || '')}; Path=/; SameSite=Lax; Max-Age=31536000`
+      ]);
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, user: newMember }));
       return;
@@ -1226,6 +1242,174 @@ async function handleRequest(req, res) {
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+      return;
+    }
+
+    // ------------------ CHIEF & ADMIN ACCESS REQUESTS (УРОВЕНЬ 10) ------------------ //
+    // 1. GET /api/access-requests (Fetch all pending & reviewed requests)
+    if (pathname === '/api/access-requests' && req.method === 'GET') {
+      const db = readDb();
+      if (!Array.isArray(db.access_requests)) db.access_requests = [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(db.access_requests));
+      return;
+    }
+
+    // 2. POST /api/access-requests (Employee requests Level 10 Chief status)
+    if (pathname === '/api/access-requests' && req.method === 'POST') {
+      const db = readDb();
+      const currentUser = requireAuth(req, res, db);
+      if (!currentUser) return;
+
+      const body = await parseBody(req);
+      if (!Array.isArray(db.access_requests)) db.access_requests = [];
+
+      // Check if there is already an active pending request for this user
+      const existingPending = db.access_requests.find(
+        (r) => r.user_id === currentUser.id && r.status === 'pending'
+      );
+      if (existingPending) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(existingPending));
+        return;
+      }
+
+      const requestItem = {
+        id: `req-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        user_id: currentUser.id,
+        user_name: currentUser.full_name,
+        department_id: currentUser.department_id || body.department_id || 'dept-design',
+        workstation_id: currentUser.workstation_id || body.workstation_id || '',
+        requested_level: body.requested_level || 10,
+        requested_role: body.requested_role || 'Начальник отдела (Ур. 10)',
+        note: (body.note || '').trim(),
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        reviewed_at: null,
+        reviewed_by: null
+      };
+
+      db.access_requests.unshift(requestItem);
+      writeDb(db);
+      broadcastEvent('ACCESS_REQUEST_CREATED', requestItem);
+      Logger.audit('ACCESS_REQUEST_CREATED', currentUser.id, { requestId: requestItem.id, user: currentUser.full_name }, ip);
+
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(requestItem));
+      return;
+    }
+
+    // 3. POST /api/access-requests/:id/approve (Admin or Level 10 Chief approves request)
+    if (pathname.startsWith('/api/access-requests/') && pathname.endsWith('/approve') && req.method === 'POST') {
+      const db = readDb();
+      const currentUser = requireAuth(req, res, db);
+      if (!currentUser) return;
+
+      const userLevel = Number(currentUser.role_level) || 6;
+      if (userLevel < 10 && currentUser.full_name?.toLowerCase() !== 'admin') {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Только администратор или начальник (Ур. 10) может одобрять запросы' }));
+        return;
+      }
+
+      const reqId = pathname.split('/')[3];
+      if (!Array.isArray(db.access_requests)) db.access_requests = [];
+      const reqItem = db.access_requests.find((r) => r.id === reqId);
+      if (!reqItem) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Запрос доступа не найден' }));
+        return;
+      }
+
+      reqItem.status = 'approved';
+      reqItem.reviewed_at = new Date().toISOString();
+      reqItem.reviewed_by = currentUser.full_name;
+
+      // Update target member in db.members
+      let targetMember = db.members?.find((m) => m.id === reqItem.user_id);
+      if (targetMember) {
+        targetMember.role_level = Number(reqItem.requested_level) || 10;
+        targetMember.role = reqItem.requested_role || 'Начальник отдела';
+        targetMember.is_verified = true;
+      }
+
+      writeDb(db);
+      broadcastEvent('ACCESS_REQUEST_RESOLVED', reqItem);
+      broadcastEvent('MEMBERS_UPDATED', db.members);
+      Logger.audit('ACCESS_REQUEST_APPROVED', currentUser.id, { reqId, targetUserId: reqItem.user_id }, ip);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, request: reqItem, member: targetMember }));
+      return;
+    }
+
+    // 4. POST /api/access-requests/:id/reject
+    if (pathname.startsWith('/api/access-requests/') && pathname.endsWith('/reject') && req.method === 'POST') {
+      const db = readDb();
+      const currentUser = requireAuth(req, res, db);
+      if (!currentUser) return;
+
+      const userLevel = Number(currentUser.role_level) || 6;
+      if (userLevel < 10 && currentUser.full_name?.toLowerCase() !== 'admin') {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Только администратор или начальник (Ур. 10) может отклонять запросы' }));
+        return;
+      }
+
+      const reqId = pathname.split('/')[3];
+      if (!Array.isArray(db.access_requests)) db.access_requests = [];
+      const reqItem = db.access_requests.find((r) => r.id === reqId);
+      if (!reqItem) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Запрос доступа не найден' }));
+        return;
+      }
+
+      reqItem.status = 'rejected';
+      reqItem.reviewed_at = new Date().toISOString();
+      reqItem.reviewed_by = currentUser.full_name;
+
+      writeDb(db);
+      broadcastEvent('ACCESS_REQUEST_RESOLVED', reqItem);
+      Logger.audit('ACCESS_REQUEST_REJECTED', currentUser.id, { reqId, targetUserId: reqItem.user_id }, ip);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, request: reqItem }));
+      return;
+    }
+
+    // 5. POST /api/members/:id/verify (Chief verifies/confirms an employee of their department)
+    if (pathname.startsWith('/api/members/') && pathname.endsWith('/verify') && req.method === 'POST') {
+      const db = readDb();
+      const currentUser = requireAuth(req, res, db);
+      if (!currentUser) return;
+
+      const userLevel = Number(currentUser.role_level) || 6;
+      if (userLevel < 10 && currentUser.full_name?.toLowerCase() !== 'admin') {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Только начальник отдела (Ур. 10) может подтверждать сотрудников' }));
+        return;
+      }
+
+      const memberId = pathname.split('/')[3];
+      const targetMember = db.members?.find((m) => m.id === memberId);
+      if (!targetMember) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Сотрудник не найден' }));
+        return;
+      }
+
+      const { is_verified, role_level, role } = await parseBody(req);
+      targetMember.is_verified = is_verified !== false;
+      if (role_level !== undefined) targetMember.role_level = Number(role_level);
+      if (role) targetMember.role = role.trim();
+
+      writeDb(db);
+      broadcastEvent('MEMBERS_UPDATED', db.members);
+      Logger.audit('MEMBER_VERIFIED', currentUser.id, { targetId: memberId, is_verified: targetMember.is_verified }, ip);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, member: targetMember }));
       return;
     }
 

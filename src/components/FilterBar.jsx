@@ -101,7 +101,15 @@ export function FilterBar({
                 }}
                 title={`${member.full_name} (${member.role})${isCurrentMe ? ' • Это вы' : ''}\n(Клик — фильтр, Правый клик — настроить цвет)`}
               >
-                {member.initials}
+                {member.avatar_url ? (
+                  <img
+                    src={member.avatar_url}
+                    alt={member.full_name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  member.initials
+                )}
               </button>
             );
           })}

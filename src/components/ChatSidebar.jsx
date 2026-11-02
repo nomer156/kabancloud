@@ -14,10 +14,11 @@ import {
   Search,
   Lock,
   Layers,
-  Users
+  Users,
+  Crown
 } from 'lucide-react';
 import { DEPARTMENTS } from '../lib/constants';
-import { fetchChatMessages, sendChatMessage } from '../lib/api';
+import { fetchChatMessages, sendChatMessage, subscribeToRealtimeChanges } from '../lib/api';
 import { playSound } from '../lib/sound';
 
 export function ChatSidebar({
@@ -31,8 +32,12 @@ export function ChatSidebar({
   isOpen = true,
   onToggleOpen
 }) {
-  const currentDeptId = currentUser?.department_id || 'dept-design';
-  const deptMeta = departments.find((d) => d.id === currentDeptId) || departments[0];
+  const isLevel10OrAdmin = (Number(currentUser?.role_level) || 0) >= 10 || currentUser?.full_name?.toLowerCase() === 'admin' || currentUser?.id === 'uf-admin-root';
+  const [selectedChatDeptId, setSelectedChatDeptId] = useState(() => currentUser?.department_id || 'dept-design');
+  const currentDeptId = isLevel10OrAdmin ? selectedChatDeptId : (currentUser?.department_id || 'dept-design');
+  const deptMeta = currentDeptId === 'dept-all'
+    ? { id: 'dept-all', name: 'Все отделы (Общий чат)', icon: '🌐', color: '#ff6600' }
+    : (departments.find((d) => d.id === currentDeptId) || departments[0]);
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -83,6 +88,22 @@ export function ChatSidebar({
     }
   }, [currentDeptId, currentUser?.id]);
 
+  useEffect(() => {
+    const unsub = subscribeToRealtimeChanges((event) => {
+      if (event.type === 'NEW_CHAT_MESSAGE') {
+        const { departmentId, message } = event.payload || {};
+        if ((departmentId === currentDeptId || currentDeptId === 'dept-all') && message) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === message.id)) return prev;
+            return [...prev, message];
+          });
+          setTimeout(scrollToBottom, 50);
+        }
+      }
+    });
+    return unsub;
+  }, [currentDeptId]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -91,9 +112,11 @@ export function ChatSidebar({
   const mentionSuggestions = useMemo(() => {
     if (autocompleteType !== 'mention') return [];
     const q = autocompleteQuery.toLowerCase().trim();
-    const deptMembers = teamMembers.filter((m) => m.department_id === currentDeptId);
+    const deptMembers = currentDeptId === 'dept-all'
+      ? teamMembers
+      : teamMembers.filter((m) => m.department_id === currentDeptId);
     const list = [
-      { id: '__all__', full_name: 'все', role: 'Оповестить весь отдел', avatar_color: '#ff6600', initials: 'ВС' },
+      { id: '__all__', full_name: 'все', role: 'Оповестить всех', avatar_color: '#ff6600', initials: 'ВС' },
       ...deptMembers
     ];
     if (!q) return list.slice(0, 6);
@@ -455,16 +478,54 @@ export function ChatSidebar({
             {deptMeta.icon}
           </div>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
-                Чат: {deptMeta.name}
-              </span>
-              <span style={{ fontSize: '0.62rem', color: '#10b981', fontWeight: 700 }}>● онлайн</span>
-            </div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim, #64748b)' }}>
-              Закрытый канал отдела
-            </div>
+          <div style={{ minWidth: 0 }}>
+            {isLevel10OrAdmin ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <select
+                  value={currentDeptId}
+                  onChange={(e) => {
+                    setSelectedChatDeptId(e.target.value);
+                    playSound('click');
+                  }}
+                  style={{
+                    background: 'var(--bg-secondary, #0f172a)',
+                    color: 'var(--text-main, #f8fafc)',
+                    border: '1.5px solid rgba(255, 102, 0, 0.45)',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    padding: '2px 6px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    maxWidth: '190px'
+                  }}
+                  title="Администратор / Начальник: переключение чата любого отдела"
+                >
+                  <option value="dept-all">🌐 Общий (Все отделы)</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.icon} {d.name}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ fontSize: '0.64rem', color: '#f59e0b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <Crown size={10} />
+                  <span>Полный доступ ко всем чатам</span>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
+                    Чат: {deptMeta.name}
+                  </span>
+                  <span style={{ fontSize: '0.62rem', color: '#10b981', fontWeight: 700 }}>● онлайн</span>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-dim, #64748b)' }}>
+                  Канал отдела
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

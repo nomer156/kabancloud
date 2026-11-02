@@ -22,7 +22,9 @@ import {
   Check,
   LogOut,
   Settings,
-  MessageSquare
+  MessageSquare,
+  Crown,
+  UserCog
 } from 'lucide-react';
 import { playSound, isSoundEnabled, setSoundEnabled } from '../lib/sound';
 import { renderWithMentions } from '../lib/mentions';
@@ -42,6 +44,9 @@ export function Header({
   onOpenColumnsModal,
   onOpenImportModal,
   onOpenSettingsModal,
+  onOpenProfileModal,
+  accessRequests = [],
+  onOpenAccessRequestsModal,
   activeView,
   onSelectView,
   notifications = [],
@@ -168,34 +173,87 @@ export function Header({
         {/* User Profile & Logout */}
         {(() => {
           const userDept = DEPARTMENTS.find((d) => d.id === currentUser?.department_id) || DEPARTMENTS[0];
+          const isChiefOrAdmin = (Number(currentUser?.role_level) || 0) >= 10 || currentUser?.full_name?.toLowerCase() === 'admin';
+          const pendingRequestsCount = Array.isArray(accessRequests) ? accessRequests.filter((r) => r.status === 'pending').length : 0;
+
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              {/* Access Requests Badge for Chiefs / Admins */}
+              {isChiefOrAdmin && pendingRequestsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSound('click');
+                    if (onOpenAccessRequestsModal) onOpenAccessRequestsModal();
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                    color: '#fff',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 12px rgba(239, 68, 68, 0.45)',
+                    animation: 'pulse 2s infinite',
+                    flexShrink: 0
+                  }}
+                  title="Поступили новые заявки на права начальника отдела (Ур. 10)"
+                >
+                  <Crown size={14} />
+                  <span>Заявки ({pendingRequestsCount})</span>
+                </button>
+              )}
+
               <div 
                 className="user-switcher"
+                onClick={() => {
+                  playSound('click');
+                  if (onOpenProfileModal) onOpenProfileModal();
+                }}
                 style={{ 
-                  cursor: 'default', 
+                  cursor: 'pointer', 
                   background: 'var(--bg-tertiary)', 
                   padding: '0.35rem 0.65rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border-subtle)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.55rem'
+                  gap: '0.55rem',
+                  transition: 'border-color 0.15s ease'
                 }}
-                title={`Авторизован: ${currentUser?.full_name || 'Инженер'} (${userDept.name} • ${currentUser?.role || 'Инженер'})`}
+                title="Нажмите для настройки профиля (ФИО, фото, должность, рабочий ПК, права)"
               >
-                <div 
-                  className="user-avatar-badge" 
-                  style={{ 
-                    backgroundColor: currentUser?.avatar_color || '#ff6600', 
-                    width: 28, 
-                    height: 28, 
-                    fontSize: '0.74rem',
-                    fontWeight: 800
-                  }}
-                >
-                  {currentUser?.initials || 'Я'}
-                </div>
+                {currentUser?.avatar_url ? (
+                  <img
+                    src={currentUser.avatar_url}
+                    alt={currentUser.full_name}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '1.5px solid var(--accent-orange)'
+                    }}
+                  />
+                ) : (
+                  <div 
+                    className="user-avatar-badge" 
+                    style={{ 
+                      backgroundColor: currentUser?.avatar_color || '#ff6600', 
+                      width: 28, 
+                      height: 28, 
+                      fontSize: '0.74rem',
+                      fontWeight: 800
+                    }}
+                  >
+                    {currentUser?.initials || 'Я'}
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
@@ -216,9 +274,16 @@ export function Header({
                       </span>
                     )}
                   </div>
-                  <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
-                    {currentUser?.role || userDept.name}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
+                      {currentUser?.role || userDept.name}
+                    </span>
+                    {currentUser?.workstation_id && (
+                      <span style={{ fontSize: '0.62rem', color: '#38bdf8', fontFamily: 'monospace', fontWeight: 700 }}>
+                        • {currentUser.workstation_id}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -581,13 +646,14 @@ export function Header({
           style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', gap: '5px' }}
         >
           <FileSpreadsheet size={15} style={{ color: 'var(--accent-orange)' }} />
-          <span>Импорт из ERP</span>
+          <span className="btn-label-collapse">Импорт из ERP</span>
         </button>
 
         {/* Primary New Task button */}
         <button
           type="button"
           className="btn btn-primary"
+          style={{ flexShrink: 0, zIndex: 10, whiteSpace: 'nowrap' }}
           onClick={() => {
             playSound('click');
             onOpenNewTask();
