@@ -1225,15 +1225,17 @@ export default function App() {
 
 
       {/* Auth Modal (can be opened as dialog to switch profile or re-auth) */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        teamMembers={teamMembers}
-        departments={departments}
-        currentUser={currentUser}
-        onSelectUser={handleSelectCurrentUser}
-        isStandalonePage={false}
-      />
+      {isAuthModalOpen && (
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          teamMembers={teamMembers}
+          departments={departments}
+          currentUser={currentUser}
+          onSelectUser={handleSelectCurrentUser}
+          isStandalonePage={false}
+        />
+      )}
 
       {/* Toast Feedback */}
       <div className="toast-container">

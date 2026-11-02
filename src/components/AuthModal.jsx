@@ -67,11 +67,7 @@ export function AuthModal({
     return regFullName.slice(0, 2).toUpperCase();
   }, [regFullName, regInitials]);
 
-  if (!isOpen) return null;
-
-  const canClose = Boolean(currentUser) && !isStandalonePage;
-
-  // Find admin member
+  // Find admin member (Hook must remain unconditional before any return)
   const adminMember = useMemo(() => {
     return teamMembers.find(m => m.full_name?.toLowerCase() === 'admin' || m.id === 'uf-admin-root') || {
       id: 'uf-admin-root',
@@ -85,7 +81,7 @@ export function AuthModal({
     };
   }, [teamMembers]);
 
-  // Filter members for simplified 1-click login
+  // Filter members for simplified 1-click login (Hook must remain unconditional before any return)
   const filteredMembers = useMemo(() => {
     return teamMembers.filter((m) => {
       if (selectedDeptFilter !== 'all' && m.department_id !== selectedDeptFilter) {
@@ -104,6 +100,10 @@ export function AuthModal({
       return true;
     });
   }, [teamMembers, selectedDeptFilter, searchQuery]);
+
+  if (!isOpen) return null;
+
+  const canClose = Boolean(currentUser) && !isStandalonePage;
 
   // Handle 1-click login
   const handleQuickLogin = async (member) => {
