@@ -366,12 +366,51 @@ const DEFAULT_SEED = {
 };
 
 // ------------------------------------------------------------------------------
-// 3. БЕЗОПАСНАЯ БАЗА ДАННЫХ (Atomic Writes, HMAC-256 Checksum, Backup Rotation)
+// 3. БЕЗОПАСНАЯ БАЗА ДАННЫХ (AES-256-GCM Шифрование at-rest, Atomic Writes, HMAC-256)
 // ------------------------------------------------------------------------------
 let lastBackupTime = 0;
 
 function computeHmac(dataString) {
   return crypto.createHmac('sha256', DB_SECRET_KEY).update(dataString).digest('hex');
+}
+
+function getDbEncryptionKey() {
+  return crypto.scryptSync(DB_SECRET_KEY, 'ufanet_kaban_salt_v2', 32);
+}
+
+function encryptDbPayload(plainJsonString) {
+  const key = getDbEncryptionKey();
+  const iv = crypto.randomBytes(12); // 96-bit IV for AES-256-GCM
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plainJsonString, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return JSON.stringify({
+    __encrypted: true,
+    cipher: 'aes-256-gcm',
+    iv: iv.toString('hex'),
+    tag: tag.toString('hex'),
+    data: encrypted.toString('base64'),
+    created_at: new Date().toISOString()
+  }, null, 2);
+}
+
+function decryptDbPayload(rawString) {
+  const parsed = JSON.parse(rawString);
+  if (parsed && parsed.__encrypted && parsed.data && parsed.iv && parsed.tag) {
+    const key = getDbEncryptionKey();
+    const iv = Buffer.from(parsed.iv, 'hex');
+    const tag = Buffer.from(parsed.tag, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(parsed.data, 'base64')),
+      decipher.final()
+    ]);
+    return JSON.parse(decrypted.toString('utf8'));
+  }
+  // Backward compatibility: unencrypted JSON
+  return parsed;
 }
 
 function migrateDbSchema(db) {
@@ -493,9 +532,10 @@ function readDb() {
       }
     }
 
-    const data = JSON.parse(raw);
+    const data = decryptDbPayload(raw);
     const neededMigration = migrateDbSchema(data);
-    if (neededMigration) {
+    // If database was read from unencrypted json or needed schema migration, encrypt it now
+    if (neededMigration || !raw.includes('"__encrypted": true')) {
       writeDb(data);
     }
     return data;
@@ -505,7 +545,8 @@ function readDb() {
       const backups = fs.readdirSync(BACKUPS_DIR).filter((f) => f.endsWith('.json')).sort().reverse();
       if (backups.length > 0) {
         const lastBackup = path.join(BACKUPS_DIR, backups[0]);
-        const backupData = JSON.parse(fs.readFileSync(lastBackup, 'utf8'));
+        const backupRaw = fs.readFileSync(lastBackup, 'utf8');
+        const backupData = decryptDbPayload(backupRaw);
         writeDb(backupData);
         Logger.audit('DB_RESTORED_FROM_BACKUP', 'system', { backup: backups[0] });
         return backupData;
@@ -517,20 +558,22 @@ function readDb() {
 
 function writeDb(data) {
   try {
-    const json = JSON.stringify(data, null, 2);
-    const checksum = computeHmac(json);
+    const plainJson = JSON.stringify(data, null, 2);
+    // Encrypt database payload at rest with AES-256-GCM
+    const encryptedJson = encryptDbPayload(plainJson);
+    const checksum = computeHmac(encryptedJson);
 
     // Atomic write via temporary file
     const tempFile = `${DB_FILE}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 6)}`;
-    fs.writeFileSync(tempFile, json, 'utf8');
+    fs.writeFileSync(tempFile, encryptedJson, 'utf8');
     fs.renameSync(tempFile, DB_FILE);
     fs.writeFileSync(DB_CHECKSUM_FILE, checksum, 'utf8');
 
-    // Automatic hourly backup rotation
+    // Automatic hourly backup rotation (encrypted)
     const now = Date.now();
     if (now - lastBackupTime > 3600000) {
       const backupPath = path.join(BACKUPS_DIR, `ufanet_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
-      fs.writeFileSync(backupPath, json, 'utf8');
+      fs.writeFileSync(backupPath, encryptedJson, 'utf8');
       lastBackupTime = now;
 
       // Keep max 30 recent backups
@@ -1685,7 +1728,11 @@ async function handleRequest(req, res) {
 
     // ------------------ SECURED: STATIC FRONTEND ASSETS (NO PATH TRAVERSAL) ------------------ //
     // Block direct access to database, keys, and logs from static serving
-    const lowerPath = pathname.toLowerCase();
+    let decodedPath = pathname;
+    try {
+      decodedPath = decodeURIComponent(pathname);
+    } catch {}
+    const lowerPath = decodedPath.toLowerCase();
     if (
       lowerPath.includes('db.json') ||
       lowerPath.includes('ufanet_db') ||
@@ -1694,6 +1741,7 @@ async function handleRequest(req, res) {
       lowerPath.includes('.log') ||
       lowerPath.includes('.env') ||
       lowerPath.includes('data/') ||
+      lowerPath.includes('data\\') ||
       lowerPath.includes('server.js')
     ) {
       Logger.audit('STATIC_ACCESS_FORBIDDEN', 'anonymous', { path: pathname }, ip);
