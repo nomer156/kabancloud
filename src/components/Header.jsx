@@ -6,12 +6,11 @@ import {
   Moon, 
   Volume2, 
   VolumeX, 
-  Wifi, 
   Users, 
   Flame, 
   CheckCircle2, 
   Clock, 
-  ChevronDown,
+  ChevronDown, 
   Kanban,
   FileBarChart,
   Layers,
@@ -38,7 +37,6 @@ export function Header({
   theme,
   onToggleTheme,
   onOpenNewTask,
-  onOpenNetworkModal,
   onOpenTeamModal,
   onOpenSectionsModal,
   onOpenColumnsModal,
@@ -78,17 +76,17 @@ export function Header({
     <header className="app-header">
       {/* Left: Brand & Main Navigation Tabs */}
       <div className="brand-section">
-        <div className="brand-logo" title="Уфанет • Отдел проектирования">
-          <Network size={22} strokeWidth={2.4} />
+        <div className="brand-logo" title="Уфанет • KabanCloud">
+          <Kanban size={22} strokeWidth={2.4} />
         </div>
         <div>
           <div className="brand-title">
             <span className="brand-accent">Уфанет</span>
-            <span>Проект</span>
-            <span className="brand-badge">Отдел проектирования</span>
+            <span>KabanCloud</span>
+            <span className="brand-badge">Канбан филиала</span>
           </div>
           <div className="brand-subtitle">
-            Корпоративная доска • Локальная сеть
+            Корпоративная облачная доска
           </div>
         </div>
 
@@ -555,21 +553,6 @@ export function Header({
             );
           })()}
         </div>
-
-        {/* Local Network IP status badge */}
-        <button 
-          type="button"
-          className="status-pill lan"
-          onClick={() => {
-            playSound('click');
-            onOpenNetworkModal();
-          }}
-          title="Локальная сеть отдела — ссылка для коллег"
-        >
-          <div className="pulse-dot" />
-          <Wifi size={13} />
-          <span>Локальная сеть (LAN)</span>
-        </button>
 
         {/* Sections Management Button */}
         <button

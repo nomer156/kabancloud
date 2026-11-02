@@ -16,9 +16,11 @@
       "role": "Главный администратор системы",
       "role_level": 10,
       "initials": "AD",
-      "avatar_color": "#ef4444",
+      "avatar_color": "#10b981",
       "specialty": "Администрирование (Полный доступ)",
-      "workstation_id": "vlxproject00"
+      "workstation_id": "vlxproject10",
+      "phone": "",
+      "email": ""
     },
     {
       "id": "uf-11111111-1111-1111-1111-111111111111",
@@ -29,7 +31,8 @@
       "initials": "АС",
       "avatar_color": "#ff6600",
       "specialty": "ГИП",
-      "workstation_id": "vlxproject01"
+      "workstation_id": "vlxproject01",
+      "is_verified": true
     },
     {
       "id": "uf-22222222-2222-2222-2222-222222222222",
@@ -477,6 +480,11 @@
   ],
   "notifications": [
     {
+      "action": "read_all",
+      "id": "notif-1793616244796",
+      "created_at": "2026-11-02T10:44:04.796Z"
+    },
+    {
       "id": "notif-1792095740139-2roe8",
       "taskId": "task-uf-3",
       "taskTitle": "Расстановка IP-камер видеонаблюдения и зоны видимости",
@@ -652,7 +660,32 @@
         "created_at": "2026-11-02T10:26:36.891Z"
       }
     ],
-    "dept-design": [],
+    "dept-design": [
+      {
+        "id": "msg-1793616194568-v38c",
+        "department_id": "dept-design",
+        "user_id": "uf-22222222-2222-2222-2222-222222222222",
+        "user_name": "Мария Воронова",
+        "user_initials": "МВ",
+        "user_color": "#ff8800",
+        "user_role": "Ведущий инженер ВОЛС",
+        "text": "#[task-uf-1793615196447-jvbm: Сварка муфты МТОК-12 по ЗС-2041 (Объект: ТЦ «Планета»)]",
+        "quoted_task": null,
+        "created_at": "2026-11-02T10:43:14.568Z"
+      },
+      {
+        "id": "msg-1793616207606-w2w1",
+        "department_id": "dept-design",
+        "user_id": "uf-22222222-2222-2222-2222-222222222222",
+        "user_name": "Мария Воронова",
+        "user_initials": "МВ",
+        "user_color": "#ff8800",
+        "user_role": "Ведущий инженер ВОЛС",
+        "text": "#[task-uf-1793615195075-bgg0: Обследование МКЖД: ЖК «Агидель» (д. 14, 4 подъезда, Умный дом)]  алло",
+        "quoted_task": null,
+        "created_at": "2026-11-02T10:43:27.606Z"
+      }
+    ],
     "dept-welders": [],
     "dept-rss": [],
     "dept-sales-b2b": [],

@@ -408,7 +408,7 @@ export function AuthModal({
               </div>
             </button>
 
-            {/* Home / Public Access Notice Banner */}
+            {/* Cloud Access Notice Banner */}
             <div
               style={{
                 padding: '0.65rem 0.85rem',
@@ -422,18 +422,18 @@ export function AuthModal({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '1.15rem' }}>🏠</span>
+                <span style={{ fontSize: '1.15rem' }}>☁️</span>
                 <div>
                   <div style={{ fontSize: '0.79rem', fontWeight: 700, color: '#34d399' }}>
-                    Общедоступный вход (домашний ПК, телефон или удалёнка)
+                    Облачный доступ KabanCloud
                   </div>
                   <div style={{ fontSize: '0.71rem', color: 'var(--text-muted, #94a3b8)' }}>
-                    Имя ПК указывать не нужно — просто выберите ваш профиль в 1 клик в списке ниже!
+                    Вход в 1 клик с любого устройства — просто выберите ваш профиль в списке ниже!
                   </div>
                 </div>
               </div>
               <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                Открытый доступ
+                Онлайн
               </span>
             </div>
 
@@ -453,7 +453,7 @@ export function AuthModal({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#38bdf8' }}>
                   <Monitor size={15} />
-                  <span>Для офиса: вход по номеру ПК (vlxproject..):</span>
+                  <span>Вход по номеру ПК (vlxproject..):</span>
                 </div>
                 <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                   <input
@@ -469,7 +469,7 @@ export function AuthModal({
               <div style={{ display: 'flex', gap: '6px' }}>
                 <input
                   type="text"
-                  placeholder="В офисе: номер 04 или vlxproject04 (дома оставьте пустым)..."
+                  placeholder="Номер 04 или vlxproject04 (или выберите сотрудника ниже)..."
                   value={pcInput}
                   onChange={(e) => {
                     setPcInput(e.target.value);

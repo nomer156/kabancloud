@@ -1,6 +1,6 @@
 // ==============================================================================
-// УФАНЕТ • API Клиент корпоративной канбан-доски
-// Поддержка LAN-сервера + оффлайн-фолбэка для Vercel / мобильных устройств
+// УФАНЕТ • API Клиент корпоративной канбан-доски KabanCloud
+// Поддержка облачного сервера (Vercel / VPS) + надежного локального фолбэка
 // ==============================================================================
 
 const API_BASE = window.location.port === '5173' ? 'http://localhost:3000' : '';
@@ -13,7 +13,6 @@ const STORAGE_KEY_COLUMNS = 'ufanet_local_columns_v3';
 const STORAGE_KEY_DEPTS = 'ufanet_local_departments_v1';
 const STORAGE_KEY_NOTIFS = 'ufanet_local_notifications_v1';
 const STORAGE_KEY_CHATS = 'ufanet_local_chats_v1';
-const STORAGE_KEY_CUSTOM_IP = 'ufanet_custom_lan_ip';
 const STORAGE_KEY_AUTH_USER_ID = 'kaban_current_user_id';
 const STORAGE_KEY_PERMISSIONS = 'kaban_role_permissions';
 
@@ -27,6 +26,18 @@ import {
 } from './constants';
 
 export const INITIAL_DEPARTMENTS = DEPARTMENTS;
+
+// Safe parser to distinguish real JSON API responses from Vercel SPA HTML rewrites
+async function safeParseJson(res) {
+  if (!res || !res.ok) return null;
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 // ------------------------------------------------------------------------------
 // LOCAL STORAGE HELPERS
@@ -66,18 +77,6 @@ export function getAuthHeaders(extra = {}) {
     headers['x-workstation'] = workstation;
   }
   return headers;
-}
-
-export function getCustomLanIp() {
-  return localStorage.getItem(STORAGE_KEY_CUSTOM_IP) || '';
-}
-
-export function setCustomLanIp(ip) {
-  if (ip && ip.trim()) {
-    localStorage.setItem(STORAGE_KEY_CUSTOM_IP, ip.trim());
-  } else {
-    localStorage.removeItem(STORAGE_KEY_CUSTOM_IP);
-  }
 }
 
 // ------------------------------------------------------------------------------

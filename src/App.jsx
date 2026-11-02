@@ -40,7 +40,6 @@ import { ChatSidebar } from './components/ChatSidebar';
 import { FilterBar } from './components/FilterBar';
 import { KanbanColumn } from './components/KanbanColumn';
 import { TaskModal } from './components/TaskModal';
-import { NetworkModal } from './components/NetworkModal';
 import { TeamModal } from './components/TeamModal';
 import { SectionsModal } from './components/SectionsModal';
 import { ColumnsModal } from './components/ColumnsModal';
@@ -107,7 +106,6 @@ export default function App() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [initialModalStatus, setInitialModalStatus] = useState('backlog');
-  const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState(null);
   const [isSectionsModalOpen, setIsSectionsModalOpen] = useState(false);
@@ -223,7 +221,7 @@ export default function App() {
   useEffect(() => {
     loadData();
 
-    // Subscribe to Server-Sent Events (SSE) Realtime updates from colleagues on the LAN!
+    // Subscribe to Server-Sent Events (SSE) Realtime updates from colleagues!
     const unsubscribe = subscribeToRealtimeChanges((event) => {
       if (event.type === 'TASK_UPDATED') {
         setTasks((prev) => {
@@ -235,7 +233,7 @@ export default function App() {
           }
           return [event.payload, ...prev];
         });
-        showToast('Задача обновлена коллегой (LAN)', '⚡');
+        showToast('Задача обновлена коллегой', '⚡');
       } else if (event.type === 'TASK_DELETED') {
         setTasks((prev) => prev.filter((t) => t.id !== event.payload.id));
       } else if (event.type === 'TASKS_BULK_CREATED') {
@@ -245,7 +243,7 @@ export default function App() {
           const newUnique = incomingTasks.filter((t) => !existingIds.has(t.id));
           return [...newUnique, ...prev];
         });
-        showToast(`Импортировано ${incomingTasks.length} новых задач (LAN)`, '⚡');
+        showToast(`Импортировано ${incomingTasks.length} новых задач`, '⚡');
       } else if (event.type === 'MEMBERS_UPDATED') {
         setTeamMembers(event.payload);
       } else if (event.type === 'PROJECTS_UPDATED') {
@@ -832,7 +830,6 @@ export default function App() {
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onOpenNewTask={() => handleQuickAdd(columns[0]?.id || 'backlog')}
-            onOpenNetworkModal={() => setIsNetworkModalOpen(true)}
             onOpenTeamModal={(memberId) => {
               setEditingMemberId(memberId || null);
               setIsTeamModalOpen(true);
@@ -972,12 +969,6 @@ export default function App() {
         sections={sections}
         teamMembers={teamMembers}
         onImportTasks={handleImportTasks}
-      />
-
-      {/* Local LAN Network Modal */}
-      <NetworkModal
-        isOpen={isNetworkModalOpen}
-        onClose={() => setIsNetworkModalOpen(false)}
       />
 
       {/* Team Members Modal */}

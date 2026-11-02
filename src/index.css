@@ -164,9 +164,6 @@ button, input, select, textarea {
   .btn-label-collapse {
     display: none !important;
   }
-  .status-pill.lan span {
-    display: none !important;
-  }
 }
 
 .header-actions {
@@ -380,12 +377,6 @@ button, input, select, textarea {
   border-radius: var(--radius-full);
   border: 1px solid transparent;
   cursor: pointer;
-}
-
-.status-pill.lan {
-  background: rgba(255, 102, 0, 0.12);
-  color: var(--accent-orange);
-  border-color: rgba(255, 102, 0, 0.32);
 }
 
 .pulse-dot {
