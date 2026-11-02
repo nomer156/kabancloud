@@ -321,18 +321,22 @@ export function ChatSidebar({
       if (bracketMatch) {
         const idCode = bracketMatch[1].trim();
         const title = bracketMatch[2].trim();
-        const matchedTask = tasks.find((t) => t.display_id === idCode || t.id === idCode);
+        const cleanCode = idCode.toLowerCase();
+        const matchedTask = tasks.find(
+          (t) => String(t.display_id || '').toLowerCase().trim() === cleanCode ||
+                 String(t.id || '').toLowerCase().trim() === cleanCode
+        );
         const resolvedId = matchedTask?.id || idCode;
 
         return (
-          <a
+          <span
             key={index}
-            href={`#task/${resolvedId}`}
-            target="_blank"
-            rel="noopener noreferrer"
             onClick={(e) => {
-              if (!e.ctrlKey && !e.metaKey && e.button !== 1) {
-                e.preventDefault();
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.ctrlKey || e.metaKey) {
+                window.open(`/#task/${resolvedId}`, '_blank');
+              } else {
                 onOpenTask && onOpenTask(resolvedId);
               }
             }}
@@ -361,7 +365,7 @@ export function ChatSidebar({
           >
             <span>🏷️ {idCode}</span>
             <span style={{ color: 'var(--text-main, #f8fafc)', fontWeight: 500 }}>{title}</span>
-          </a>
+          </span>
         );
       }
 
@@ -369,18 +373,22 @@ export function ChatSidebar({
       const simpleMatch = part.match(/^#([A-ZА-Я0-9_.-]+)$/);
       if (simpleMatch) {
         const idCode = simpleMatch[1];
-        const matchedTask = tasks.find((t) => t.display_id === idCode || t.id === idCode);
+        const cleanCode = idCode.toLowerCase().trim();
+        const matchedTask = tasks.find(
+          (t) => String(t.display_id || '').toLowerCase().trim() === cleanCode ||
+                 String(t.id || '').toLowerCase().trim() === cleanCode
+        );
         const resolvedId = matchedTask?.id || idCode;
 
         return (
-          <a
+          <span
             key={index}
-            href={`#task/${resolvedId}`}
-            target="_blank"
-            rel="noopener noreferrer"
             onClick={(e) => {
-              if (!e.ctrlKey && !e.metaKey && e.button !== 1) {
-                e.preventDefault();
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.ctrlKey || e.metaKey) {
+                window.open(`/#task/${resolvedId}`, '_blank');
+              } else {
                 onOpenTask && onOpenTask(resolvedId);
               }
             }}
@@ -404,7 +412,7 @@ export function ChatSidebar({
             title={`Открыть задачу ${idCode} (Колёсиком мыши — в новой вкладке)`}
           >
             <span>📌 {idCode}</span>
-          </a>
+          </span>
         );
       }
 

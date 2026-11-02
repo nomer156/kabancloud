@@ -46,7 +46,13 @@ async function safeParseJson(res) {
 function getLocalData(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length === 0 && Array.isArray(fallback) && fallback.length > 0) {
+        return fallback;
+      }
+      return parsed;
+    }
   } catch {}
   return fallback;
 }
@@ -107,15 +113,7 @@ export function saveCurrentUserLocally(user) {
 }
 
 export async function fetchAuthMembers() {
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/members`);
-    if (res.ok) {
-      const data = await res.json();
-      setLocalData(STORAGE_KEY_MEMBERS, data);
-      return data;
-    }
-  } catch {}
-  return getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  return await fetchTeamMembers();
 }
 
 export async function loginUser(param) {
@@ -464,7 +462,19 @@ export async function deleteTask(taskId) {
 // TEAM MEMBERS API
 // ------------------------------------------------------------------------------
 export async function fetchTeamMembers() {
-  const localMembers = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  let localMembers = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  if (!Array.isArray(localMembers) || localMembers.length === 0) {
+    localMembers = [...INITIAL_MEMBERS];
+  } else {
+    // Ensure all critical INITIAL_MEMBERS exist in localMembers
+    const existingIds = new Set(localMembers.map((m) => String(m.id)));
+    const missing = INITIAL_MEMBERS.filter((m) => !existingIds.has(String(m.id)));
+    if (missing.length > 0) {
+      localMembers = [...localMembers, ...missing];
+    }
+  }
+  setLocalData(STORAGE_KEY_MEMBERS, localMembers);
+
   try {
     const res = await fetch(`${API_BASE}/api/members`);
     const serverMembers = await safeParseJson(res);
@@ -480,20 +490,10 @@ export async function fetchTeamMembers() {
 }
 
 export async function saveTeamMember(member) {
-  try {
-    const res = await fetch(`${API_BASE}/api/members`, {
-      method: 'POST',
-      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(member)
-    });
-    if (res.ok) return await res.json();
-  } catch {}
-
-  // Local fallback
   const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
   const id = member.id || `uf-${Date.now()}`;
   const prepared = { ...member, id };
-  const idx = members.findIndex((m) => m.id === id);
+  const idx = members.findIndex((m) => String(m.id) === String(id));
   let updated;
   if (idx >= 0) {
     updated = [...members];
@@ -502,23 +502,41 @@ export async function saveTeamMember(member) {
     updated = [...members, prepared];
   }
   setLocalData(STORAGE_KEY_MEMBERS, updated);
-  return prepared;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/members`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(prepared)
+    });
+    const saved = await safeParseJson(res);
+    if (saved && saved.id) {
+      const freshIndex = updated.findIndex((m) => String(m.id) === String(saved.id));
+      if (freshIndex >= 0) {
+        updated[freshIndex] = saved;
+      } else {
+        updated.push(saved);
+      }
+      setLocalData(STORAGE_KEY_MEMBERS, updated);
+    }
+  } catch {}
+
+  return updated;
 }
 
 export async function deleteTeamMember(memberId) {
+  const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
+  const updated = members.filter((m) => String(m.id) !== String(memberId));
+  setLocalData(STORAGE_KEY_MEMBERS, updated);
+
   try {
-    const res = await fetch(`${API_BASE}/api/members/${memberId}`, {
+    await fetch(`${API_BASE}/api/members/${memberId}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
-    if (res.ok) return true;
   } catch {}
 
-  // Local fallback
-  const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
-  const updated = members.filter((m) => m.id !== memberId);
-  setLocalData(STORAGE_KEY_MEMBERS, updated);
-  return true;
+  return updated;
 }
 
 export async function verifyTeamMember(memberId, isVerified = true, roleLevel = undefined, role = undefined) {

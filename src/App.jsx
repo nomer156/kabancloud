@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { COLUMNS, DEFAULT_COLUMNS, DEPARTMENTS, DEFAULT_PERMISSIONS, hasPermission } from './lib/constants';
+import { 
+  COLUMNS, 
+  DEFAULT_COLUMNS, 
+  DEPARTMENTS, 
+  DEFAULT_PERMISSIONS, 
+  hasPermission,
+  INITIAL_MEMBERS,
+  INITIAL_TASKS,
+  generateTaskDisplayId
+} from './lib/constants';
 import { 
   fetchAllTasks, 
   saveTask, 
@@ -56,30 +65,62 @@ export default function App() {
   // Navigation view: 'board' | 'report'
   const [activeView, setActiveView] = useState('board');
 
-  // Hash routing for Jira full page view: #task/:id
+  // Robust hash extraction with decodeURIComponent
+  const extractTaskIdFromHash = (hash) => {
+    if (!hash) return null;
+    const match = hash.match(/^#\/?task\/(.+)$/);
+    if (match && match[1]) {
+      try {
+        return decodeURIComponent(match[1]).trim();
+      } catch {
+        return match[1].trim();
+      }
+    }
+    return null;
+  };
+
+  // Hash routing for Jira full page view: #task/:id or #/task/:id
   const [detailTaskId, setDetailTaskId] = useState(() => {
-    if (typeof window !== 'undefined' && window.location.hash.startsWith('#task/')) {
-      return window.location.hash.replace('#task/', '');
+    if (typeof window !== 'undefined') {
+      return extractTaskIdFromHash(window.location.hash);
     }
     return null;
   });
 
   useEffect(() => {
     const handleHashChange = () => {
-      if (window.location.hash.startsWith('#task/')) {
-        const id = window.location.hash.replace('#task/', '');
-        setDetailTaskId(id);
-      } else {
-        setDetailTaskId(null);
-      }
+      setDetailTaskId(extractTaskIdFromHash(window.location.hash));
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // App data state
-  const [tasks, setTasks] = useState([]);
-  const [teamMembers, setTeamMembers] = useState([]);
+  // App data state - initial synchronous fallback ensures no empty screen on refresh or direct new tab opening!
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ufanet_local_tasks_v3');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_TASKS || [];
+  });
+
+  const [teamMembers, setTeamMembers] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ufanet_local_members_v3');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((m) => String(m.id)));
+          const missing = INITIAL_MEMBERS.filter((m) => !existingIds.has(String(m.id)));
+          return missing.length > 0 ? [...parsed, ...missing] : parsed;
+        }
+      }
+    } catch {}
+    return INITIAL_MEMBERS;
+  });
   const [projects, setProjects] = useState([]);
   const [sections, setSections] = useState([]);
   const [columns, setColumns] = useState(() => DEFAULT_COLUMNS || COLUMNS);
@@ -159,8 +200,8 @@ export default function App() {
         fetchAccessRequests()
       ]);
 
-      setTasks(loadedTasks || []);
-      setTeamMembers(loadedMembers || []);
+      setTasks(loadedTasks && loadedTasks.length > 0 ? loadedTasks : (prevTasks => prevTasks.length > 0 ? prevTasks : INITIAL_TASKS));
+      setTeamMembers(loadedMembers && loadedMembers.length > 0 ? loadedMembers : INITIAL_MEMBERS);
       setProjects(loadedProjects || []);
       setSections(loadedSections || []);
       setColumns(loadedColumns && loadedColumns.length > 0 ? loadedColumns : DEFAULT_COLUMNS || COLUMNS);
@@ -300,6 +341,15 @@ export default function App() {
   const handleSelectCurrentUser = (user) => {
     if (!user) return;
     setCurrentUser(user);
+    setTeamMembers((prev) => {
+      const idx = prev.findIndex((m) => m.id === user.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...user };
+        return copy;
+      }
+      return [user, ...prev];
+    });
     if (user?.id) {
       localStorage.setItem('kaban_current_user_id', user.id);
       localStorage.setItem('kaban_current_user', JSON.stringify(user));
@@ -326,15 +376,33 @@ export default function App() {
   // Active task for full-page Jira view
   const activeDetailTask = useMemo(() => {
     if (!detailTaskId) return null;
-    const inState = tasks.find((t) => String(t.id) === String(detailTaskId) || String(t.display_id) === String(detailTaskId));
+    const cleanId = String(detailTaskId).trim().toLowerCase();
+    const cleanIdWithoutHash = cleanId.replace(/^#/, '');
+
+    const matchTask = (t) => {
+      if (!t) return false;
+      const tid = String(t.id || '').trim().toLowerCase();
+      const tdisp = String(t.display_id || '').trim().toLowerCase();
+      return (
+        tid === cleanId ||
+        tdisp === cleanId ||
+        tid === cleanIdWithoutHash ||
+        tdisp === cleanIdWithoutHash
+      );
+    };
+
+    const inState = tasks.find(matchTask);
     if (inState) return inState;
+
     // Fallback to localStorage so task opened in new tab or reloaded is ALWAYS found!
     try {
       const raw = localStorage.getItem('ufanet_local_tasks_v3');
       if (raw) {
         const localList = JSON.parse(raw);
-        const inLocal = localList.find((t) => String(t.id) === String(detailTaskId) || String(t.display_id) === String(detailTaskId));
-        if (inLocal) return inLocal;
+        if (Array.isArray(localList)) {
+          const inLocal = localList.find(matchTask);
+          if (inLocal) return inLocal;
+        }
       }
     } catch {}
     return null;
@@ -433,27 +501,38 @@ export default function App() {
     }
 
     const isEditing = Boolean(taskData.id);
+    const permanentId = taskData.id || `task-uf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const displayId = taskData.display_id || (typeof generateTaskDisplayId === 'function' ? generateTaskDisplayId(taskData.section) : `${taskData.section || 'УФ'}.${Math.floor(10000 + Math.random() * 90000)}`);
+
+    const taskToSave = {
+      ...taskData,
+      id: permanentId,
+      display_id: displayId,
+      participant_ids: Array.isArray(taskData.participant_ids) ? taskData.participant_ids : [],
+      updated_at: new Date().toISOString()
+    };
+
     if (isEditing) {
-      setTasks((prev) => prev.map((t) => (t.id === taskData.id ? { ...t, ...taskData } : t)));
+      setTasks((prev) => prev.map((t) => (t.id === permanentId ? { ...t, ...taskToSave } : t)));
       showToast('Карточка успешно сохранена');
     } else {
-      const tempId = `temp-${Date.now()}`;
-      setTasks((prev) => [{ ...taskData, id: tempId }, ...prev]);
+      setTasks((prev) => [taskToSave, ...prev]);
       showToast('Новая задача создана');
     }
 
     try {
-      const saved = await saveTask(taskData);
-      setTasks((prev) => {
-        const withoutTemp = prev.filter((t) => !t.id.startsWith('temp-'));
-        const index = withoutTemp.findIndex((t) => t.id === saved.id);
-        if (index >= 0) {
-          const next = [...withoutTemp];
-          next[index] = saved;
-          return next;
-        }
-        return [saved, ...withoutTemp];
-      });
+      const saved = await saveTask(taskToSave);
+      if (saved && saved.id) {
+        setTasks((prev) => {
+          const index = prev.findIndex((t) => t.id === saved.id);
+          if (index >= 0) {
+            const next = [...prev];
+            next[index] = saved;
+            return next;
+          }
+          return [saved, ...prev];
+        });
+      }
     } catch (e) {
       console.error('Ошибка сохранения задачи:', e);
     }
@@ -501,25 +580,53 @@ export default function App() {
 
   // Update team member
   const handleUpdateMember = async (member) => {
-    const updated = await saveTeamMember(member);
-    setTeamMembers(updated);
-    if (currentUser?.id === member.id) {
-      setCurrentUser(member);
+    try {
+      const result = await saveTeamMember(member);
+      if (Array.isArray(result)) {
+        setTeamMembers(result);
+      } else if (result && result.id) {
+        setTeamMembers((prev) => {
+          const idx = prev.findIndex((m) => m.id === result.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = result;
+            return copy;
+          }
+          return [...prev, result];
+        });
+      }
+      if (currentUser?.id === member.id) {
+        const updated = { ...currentUser, ...member };
+        setCurrentUser(updated);
+        saveCurrentUserLocally(updated);
+      }
+      showToast('Профиль сотрудника обновлен');
+    } catch (e) {
+      console.error('Ошибка обновления сотрудника:', e);
     }
-    showToast('Профиль сотрудника обновлен');
   };
 
   // Delete team member
   const handleDeleteMember = async (memberId) => {
-    const updated = await deleteTeamMember(memberId);
-    setTeamMembers(updated);
-    if (currentUser?.id === memberId) {
-      setCurrentUser(updated[0] || null);
+    try {
+      const result = await deleteTeamMember(memberId);
+      let newMembers;
+      if (Array.isArray(result)) {
+        newMembers = result;
+      } else {
+        newMembers = teamMembers.filter((m) => m.id !== memberId);
+      }
+      setTeamMembers(newMembers);
+      if (currentUser?.id === memberId) {
+        setCurrentUser(newMembers[0] || null);
+      }
+      if (selectedAssigneeId === memberId) {
+        setSelectedAssigneeId(null);
+      }
+      showToast('Сотрудник удален');
+    } catch (e) {
+      console.error('Ошибка удаления сотрудника:', e);
     }
-    if (selectedAssigneeId === memberId) {
-      setSelectedAssigneeId(null);
-    }
-    showToast('Сотрудник удален');
   };
 
   // Verify team member (Level 10 Chief Rights)
@@ -544,11 +651,24 @@ export default function App() {
   // Save profile customization
   const handleSaveProfile = async (updatedProfile) => {
     try {
-      const updated = await saveTeamMember(updatedProfile);
-      setTeamMembers(updated);
+      const result = await saveTeamMember(updatedProfile);
+      if (Array.isArray(result)) {
+        setTeamMembers(result);
+      } else if (result && result.id) {
+        setTeamMembers((prev) => {
+          const idx = prev.findIndex((m) => m.id === result.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = result;
+            return copy;
+          }
+          return [...prev, result];
+        });
+      }
       if (currentUser?.id === updatedProfile.id) {
-        setCurrentUser(updatedProfile);
-        saveCurrentUserLocally(updatedProfile);
+        const updated = { ...currentUser, ...updatedProfile };
+        setCurrentUser(updated);
+        saveCurrentUserLocally(updated);
       }
       showToast('Ваш профиль успешно обновлен');
     } catch (err) {
@@ -936,7 +1056,15 @@ export default function App() {
               tasks={tasks}
               teamMembers={teamMembers}
               onOpenTask={(id) => {
-                window.location.hash = '#task/' + id;
+                const clean = String(id || '').trim();
+                const matched = tasks.find(
+                  (t) => String(t.id).toLowerCase() === clean.toLowerCase() ||
+                         String(t.display_id || '').toLowerCase() === clean.toLowerCase() ||
+                         String(t.display_id || '').toLowerCase() === clean.toLowerCase().replace(/^#/, '')
+                );
+                const canonicalId = matched ? matched.id : clean;
+                window.location.hash = '#task/' + canonicalId;
+                setDetailTaskId(canonicalId);
               }}
               preQuotedTask={chatPreQuotedTask}
               onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
