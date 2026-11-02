@@ -113,9 +113,10 @@ export function AuthModal({
 
       // If PC name is entered or remember is checked, store workstation
       if (pcInput.trim() && rememberPc) {
-        const normPc = pcInput.trim().toLowerCase().startsWith('vlxproject') 
-          ? pcInput.trim().toLowerCase() 
-          : `vlxproject${pcInput.trim().padStart(2, '0').toLowerCase()}`;
+        const rawPc = pcInput.trim().toLowerCase();
+        const normPc = rawPc.startsWith('vlxproject') 
+          ? rawPc 
+          : (rawPc.match(/^\d+$/) ? `vlxproject${rawPc.padStart(2, '0')}` : rawPc);
         localStorage.setItem('kaban_workstation', normPc);
         userToUse.workstation_id = normPc;
         bindWorkstation(userToUse.id, normPc).catch(() => {});
@@ -140,7 +141,7 @@ export function AuthModal({
     const raw = pcInput.trim().toLowerCase();
     const normPc = raw.startsWith('vlxproject') 
       ? raw 
-      : `vlxproject${raw.padStart(2, '0')}`;
+      : (raw.match(/^\d+$/) ? `vlxproject${raw.padStart(2, '0')}` : raw);
 
     // Look for member mapped to this workstation
     const matched = teamMembers.find(m => m.workstation_id?.toLowerCase() === normPc);
@@ -178,7 +179,7 @@ export function AuthModal({
     setSubmitting(true);
     try {
       let normPc = (regWorkstation.trim() || pcInput.trim()).toLowerCase();
-      if (normPc && !normPc.startsWith('vlxproject')) {
+      if (normPc && !normPc.startsWith('vlxproject') && /^\d+$/.test(normPc)) {
         normPc = `vlxproject${normPc.padStart(2, '0')}`;
       }
 
@@ -407,6 +408,35 @@ export function AuthModal({
               </div>
             </button>
 
+            {/* Home / Public Access Notice Banner */}
+            <div
+              style={{
+                padding: '0.65rem 0.85rem',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(2, 132, 199, 0.1) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: 'var(--radius-md, 10px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.15rem' }}>🏠</span>
+                <div>
+                  <div style={{ fontSize: '0.79rem', fontWeight: 700, color: '#34d399' }}>
+                    Общедоступный вход (домашний ПК, телефон или удалёнка)
+                  </div>
+                  <div style={{ fontSize: '0.71rem', color: 'var(--text-muted, #94a3b8)' }}>
+                    Имя ПК указывать не нужно — просто выберите ваш профиль в 1 клик в списке ниже!
+                  </div>
+                </div>
+              </div>
+              <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                Открытый доступ
+              </span>
+            </div>
+
             {/* Workstation PC Login Box */}
             <form
               onSubmit={handleLoginByPc}
@@ -423,7 +453,7 @@ export function AuthModal({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#38bdf8' }}>
                   <Monitor size={15} />
-                  <span>Вход по имени рабочего ПК (vlxproject..):</span>
+                  <span>Для офиса: вход по номеру ПК (vlxproject..):</span>
                 </div>
                 <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                   <input
@@ -439,7 +469,7 @@ export function AuthModal({
               <div style={{ display: 'flex', gap: '6px' }}>
                 <input
                   type="text"
-                  placeholder="Например: vlxproject04 или просто 04..."
+                  placeholder="В офисе: номер 04 или vlxproject04 (дома оставьте пустым)..."
                   value={pcInput}
                   onChange={(e) => {
                     setPcInput(e.target.value);

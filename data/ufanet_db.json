@@ -175,7 +175,248 @@
       "workstation_id": "vlxproject14"
     }
   ],
-  "tasks": [],
+  "tasks": [
+    {
+      "display_id": "ВДН.41602",
+      "department_id": "dept-design",
+      "participant_ids": [],
+      "title": "ц",
+      "address": null,
+      "project_code": "Одинцово",
+      "section": "ВДН",
+      "status": "in_progress",
+      "priority": "medium",
+      "assignee_id": "uf-admin-root",
+      "due_date": null,
+      "network_link": null,
+      "description": "ф",
+      "checklist": [],
+      "subtasks": [],
+      "worklogs": [],
+      "attachments": [],
+      "hours_spent": "00:00",
+      "internal_customer": "17",
+      "region": "11",
+      "work_group": "22",
+      "work_item": "118",
+      "erp_project_id": null,
+      "erp_task_number": null,
+      "project_cipher": null,
+      "project_code_val": null,
+      "project_manager": null,
+      "quantity": "1",
+      "kst": "1",
+      "kizm": "1",
+      "ksl": "1",
+      "kvyp": "1.00",
+      "comments": [],
+      "id": "task-uf-1793616043893-bnhj",
+      "created_at": "2026-11-02T10:40:43.893Z",
+      "updated_at": "2026-11-02T10:40:43.893Z",
+      "updated_by": "Алексей Смирнов"
+    },
+    {
+      "title": "Сварка муфты МТОК-12 по ЗС-2041 (Объект: ТЦ «Планета»)",
+      "description": "Сварка 48 оптических волокон кабеля ДПС-48 в оптической муфте МТОК-12 на вводе в ТЦ «Планета». Измерение затуханий оптическим рефлектометром на 1310/1550 нм.",
+      "status": "done",
+      "priority": "urgent",
+      "section": "ОДРС",
+      "project_code": "ТЦ «Планета»",
+      "department_id": "dept-welders",
+      "assignee_id": "uf-weld-1",
+      "participant_ids": [
+        "uf-admin-root",
+        "uf-rss-1"
+      ],
+      "internal_customer": "ОПЮЛ (Юридические лица)",
+      "work_type": "Рабочая документация (РД)",
+      "subtasks": [
+        {
+          "id": "sub-w-1",
+          "title": "Разделка оптического кабеля и подготовка кассеты",
+          "completed": true
+        },
+        {
+          "id": "sub-w-2",
+          "title": "Прецизионная сварка 48 волокон (затухание < 0.02 дБ)",
+          "completed": true
+        },
+        {
+          "id": "sub-w-3",
+          "title": "Измерение рефлектометром OTDR и составление паспорта муфты",
+          "completed": true
+        }
+      ],
+      "comments": [
+        {
+          "id": "c-w1",
+          "author": "Ильдар Басыров",
+          "author_avatar": "#f59e0b",
+          "text": "Заявка на сварку ЗС-2041 выполнена в полном объеме! Сварено 48 ОВ в муфте МТОК-12. Максимальное затухание в стыке 0.016 дБ. Рефлектограмма чистая, линия передана на проверку ГИПу @admin.",
+          "created_at": "2026-11-02T10:26:36.445Z"
+        }
+      ],
+      "id": "task-uf-1793615196447-jvbm",
+      "created_at": "2026-11-02T10:26:36.447Z",
+      "updated_at": "2026-11-02T10:26:36.868Z",
+      "updated_by": "Ильдар Басыров",
+      "completed_at": "2026-11-02T10:26:36.868Z"
+    },
+    {
+      "title": "СМР по проекту ВДН.2041: Прокладка ВОЛС 48 ОВ в ККС",
+      "description": "Строительно-монтажные работы строго по проектной трассе от колодца ККС №42 до распределительного узла ТЦ «Планета». Длина трассы: 460 метров.",
+      "status": "done",
+      "priority": "urgent",
+      "section": "ККС",
+      "project_code": "ТЦ «Планета»",
+      "department_id": "dept-rss",
+      "assignee_id": "uf-rss-1",
+      "participant_ids": [
+        "uf-admin-root",
+        "uf-weld-1"
+      ],
+      "internal_customer": "ОПЮЛ (Юридические лица)",
+      "work_type": "Выпуск в печать и монтаж",
+      "subtasks": [
+        {
+          "id": "sub-m-1",
+          "title": "Протяжка кабеля в кабельной канализации (460 м)",
+          "completed": true
+        },
+        {
+          "id": "sub-m-2",
+          "title": "Заводка кабеля в серверную ТЦ и маркировка",
+          "completed": true
+        },
+        {
+          "id": "sub-m-3",
+          "title": "Передача кабеля сварщикам по ЗС-2041",
+          "completed": true
+        }
+      ],
+      "comments": [
+        {
+          "id": "c-m1",
+          "author": "Михаил Ахметов",
+          "author_avatar": "#0284c7",
+          "text": "@admin Монтажные работы по проекту выполнены! Кабель ДПС-48 успешно затянут в ККС, запас в 15 метров уложен в колодце №44. Передаем на сварку бригаде @Ильдар Басыров.",
+          "created_at": "2026-11-02T10:26:36.020Z"
+        }
+      ],
+      "id": "task-uf-1793615196022-df0e",
+      "created_at": "2026-11-02T10:26:36.022Z",
+      "updated_at": "2026-11-02T10:26:36.879Z",
+      "updated_by": "Михаил Ахметов",
+      "completed_at": "2026-11-02T10:26:36.879Z"
+    },
+    {
+      "title": "Выезд в ЧС: пос. Нагаево (модернизация GPON, 120 опор ВЛ-0.4кВ)",
+      "description": "Натурный осмотр трассы по опорам освещения, проверка габаритов провисания кабеля, определение мест установки сплиттерных шкафов.",
+      "status": "backlog",
+      "priority": "normal",
+      "section": "ЧС",
+      "project_code": "Квартал 4 (Центр)",
+      "department_id": "dept-design",
+      "assignee_id": "uf-admin-root",
+      "participant_ids": [
+        "uf-weld-1",
+        "uf-rss-1"
+      ],
+      "internal_customer": "ЧС (Частный сектор)",
+      "work_type": "Обследование объекта / выезд",
+      "subtasks": [
+        {
+          "id": "sub-cs-1",
+          "title": "Осмотр опор №1 - №120 в пос. Нагаево",
+          "completed": false
+        }
+      ],
+      "comments": [],
+      "id": "task-uf-1793615195509-0ial",
+      "created_at": "2026-11-02T10:26:35.509Z",
+      "updated_at": "2026-11-02T10:26:35.509Z",
+      "updated_by": "admin"
+    },
+    {
+      "title": "Обследование МКЖД: ЖК «Агидель» (д. 14, 4 подъезда, Умный дом)",
+      "description": "Осмотр существующих стояков слаботочных сетей, подвального ввода и чердака. Проектирование сети IP-домофонии и камер видеонаблюдения.",
+      "status": "done",
+      "priority": "high",
+      "section": "МКЖ",
+      "project_code": "ЖК «Агидель»",
+      "department_id": "dept-design",
+      "assignee_id": "uf-admin-root",
+      "participant_ids": [
+        "uf-rss-1"
+      ],
+      "internal_customer": "МКД (Многоквартирные дома)",
+      "work_type": "Разработка проектной документации",
+      "subtasks": [
+        {
+          "id": "sub-mkd-1",
+          "title": "Осмотр стояков 1-4 подъездов",
+          "completed": true
+        },
+        {
+          "id": "sub-mkd-2",
+          "title": "Разработка схемы установки 8 IP-камер СВН",
+          "completed": false
+        }
+      ],
+      "comments": [],
+      "id": "task-uf-1793615195075-bgg0",
+      "created_at": "2026-11-02T10:26:35.076Z",
+      "updated_at": "2026-11-02T10:40:35.555Z",
+      "updated_by": "admin",
+      "completed_at": "2026-11-02T10:40:35.556Z"
+    },
+    {
+      "title": "Выезд на осмотр к ЮЛ: ТЦ «Планета» (Подключение оптического ввода 10G)",
+      "description": "Обследование кабельных вводов в здание, натурный осмотр серверной на 3 этаже, согласование трассы по лоткам с главным инженером ТЦ.",
+      "status": "review",
+      "priority": "urgent",
+      "section": "ВДН",
+      "project_code": "ТЦ «Планета»",
+      "department_id": "dept-design",
+      "assignee_id": "uf-admin-root",
+      "participant_ids": [
+        "uf-weld-1",
+        "uf-rss-1"
+      ],
+      "internal_customer": "ОПЮЛ (Юридические лица)",
+      "work_type": "Обследование объекта / выезд",
+      "subtasks": [
+        {
+          "id": "sub-1",
+          "title": "Натурный выезд и фотофиксация кабельного ввода",
+          "completed": true
+        },
+        {
+          "id": "sub-2",
+          "title": "Согласование кабельной трассы с УК ТЦ «Планета»",
+          "completed": true
+        },
+        {
+          "id": "sub-3",
+          "title": "Формирование Заявки на сварку волокна (ЗС-2041)",
+          "completed": false
+        }
+      ],
+      "comments": [
+        {
+          "id": "c-1",
+          "author": "admin",
+          "author_avatar": "#ef4444",
+          "text": "Выезд на объект завершен. Трасса согласована без замечаний. Формирую ЗС для бригады сварщиков.",
+          "created_at": "2026-11-02T10:26:34.646Z"
+        }
+      ],
+      "id": "task-uf-1793615194650-ikva",
+      "created_at": "2026-11-02T10:26:34.650Z",
+      "updated_at": "2026-11-02T10:40:37.171Z",
+      "updated_by": "admin"
+    }
+  ],
   "sections": [
     {
       "id": "ВДН",
@@ -274,5 +515,147 @@
       "read": true,
       "targetUserId": null
     }
-  ]
+  ],
+  "departments": [
+    {
+      "id": "dept-design",
+      "name": "Проектировщики",
+      "fullName": "Отдел проектирования",
+      "icon": "📐",
+      "color": "#ff6600",
+      "desc": "Разработка проектной и рабочей документации (ВОЛС, СВН, СКС, СКУД)",
+      "isDefault": true
+    },
+    {
+      "id": "dept-welders",
+      "name": "Сварщики",
+      "fullName": "Сварочно-монтажный отдел",
+      "icon": "⚡",
+      "color": "#f59e0b",
+      "desc": "Сварка оптических волокон, монтаж муфт, рефлектометрия и кроссы"
+    },
+    {
+      "id": "dept-rss",
+      "name": "РСС",
+      "fullName": "Районные сети связи",
+      "icon": "📡",
+      "color": "#0284c7",
+      "desc": "Эксплуатация ЛКС, устранение аварий и мониторинг абонентских сетей"
+    },
+    {
+      "id": "dept-sales-b2b",
+      "name": "Отдел продаж ЮЛ",
+      "fullName": "Отдел продаж корпоративным клиентам (B2B)",
+      "icon": "🏢",
+      "color": "#8b5cf6",
+      "desc": "Работа с юридическими лицами, коммерческие предложения, договоры, ТУ"
+    },
+    {
+      "id": "dept-sales-b2c",
+      "name": "Отдел продаж ФЛ",
+      "fullName": "Отдел продаж физическим лицам (B2C)",
+      "icon": "👥",
+      "color": "#10b981",
+      "desc": "Подключение частных клиентов, интернет, ТВ, умный дом, розничные заявки"
+    }
+  ],
+  "role_permissions": {
+    "1": {
+      "can_manage_roles": false,
+      "can_manage_board_settings": false,
+      "can_manage_columns": false,
+      "can_manage_sections": false,
+      "can_create_task": false,
+      "can_edit_all_tasks": false,
+      "can_edit_own_tasks": false,
+      "can_delete_task": false,
+      "can_move_task": false,
+      "can_assign_members": false,
+      "can_chat": false,
+      "can_export_import": false
+    },
+    "3": {
+      "can_manage_roles": false,
+      "can_manage_board_settings": false,
+      "can_manage_columns": false,
+      "can_manage_sections": false,
+      "can_create_task": false,
+      "can_edit_all_tasks": false,
+      "can_edit_own_tasks": false,
+      "can_delete_task": false,
+      "can_move_task": false,
+      "can_assign_members": false,
+      "can_chat": true,
+      "can_export_import": false
+    },
+    "6": {
+      "can_manage_roles": false,
+      "can_manage_board_settings": false,
+      "can_manage_columns": false,
+      "can_manage_sections": false,
+      "can_create_task": true,
+      "can_edit_all_tasks": false,
+      "can_edit_own_tasks": true,
+      "can_delete_task": false,
+      "can_move_task": true,
+      "can_assign_members": false,
+      "can_chat": true,
+      "can_export_import": false
+    },
+    "8": {
+      "can_manage_roles": false,
+      "can_manage_board_settings": false,
+      "can_manage_columns": false,
+      "can_manage_sections": true,
+      "can_create_task": true,
+      "can_edit_all_tasks": true,
+      "can_edit_own_tasks": true,
+      "can_delete_task": true,
+      "can_move_task": true,
+      "can_assign_members": true,
+      "can_chat": true,
+      "can_export_import": true
+    },
+    "10": {
+      "can_manage_roles": true,
+      "can_manage_board_settings": true,
+      "can_manage_columns": true,
+      "can_manage_sections": true,
+      "can_create_task": true,
+      "can_edit_all_tasks": true,
+      "can_edit_own_tasks": true,
+      "can_delete_task": true,
+      "can_move_task": true,
+      "can_assign_members": true,
+      "can_chat": true,
+      "can_export_import": true
+    }
+  },
+  "chats": {
+    "dept-all": [
+      {
+        "id": "msg-1793615196891-jo8y",
+        "department_id": "dept-all",
+        "user_id": "uf-admin-root",
+        "user_name": "admin",
+        "user_initials": "AD",
+        "user_color": "#ef4444",
+        "user_role": "Главный администратор системы",
+        "text": "🎉 Задача #[ОДРС.2041: Сварка муфты по ЗС-2041] успешно принята ГИПом и переведена в «Готово»! Объект ТЦ «Планета» подключен к оптической сети Уфанет.",
+        "quoted_task": {
+          "id": "task-uf-1793615196447-jvbm",
+          "display_id": "ОДРС.2041",
+          "title": "Сварка муфты МТОК-12 по ЗС-2041 (Объект: ТЦ «Планета»)",
+          "status": "done",
+          "section": "ОДРС"
+        },
+        "created_at": "2026-11-02T10:26:36.891Z"
+      }
+    ],
+    "dept-design": [],
+    "dept-welders": [],
+    "dept-rss": [],
+    "dept-sales-b2b": [],
+    "dept-sales-b2c": []
+  }
 }

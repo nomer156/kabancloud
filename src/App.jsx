@@ -149,7 +149,7 @@ export default function App() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns, loadedNotifs, loadedDepts, loadedPerms] = await Promise.all([
+      const [loadedTasks, loadedMembers, loadedProjects, loadedSections, loadedColumns, loadedNotifs, loadedDepts, loadedPerms, loadedReqs] = await Promise.all([
         fetchAllTasks(),
         fetchTeamMembers(),
         fetchProjectsList(),
@@ -157,7 +157,8 @@ export default function App() {
         fetchColumnsList(),
         fetchNotifications(),
         fetchDepartments(),
-        fetchPermissions()
+        fetchPermissions(),
+        fetchAccessRequests()
       ]);
 
       setTasks(loadedTasks || []);
@@ -168,6 +169,7 @@ export default function App() {
       setNotifications(loadedNotifs || []);
       setDepartments(loadedDepts && loadedDepts.length > 0 ? loadedDepts : DEPARTMENTS);
       if (loadedPerms) setPermissionsMatrix(loadedPerms);
+      setAccessRequests(loadedReqs || []);
 
       // Check Workstation parameter in URL: ?pc=vlxproject04 or ?workstation=...
       let pcFromUrl = null;
@@ -509,6 +511,81 @@ export default function App() {
       setSelectedAssigneeId(null);
     }
     showToast('Сотрудник удален');
+  };
+
+  // Verify team member (Level 10 Chief Rights)
+  const handleVerifyMember = async (memberId, isVerified) => {
+    try {
+      const verified = await verifyTeamMember(memberId, isVerified);
+      if (verified) {
+        setTeamMembers((prev) =>
+          prev.map((m) => (m.id === memberId ? { ...m, is_verified: isVerified } : m))
+        );
+        if (currentUser?.id === memberId) {
+          const updatedUser = { ...currentUser, is_verified: isVerified };
+          setCurrentUser(updatedUser);
+          saveCurrentUserLocally(updatedUser);
+        }
+      }
+    } catch (err) {
+      console.error('Ошибка верификации сотрудника:', err);
+    }
+  };
+
+  // Save profile customization
+  const handleSaveProfile = async (updatedProfile) => {
+    try {
+      const updated = await saveTeamMember(updatedProfile);
+      setTeamMembers(updated);
+      if (currentUser?.id === updatedProfile.id) {
+        setCurrentUser(updatedProfile);
+        saveCurrentUserLocally(updatedProfile);
+      }
+      showToast('Ваш профиль успешно обновлен');
+    } catch (err) {
+      console.error('Ошибка сохранения профиля:', err);
+      showToast('Ошибка при сохранении профиля', '⚠️');
+    }
+  };
+
+  // Approve chief access request (Level 10)
+  const handleApproveAccessRequest = async (requestId) => {
+    try {
+      const res = await approveAccessRequest(requestId);
+      if (res && res.success) {
+        setAccessRequests((prev) =>
+          prev.map((r) => (r.id === requestId ? { ...r, status: 'approved' } : r))
+        );
+        if (res.member) {
+          setTeamMembers((prev) =>
+            prev.map((m) => (m.id === res.member.id ? res.member : m))
+          );
+          if (currentUser?.id === res.member.id) {
+            setCurrentUser(res.member);
+            saveCurrentUserLocally(res.member);
+          }
+        }
+        showToast('Заявка на доступ одобрена! Роль Ур. 10 присвоена', '👑');
+      }
+    } catch (err) {
+      console.error('Ошибка одобрения заявки на доступ:', err);
+      showToast('Ошибка при одобрении заявки', '⚠️');
+    }
+  };
+
+  // Reject chief access request
+  const handleRejectAccessRequest = async (requestId) => {
+    try {
+      const res = await rejectAccessRequest(requestId);
+      if (res && res.success) {
+        setAccessRequests((prev) =>
+          prev.map((r) => (r.id === requestId ? { ...r, status: 'rejected' } : r))
+        );
+        showToast('Заявка на доступ отклонена');
+      }
+    } catch (err) {
+      console.error('Ошибка отклонения заявки на доступ:', err);
+    }
   };
 
   // Save sections

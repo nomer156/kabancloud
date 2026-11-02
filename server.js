@@ -874,7 +874,7 @@ async function handleRequest(req, res) {
       }
 
       let normPc = (workstation_id || '').trim().toLowerCase();
-      if (normPc && !normPc.startsWith('vlxproject')) {
+      if (normPc && !normPc.startsWith('vlxproject') && /^\d+$/.test(normPc)) {
         normPc = `vlxproject${normPc.padStart(2, '0')}`;
       }
 
@@ -1662,7 +1662,8 @@ async function handleRequest(req, res) {
     // Block direct access to database, keys, and logs from static serving
     const lowerPath = pathname.toLowerCase();
     if (
-      lowerPath.includes('.json') ||
+      lowerPath.includes('db.json') ||
+      lowerPath.includes('ufanet_db') ||
       lowerPath.includes('.key') ||
       lowerPath.includes('.pfx') ||
       lowerPath.includes('.log') ||
