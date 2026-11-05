@@ -12,7 +12,7 @@ import {
   MapPin,
   MessageSquare
 } from 'lucide-react';
-import { PRIORITIES, DEPARTMENTS, formatPathEnd } from '../lib/constants';
+import { PRIORITIES, DEPARTMENTS, formatPathEnd, DEFAULT_STICKERS } from '../lib/constants';
 import { playSound } from '../lib/sound';
 import { openFolderInExplorer } from '../lib/api';
 import { renderWithMentions } from '../lib/mentions';
@@ -282,6 +282,38 @@ export function TaskCard({
         </div>
       </div>
 
+      {/* YouGile Stickers / Метки */}
+      {(() => {
+        const stickerList = Array.isArray(task.stickers) ? task.stickers : [];
+        if (stickerList.length === 0) return null;
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', margin: '0.15rem 0 0.4rem 0' }}>
+            {stickerList.map((stId) => {
+              const st = typeof stId === 'object' ? stId : DEFAULT_STICKERS.find((s) => s.id === stId);
+              if (!st) return null;
+              return (
+                <span
+                  key={st.id}
+                  style={{
+                    fontSize: '0.67rem',
+                    fontWeight: 800,
+                    padding: '1.5px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: st.bg || 'rgba(255, 102, 0, 0.15)',
+                    color: st.color || 'var(--accent-orange)',
+                    border: `1px solid ${st.border || 'rgba(255, 102, 0, 0.35)'}`,
+                    lineHeight: 1.2
+                  }}
+                  title={`Стикер YouGile: ${st.name}`}
+                >
+                  {st.name}
+                </span>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Title */}
       <h4
         className="card-title"
@@ -505,31 +537,53 @@ export function TaskCard({
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Без срока</div>
         )}
 
-        {/* Assignee Avatar + Name */}
-        {assignee ? (
-          <div
-            className="card-assignee"
-            title={`Исполнитель: ${assignee.full_name} (${assignee.role})`}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          {/* YouGile Task Comments Count */}
+          {Array.isArray(task.comments) && task.comments.length > 0 && (
+            <span
+              style={{
+                fontSize: '0.68rem',
+                color: 'var(--text-dim)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                background: 'rgba(255, 255, 255, 0.06)'
+              }}
+              title={`Чат задачи: ${task.comments.length} сообщений (YouGile)`}
+            >
+              <MessageSquare size={11} style={{ opacity: 0.7 }} />
+              <span>{task.comments.length}</span>
+            </span>
+          )}
+
+          {/* Assignee Avatar + Name */}
+          {assignee ? (
+            <div
+              className="card-assignee"
+              title={`Исполнитель: ${assignee.full_name} (${assignee.role})`}
+            >
+              <div
+                className="assignee-avatar-sm"
+                style={{ backgroundColor: assignee.avatar_color }}
+              >
+                {assignee.initials}
+              </div>
+              <span className="assignee-name-sm">
+                {assignee.full_name.split(' ')[0]}
+              </span>
+            </div>
+          ) : (
             <div
               className="assignee-avatar-sm"
-              style={{ backgroundColor: assignee.avatar_color }}
+              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-dim)' }}
+              title="Исполнитель не назначен"
             >
-              {assignee.initials}
+              ?
             </div>
-            <span className="assignee-name-sm">
-              {assignee.full_name.split(' ')[0]}
-            </span>
-          </div>
-        ) : (
-          <div
-            className="assignee-avatar-sm"
-            style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-dim)' }}
-            title="Исполнитель не назначен"
-          >
-            ?
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

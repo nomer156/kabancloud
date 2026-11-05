@@ -396,21 +396,25 @@ function encryptDbPayload(plainJsonString) {
 }
 
 function decryptDbPayload(rawString) {
-  const parsed = JSON.parse(rawString);
-  if (parsed && parsed.__encrypted && parsed.data && parsed.iv && parsed.tag) {
-    const key = getDbEncryptionKey();
-    const iv = Buffer.from(parsed.iv, 'hex');
-    const tag = Buffer.from(parsed.tag, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(tag);
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(parsed.data, 'base64')),
-      decipher.final()
-    ]);
-    return JSON.parse(decrypted.toString('utf8'));
+  try {
+    const parsed = JSON.parse(rawString);
+    if (parsed && parsed.__encrypted && parsed.data && parsed.iv && parsed.tag) {
+      const key = getDbEncryptionKey();
+      const iv = Buffer.from(parsed.iv, 'hex');
+      const tag = Buffer.from(parsed.tag, 'hex');
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(tag);
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(parsed.data, 'base64')),
+        decipher.final()
+      ]);
+      return JSON.parse(decrypted.toString('utf8'));
+    }
+    // Backward compatibility: unencrypted JSON
+    return parsed;
+  } catch (err) {
+    throw new Error('DECRYPTION_FAILED: ' + err.message);
   }
-  // Backward compatibility: unencrypted JSON
-  return parsed;
 }
 
 function migrateDbSchema(db) {
@@ -551,6 +555,10 @@ function readDb() {
         Logger.audit('DB_RESTORED_FROM_BACKUP', 'system', { backup: backups[0] });
         return backupData;
       }
+    } catch {}
+    try {
+      writeDb(DEFAULT_SEED);
+      Logger.audit('DB_HEALED_WITH_DEFAULT_SEED', 'system');
     } catch {}
     return DEFAULT_SEED;
   }

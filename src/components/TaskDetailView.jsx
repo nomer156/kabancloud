@@ -30,7 +30,11 @@ import {
   UploadCloud,
   FileText,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  Tag,
+  Play,
+  Square,
+  Sparkles
 } from 'lucide-react';
 import { 
   PRIORITIES, 
@@ -43,6 +47,7 @@ import {
   KIZM_OPTIONS,
   KSL_OPTIONS,
   DEPARTMENTS,
+  DEFAULT_STICKERS,
   formatPathEnd
 } from '../lib/constants';
 import { playSound } from '../lib/sound';
@@ -202,6 +207,75 @@ export function TaskDetailView({
   // Comments (Комментарии)
   const [comments, setComments] = useState(() => Array.isArray(task?.comments) ? task.comments : []);
   const [newCommentText, setNewCommentText] = useState('');
+
+  // YouGile Stickers / Метки
+  const [stickers, setStickers] = useState(() => Array.isArray(task?.stickers) ? task.stickers : []);
+
+  // YouGile Live Stopwatch / Секундомер
+  const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
+  const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval = null;
+    if (isStopwatchRunning) {
+      interval = setInterval(() => {
+        setStopwatchSeconds((s) => s + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isStopwatchRunning]);
+
+  const formatStopwatch = (totalSec) => {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const handleToggleSticker = (stId) => {
+    playSound('click');
+    const next = stickers.includes(stId)
+      ? stickers.filter((id) => id !== stId)
+      : [...stickers, stId];
+    setStickers(next);
+    handleSaveAll({ stickers: next });
+  };
+
+  const handleToggleStopwatch = () => {
+    if (!isStopwatchRunning) {
+      setIsStopwatchRunning(true);
+      playSound('click');
+    } else {
+      setIsStopwatchRunning(false);
+      playSound('success');
+      if (stopwatchSeconds >= 5) {
+        const mins = Math.max(1, Math.round(stopwatchSeconds / 60));
+        const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+        const mm = String(mins % 60).padStart(2, '0');
+        const timeFormatted = `${hh}:${mm}`;
+        const newEntry = {
+          id: `wl-${Date.now()}`,
+          date: new Date().toISOString().split('T')[0],
+          hours: timeFormatted,
+          comment: `Списано по секундомеру YouGile (${stopwatchSeconds} сек)`
+        };
+        const nextWorklogs = [newEntry, ...worklogs];
+        setWorklogs(nextWorklogs);
+
+        // Push system event into comments
+        const sysEntry = {
+          id: `sys-${Date.now()}`,
+          is_system: true,
+          text: `⏱️ ${currentUser?.full_name || 'Инженер'} списал ${timeFormatted} ч. по секундомеру`,
+          created_at: new Date().toISOString()
+        };
+        const nextComments = [sysEntry, ...comments];
+        setComments(nextComments);
+        handleSaveAll({ worklogs: nextWorklogs, comments: nextComments });
+        setStopwatchSeconds(0);
+      }
+    }
+  };
 
   // Feedback states
   const [copiedLink, setCopiedLink] = useState(false);
@@ -667,6 +741,7 @@ export function TaskDetailView({
       erp_task_number: extraOverrides.erp_task_number !== undefined ? (extraOverrides.erp_task_number ? extraOverrides.erp_task_number.trim() : null) : (erpTaskNumber.trim() || null),
       house_id: extraOverrides.house_id !== undefined ? (extraOverrides.house_id ? extraOverrides.house_id.trim() : null) : (houseId.trim() || null),
       hours_spent: finalHours,
+      stickers: extraOverrides.stickers !== undefined ? extraOverrides.stickers : stickers,
       worklogs: extraOverrides.worklogs !== undefined ? extraOverrides.worklogs : worklogs,
       comments: extraOverrides.comments !== undefined ? extraOverrides.comments : comments,
 
@@ -882,6 +957,48 @@ export function TaskDetailView({
                 position={{ top: '100%', left: 0, marginTop: '4px' }}
               />
             )}
+
+            {/* YouGile Stickers Bar */}
+            <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <Tag size={13} style={{ color: 'var(--accent-orange)' }} />
+                  <span>Стикеры YouGile</span>
+                </div>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Кликните для выбора</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                {DEFAULT_STICKERS.map((st) => {
+                  const isSelected = stickers.includes(st.id);
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => handleToggleSticker(st.id)}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '5px',
+                        fontSize: '0.74rem',
+                        fontWeight: isSelected ? 800 : 600,
+                        border: isSelected ? `2px solid ${st.color}` : '1px solid var(--border-subtle)',
+                        backgroundColor: isSelected ? st.bg : 'var(--bg-tertiary)',
+                        color: isSelected ? st.color : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        boxShadow: isSelected ? `0 0 8px ${st.color}40` : undefined,
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={`Стикер: ${st.name}`}
+                    >
+                      <span>{st.name}</span>
+                      {isSelected && <Check size={12} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Network Link Bar */}
             {networkLink && (
@@ -1260,56 +1377,81 @@ export function TaskDetailView({
                 {/* Comments list */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                   {comments.map((comm) => (
-                    <div
-                      key={comm.id}
-                      style={{
-                        padding: '0.75rem',
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-md)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.35rem'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                          <div
-                            style={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: '50%',
-                              backgroundColor: comm.avatar_color || '#ff6600',
-                              color: 'white',
-                              fontSize: '0.64rem',
-                              fontWeight: 700,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                          >
-                            {comm.user_initials || 'УФ'}
+                    comm.is_system ? (
+                      <div
+                        key={comm.id}
+                        style={{
+                          background: 'rgba(255, 102, 0, 0.08)',
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '6px',
+                          borderLeft: '3px solid var(--accent-orange)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '0.76rem',
+                          color: 'var(--text-muted)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Sparkles size={13} style={{ color: 'var(--accent-orange)', flexShrink: 0 }} />
+                          <span>{comm.text}</span>
+                        </div>
+                        <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', flexShrink: 0 }}>
+                          {new Date(comm.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ) : (
+                      <div
+                        key={comm.id}
+                        style={{
+                          padding: '0.75rem',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-md)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.35rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <div
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: '50%',
+                                backgroundColor: comm.avatar_color || '#ff6600',
+                                color: 'white',
+                                fontSize: '0.64rem',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              {comm.user_initials || 'УФ'}
+                            </div>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{comm.user_name}</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                              {new Date(comm.created_at).toLocaleString('ru-RU')}
+                            </span>
                           </div>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{comm.user_name}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
-                            {new Date(comm.created_at).toLocaleString('ru-RU')}
-                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteComment(comm.id)}
+                            className="btn-icon btn-icon-danger"
+                            style={{ width: 22, height: 22, padding: 0 }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteComment(comm.id)}
-                          className="btn-icon btn-icon-danger"
-                          style={{ width: 22, height: 22, padding: 0 }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <div style={{ fontSize: '0.84rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', paddingLeft: '1.75rem', lineHeight: 1.45 }}>
+                          {renderWithMentions(comm.text, teamMembers)}
+                        </div>
                       </div>
-
-                      <div style={{ fontSize: '0.84rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', paddingLeft: '1.75rem', lineHeight: 1.45 }}>
-                        {renderWithMentions(comm.text, teamMembers)}
-                      </div>
-                    </div>
+                    )
                   ))}
 
                   {comments.length === 0 && (
@@ -1371,6 +1513,52 @@ export function TaskDetailView({
                     <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-orange)', fontFamily: 'var(--font-mono)' }}>
                       Итого за все дни: {totalHoursString} ч.
                     </div>
+                  </div>
+
+                  {/* YouGile Live Stopwatch / Секундомер */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'var(--bg-tertiary)',
+                      padding: '0.65rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: isStopwatchRunning ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                      boxShadow: isStopwatchRunning ? '0 0 14px rgba(16, 185, 129, 0.25)' : undefined
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Clock size={18} style={{ color: isStopwatchRunning ? '#10b981' : 'var(--accent-orange)' }} />
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: 800, color: isStopwatchRunning ? '#10b981' : 'var(--text-main)', letterSpacing: '0.04em' }}>
+                        {formatStopwatch(stopwatchSeconds)}
+                      </span>
+                      {isStopwatchRunning && (
+                        <span style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }} />
+                          Идёт живой тайм-трекинг YouGile...
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`btn ${isStopwatchRunning ? 'btn-danger' : 'btn-secondary'}`}
+                      style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', gap: '6px' }}
+                      onClick={handleToggleStopwatch}
+                    >
+                      {isStopwatchRunning ? (
+                        <>
+                          <Square size={13} />
+                          <span>Стоп и списать</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play size={13} style={{ color: '#10b981' }} />
+                          <span>Запустить секундомер</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   {/* Log Work Input Form */}

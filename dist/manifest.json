@@ -1,0 +1,17 @@
+{
+  "name": "Уфанет • Доска проектировщиков",
+  "short_name": "Уфанет Проект",
+  "description": "Канбан-доска для отдела проектирования компании Уфанет",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1017",
+  "theme_color": "#ff6600",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

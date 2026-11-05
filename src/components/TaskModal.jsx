@@ -27,7 +27,10 @@ import {
   Image as ImageIcon,
   Loader2,
   FileSpreadsheet,
-  MessageSquare
+  MessageSquare,
+  Tag,
+  Play,
+  Square
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -41,6 +44,7 @@ import {
   KIZM_OPTIONS, 
   KSL_OPTIONS,
   DEPARTMENTS,
+  DEFAULT_STICKERS,
   generateTaskDisplayId
 } from '../lib/constants';
 import { playSound } from '../lib/sound';
@@ -105,6 +109,72 @@ export function TaskModal({
   const [attachments, setAttachments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  // YouGile Stickers / Метки
+  const [stickers, setStickers] = useState(() => Array.isArray(taskToEdit?.stickers) ? [...taskToEdit.stickers] : []);
+
+  // YouGile Live Stopwatch / Живой секундомер
+  const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
+  const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval = null;
+    if (isStopwatchRunning) {
+      interval = setInterval(() => {
+        setStopwatchSeconds((s) => s + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isStopwatchRunning]);
+
+  const handleToggleSticker = (stId) => {
+    playSound('click');
+    setStickers((prev) => {
+      const exists = prev.includes(stId);
+      const next = exists ? prev.filter((id) => id !== stId) : [...prev, stId];
+      return next;
+    });
+  };
+
+  const formatStopwatch = (totalSec) => {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const handleToggleStopwatch = () => {
+    if (!isStopwatchRunning) {
+      setIsStopwatchRunning(true);
+      playSound('click');
+    } else {
+      setIsStopwatchRunning(false);
+      playSound('success');
+      if (stopwatchSeconds >= 5) {
+        const mins = Math.max(1, Math.round(stopwatchSeconds / 60));
+        const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+        const mm = String(mins % 60).padStart(2, '0');
+        const timeFormatted = `${hh}:${mm}`;
+        const newEntry = {
+          id: `wl-${Date.now()}`,
+          date: new Date().toISOString().split('T')[0],
+          hours: timeFormatted,
+          comment: `Списано по секундомеру YouGile (${stopwatchSeconds} сек)`
+        };
+        setWorklogs((prev) => [newEntry, ...prev]);
+
+        // Push system audit into chat
+        const sysEntry = {
+          id: `sys-${Date.now()}`,
+          is_system: true,
+          text: `⏱️ ${currentUser?.full_name || 'Инженер'} списал ${timeFormatted} ч. по секундомеру`,
+          created_at: new Date().toISOString()
+        };
+        setComments((prev) => [sysEntry, ...prev]);
+        setStopwatchSeconds(0);
+      }
+    }
+  };
+
   // 2. Паспортные настройки & ЗП (Правая карточка)
   const [displayId, setDisplayId] = useState(() => taskToEdit?.display_id || '');
   const [participantIds, setParticipantIds] = useState(() => Array.isArray(taskToEdit?.participant_ids) ? taskToEdit.participant_ids : []);
@@ -152,6 +222,9 @@ export function TaskModal({
       setWorklogs(Array.isArray(taskToEdit.worklogs) ? [...taskToEdit.worklogs] : []);
       setAttachments(Array.isArray(taskToEdit.attachments) ? [...taskToEdit.attachments] : []);
       setComments(Array.isArray(taskToEdit.comments) ? [...taskToEdit.comments] : []);
+      setStickers(Array.isArray(taskToEdit.stickers) ? [...taskToEdit.stickers] : []);
+      setIsStopwatchRunning(false);
+      setStopwatchSeconds(0);
 
       setSection(taskToEdit.section || (sections[0]?.id || 'ВДН'));
       setProjectCode(taskToEdit.project_code || (projects[0] || ''));
@@ -184,6 +257,9 @@ export function TaskModal({
       setWorklogs([]);
       setAttachments([]);
       setComments([]);
+      setStickers([]);
+      setIsStopwatchRunning(false);
+      setStopwatchSeconds(0);
 
       setSection(sections[0]?.id || 'ВДН');
       setProjectCode(projects[0] || '');
@@ -612,6 +688,7 @@ export function TaskModal({
       kizm,
       ksl,
       kvyp,
+      stickers: stickers || [],
       comments: comments || []
     };
 
@@ -785,6 +862,48 @@ export function TaskModal({
                     position={{ top: '100%', left: 0, marginTop: '4px' }}
                   />
                 )}
+              </div>
+
+              {/* YouGile Stickers / Метки */}
+              <div className="form-group" style={{ margin: '0.1rem 0 0.4rem 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Tag size={13} style={{ color: 'var(--accent-orange)' }} />
+                    <span style={{ fontWeight: 700 }}>Стикеры YouGile:</span>
+                  </label>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Кликните для выбора</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {DEFAULT_STICKERS.map((st) => {
+                    const isSelected = stickers.includes(st.id);
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => handleToggleSticker(st.id)}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '5px',
+                          fontSize: '0.74rem',
+                          fontWeight: isSelected ? 800 : 600,
+                          border: isSelected ? `2px solid ${st.color}` : '1px solid var(--border-subtle)',
+                          backgroundColor: isSelected ? st.bg : 'var(--bg-card)',
+                          color: isSelected ? st.color : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          boxShadow: isSelected ? `0 0 8px ${st.color}40` : undefined,
+                          transition: 'all 0.15s ease'
+                        }}
+                        title={`Стикер: ${st.name}`}
+                      >
+                        <span>{st.name}</span>
+                        {isSelected && <Check size={12} />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* 2. Адрес объекта + Яндекс Карты */}
@@ -1000,59 +1119,84 @@ export function TaskModal({
                 {comments.length > 0 ? (
                   <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                     {comments.map((comm) => (
-                      <div
-                        key={comm.id}
-                        style={{
-                          background: 'var(--bg-tertiary)',
-                          padding: '0.5rem 0.65rem',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-subtle)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.25rem'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      comm.is_system ? (
+                        <div
+                          key={comm.id}
+                          style={{
+                            background: 'rgba(255, 102, 0, 0.08)',
+                            padding: '0.35rem 0.65rem',
+                            borderRadius: '5px',
+                            borderLeft: '3px solid var(--accent-orange)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.73rem',
+                            color: 'var(--text-muted)'
+                          }}
+                        >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div
-                              style={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: '50%',
-                                backgroundColor: comm.avatar_color || '#ff6600',
-                                color: 'white',
-                                fontSize: '0.58rem',
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              {comm.user_initials || 'УФ'}
+                            <Sparkles size={12} style={{ color: 'var(--accent-orange)', flexShrink: 0 }} />
+                            <span>{comm.text}</span>
+                          </div>
+                          <span style={{ fontSize: '0.64rem', color: 'var(--text-dim)', flexShrink: 0 }}>
+                            {new Date(comm.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          key={comm.id}
+                          style={{
+                            background: 'var(--bg-tertiary)',
+                            padding: '0.5rem 0.65rem',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.25rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: '50%',
+                                  backgroundColor: comm.avatar_color || '#ff6600',
+                                  color: 'white',
+                                  fontSize: '0.58rem',
+                                  fontWeight: 700,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                {comm.user_initials || 'УФ'}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                                {comm.user_name}
+                              </span>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                                {new Date(comm.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
                             </div>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                              {comm.user_name}
-                            </span>
-                            <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
-                              {new Date(comm.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                            </span>
+
+                            <button
+                              type="button"
+                              className="btn-icon btn-icon-danger"
+                              onClick={() => handleDeleteComment(comm.id)}
+                              style={{ width: 18, height: 18, padding: 0 }}
+                              title="Удалить комментарий"
+                            >
+                              <Trash2 size={11} />
+                            </button>
                           </div>
 
-                          <button
-                            type="button"
-                            className="btn-icon btn-icon-danger"
-                            onClick={() => handleDeleteComment(comm.id)}
-                            style={{ width: 18, height: 18, padding: 0 }}
-                            title="Удалить комментарий"
-                          >
-                            <Trash2 size={11} />
-                          </button>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', lineHeight: 1.4, paddingLeft: '24px' }}>
+                            {renderWithMentions(comm.text, teamMembers)}
+                          </div>
                         </div>
-
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', lineHeight: 1.4, paddingLeft: '24px' }}>
-                          {renderWithMentions(comm.text, teamMembers)}
-                        </div>
-                      </div>
+                      )
                     ))}
                   </div>
                 ) : (
@@ -1072,6 +1216,53 @@ export function TaskModal({
                   <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-orange)', fontWeight: 800 }}>
                     Итого: {totalCalculatedHours} ч.
                   </span>
+                </div>
+
+                {/* YouGile Live Stopwatch / Секундомер */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'var(--bg-tertiary)',
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: '6px',
+                    border: isStopwatchRunning ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                    boxShadow: isStopwatchRunning ? '0 0 12px rgba(16, 185, 129, 0.2)' : undefined,
+                    marginBottom: '0.65rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Clock size={16} style={{ color: isStopwatchRunning ? '#10b981' : 'var(--accent-orange)' }} />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.05rem', fontWeight: 800, color: isStopwatchRunning ? '#10b981' : 'var(--text-main)', letterSpacing: '0.04em' }}>
+                      {formatStopwatch(stopwatchSeconds)}
+                    </span>
+                    {isStopwatchRunning && (
+                      <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#10b981' }} />
+                        Идёт отсчёт YouGile...
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`btn ${isStopwatchRunning ? 'btn-danger' : 'btn-secondary'}`}
+                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.74rem', gap: '5px' }}
+                    onClick={handleToggleStopwatch}
+                  >
+                    {isStopwatchRunning ? (
+                      <>
+                        <Square size={12} />
+                        <span>Стоп и списать</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play size={12} style={{ color: '#10b981' }} />
+                        <span>Пуск секундомера</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Форма добавления строки времени */}

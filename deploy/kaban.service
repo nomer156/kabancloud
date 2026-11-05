@@ -1,0 +1,28 @@
+[Unit]
+Description=Ufanet KabanCloud YouGile Engine (Debian 13.7 Optimized)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/kaban2
+# Ограничиваем V8 кучу 256 МБ, чтобы гарантированно укладываться в 1 ГБ RAM
+ExecStart=/usr/bin/node --max-old-space-size=256 server.js
+Restart=always
+RestartSec=5
+Nice=-5
+
+# Защита от OOM на сервере с 1 ГБ RAM
+MemoryAccounting=true
+MemoryMax=350M
+MemoryHigh=300M
+
+# Изоляция и безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+
+Environment=PORT=3000
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

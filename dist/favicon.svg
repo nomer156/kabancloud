@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="ufanetBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d1017" />
+      <stop offset="100%" stop-color="#1c2233" />
+    </linearGradient>
+    <linearGradient id="ufanetOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff7700" />
+      <stop offset="100%" stop-color="#ff5500" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="512" height="512" rx="112" fill="url(#ufanetBg)" />
+  <rect x="14" y="14" width="484" height="484" rx="98" fill="none" stroke="rgba(255,102,0,0.25)" stroke-width="4" />
+
+  <!-- Network Grid subtle -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="rgba(255,102,0,0.12)" stroke-width="2" stroke-dasharray="8 8" />
+
+  <!-- Kanban Column 1 -->
+  <rect x="90" y="110" width="94" height="292" rx="16" fill="rgba(255,255,255,0.06)"/>
+  <rect x="105" y="132" width="64" height="64" rx="10" fill="#0284c7" fill-opacity="0.3" stroke="#0284c7" stroke-width="2"/>
+
+  <!-- Kanban Column 2 (Active Orange) -->
+  <rect x="209" y="110" width="94" height="292" rx="16" fill="rgba(255,255,255,0.06)"/>
+  <rect x="224" y="132" width="64" height="110" rx="12" fill="url(#ufanetOrange)" />
+  <circle cx="242" cy="158" r="8" fill="#ffffff" />
+  <line x1="258" y1="154" x2="274" y2="154" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+  <line x1="258" y1="162" x2="270" y2="162" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.8" />
+  <rect x="234" y="184" width="44" height="6" rx="3" fill="#ffffff" fill-opacity="0.6" />
+  <rect x="234" y="196" width="30" height="6" rx="3" fill="#ffffff" fill-opacity="0.6" />
+
+  <!-- Kanban Column 3 (Done) -->
+  <rect x="328" y="110" width="94" height="292" rx="16" fill="rgba(255,255,255,0.06)"/>
+  <rect x="343" y="132" width="64" height="74" rx="10" fill="#10b981" fill-opacity="0.3" stroke="#10b981" stroke-width="2"/>
+  <path d="M 363 170 L 371 178 L 387 160" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
