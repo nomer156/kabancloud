@@ -41,6 +41,8 @@ export function TaskCard({
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
+  const [isAddingCardSubtask, setIsAddingCardSubtask] = useState(false);
+  const [quickSubtaskTitle, setQuickSubtaskTitle] = useState('');
   const [isFileOver, setIsFileOver] = useState(false);
 
   // Check if task is running live stopwatch
@@ -514,11 +516,11 @@ export function TaskCard({
         style={{ margin: '0 0 0.5rem 0' }}
       >
         <a
-          href={`/#task/${encodeURIComponent(task.id)}`}
+          href={`/#task/${encodeURIComponent(task.display_id || task.id)}`}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          title="Открыть задачу в новой вкладке браузера"
+          title="Открыть задачу в отдельной вкладке (Jira-вид)"
           style={{
             color: 'inherit',
             textDecoration: 'none',
@@ -606,8 +608,8 @@ export function TaskCard({
       )}
 
       {/* Real Nested Subtasks Tree (YouGile Tree Feature) */}
-      {childTasks.length > 0 && (
-        <div style={{ marginTop: '0.45rem', marginBottom: '0.25rem' }}>
+      <div style={{ marginTop: '0.45rem', marginBottom: '0.25rem' }}>
+        {childTasks.length > 0 ? (
           <button
             type="button"
             onClick={(e) => {
@@ -632,78 +634,240 @@ export function TaskCard({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {isSubtasksExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-              <span>Подзадачи ({doneChildTasks}/{childTasks.length})</span>
+              <span>Вложенные подзадачи ({doneChildTasks}/{childTasks.length})</span>
             </div>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-dim, #64748b)' }}>
               {isSubtasksExpanded ? 'свернуть' : 'развернуть'}
             </span>
           </button>
+        ) : isSubtasksExpanded ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px' }}>
+            <span style={{ fontSize: '0.7rem', color: '#ff8800', fontWeight: 700 }}>↳ Новая подзадача:</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsSubtasksExpanded(false);
+                setIsAddingCardSubtask(false);
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.68rem', cursor: 'pointer' }}
+            >
+              ✕ скрыть
+            </button>
+          </div>
+        ) : null}
 
-          {isSubtasksExpanded && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '5px', paddingLeft: '8px', borderLeft: '2px solid rgba(255, 102, 0, 0.35)' }}>
-              {childTasks.map((child) => {
-                const childAssignee = teamMembers.find((m) => m.id === child.assignee_id);
-                const isChildDone = child.status === 'done';
-                return (
-                  <div
-                    key={child.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(child);
-                      window.location.hash = `#task/${encodeURIComponent(child.id)}`;
-                    }}
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      background: 'var(--bg-secondary, #0f172a)',
-                      border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
-                      fontSize: '0.72rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '6px'
-                    }}
-                    title="Нажмите для открытия подзадачи"
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1 }}>
-                      <span style={{ color: isChildDone ? '#10b981' : 'var(--accent-orange)' }}>↳</span>
-                      <span style={{ fontWeight: 600, color: isChildDone ? 'var(--text-muted)' : 'var(--text-main)', textDecoration: isChildDone ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {child.title}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                      {childAssignee && (
-                        <div
-                          style={{
-                            width: 17,
-                            height: 17,
-                            borderRadius: '50%',
-                            background: childAssignee.avatar_color || '#ff6600',
-                            color: '#fff',
-                            fontSize: '0.55rem',
-                            fontWeight: 800,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          title={childAssignee.full_name}
-                        >
-                          {childAssignee.initials || childAssignee.full_name?.[0]}
-                        </div>
-                      )}
-                      <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: isChildDone ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)', color: isChildDone ? '#10b981' : 'var(--text-dim)' }}>
-                        {isChildDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Бэклог'}
-                      </span>
-                    </div>
+        {isSubtasksExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '5px', paddingLeft: '8px', borderLeft: '2px solid rgba(255, 102, 0, 0.35)' }}>
+            {childTasks.map((child) => {
+              const childAssignee = teamMembers.find((m) => m.id === child.assignee_id);
+              const isChildDone = child.status === 'done';
+              return (
+                <div
+                  key={child.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(child);
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary, #0f172a)',
+                    border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '6px'
+                  }}
+                  title="Кликните для редактирования подзадачи"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSaveTask) {
+                          onSaveTask({ ...child, status: isChildDone ? 'in_progress' : 'done' });
+                          playSound(isChildDone ? 'click' : 'success');
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        color: isChildDone ? '#10b981' : 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      title={isChildDone ? 'Отметить невыполненной' : 'Отметить выполненной'}
+                    >
+                      {isChildDone ? <CheckSquare size={13} style={{ color: '#10b981' }} /> : <Square size={13} />}
+                    </button>
+                    <span style={{
+                      fontWeight: 600,
+                      color: isChildDone ? 'var(--text-muted)' : 'var(--text-main)',
+                      textDecoration: isChildDone ? 'line-through' : 'none',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {child.title}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    {childAssignee && (
+                      <div
+                        style={{
+                          width: 17,
+                          height: 17,
+                          borderRadius: '50%',
+                          background: childAssignee.avatar_color || '#ff6600',
+                          color: '#fff',
+                          fontSize: '0.55rem',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title={childAssignee.full_name}
+                      >
+                        {childAssignee.initials || childAssignee.full_name?.[0]}
+                      </div>
+                    )}
+                    <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: isChildDone ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)', color: isChildDone ? '#10b981' : 'var(--text-dim)' }}>
+                      {isChildDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Бэклог'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Inline Quick Add Subtask Input */}
+            {isAddingCardSubtask ? (
+              <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="text"
+                  value={quickSubtaskTitle}
+                  onChange={(e) => setQuickSubtaskTitle(e.target.value)}
+                  placeholder="Название подзадачи..."
+                  autoFocus
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && quickSubtaskTitle.trim()) {
+                      e.preventDefault();
+                      if (onSaveTask) {
+                        await onSaveTask({
+                          title: quickSubtaskTitle.trim(),
+                          parent_task_id: task.id,
+                          department_id: task.department_id,
+                          section: task.section,
+                          status: 'backlog',
+                          assignee_id: task.assignee_id || null,
+                          created_at: new Date().toISOString()
+                        });
+                      }
+                      setQuickSubtaskTitle('');
+                      setIsAddingCardSubtask(false);
+                      playSound('success');
+                      if (showToast) showToast('Подзадача создана', '↳');
+                    } else if (e.key === 'Escape') {
+                      setIsAddingCardSubtask(false);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '3px 6px',
+                    borderRadius: '4px',
+                    border: '1px solid #ff6600',
+                    background: 'rgba(0,0,0,0.3)',
+                    color: '#fff',
+                    fontSize: '0.72rem',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (quickSubtaskTitle.trim() && onSaveTask) {
+                      await onSaveTask({
+                        title: quickSubtaskTitle.trim(),
+                        parent_task_id: task.id,
+                        department_id: task.department_id,
+                        section: task.section,
+                        status: 'backlog',
+                        assignee_id: task.assignee_id || null,
+                        created_at: new Date().toISOString()
+                      });
+                      setQuickSubtaskTitle('');
+                      setIsAddingCardSubtask(false);
+                      playSound('success');
+                      if (showToast) showToast('Подзадача создана', '↳');
+                    }
+                  }}
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    background: '#ff6600',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAddingCardSubtask(false);
+                  }}
+                  style={{
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.7rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsAddingCardSubtask(true);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ff8800',
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  padding: '2px 4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginTop: '2px'
+                }}
+              >
+                <span>+ Добавить подзадачу...</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ERP Meta Tags */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: '0.2rem 0', flexWrap: 'wrap' }}>
@@ -865,6 +1029,28 @@ export function TaskCard({
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          {/* Quick Subtask Trigger */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSubtasksExpanded(true);
+              setIsAddingCardSubtask(true);
+            }}
+            style={{
+              fontSize: '0.66rem',
+              color: 'var(--text-dim)',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '4px',
+              padding: '1px 5px',
+              cursor: 'pointer'
+            }}
+            title="Добавить вложенную подзадачу"
+          >
+            + ↳
+          </button>
+
           {/* YouGile Task Comments Count */}
           {Array.isArray(task.comments) && task.comments.length > 0 && (
             <span

@@ -73,6 +73,7 @@ export function TaskModal({
   sections = [],
   columns = [],
   currentUser,
+  allTasks = [],
   onSaveTask,
   onDeleteTask,
   onNotifyMention
@@ -83,6 +84,8 @@ export function TaskModal({
   const [description, setDescription] = useState('');
   const [checklist, setChecklist] = useState([]);
   const [newChecklistText, setNewChecklistText] = useState('');
+  const [newChildSubtaskTitle, setNewChildSubtaskTitle] = useState('');
+  const [newChildSubtaskAssignee, setNewChildSubtaskAssignee] = useState('');
   
   // Mentions autocomplete for title and description
   const [titleMentionQuery, setTitleMentionQuery] = useState(null);
@@ -412,6 +415,32 @@ export function TaskModal({
       setProjectCode(remaining[0] || '');
       playSound('trash');
     }
+  };
+
+  const childTasks = useMemo(() => {
+    if (!Array.isArray(allTasks) || allTasks.length === 0 || !taskToEdit?.id) return [];
+    return allTasks.filter((t) => t.parent_task_id === taskToEdit.id);
+  }, [allTasks, taskToEdit?.id]);
+
+  const handleCreateChildSubtask = async (e) => {
+    if (e) e.preventDefault();
+    if (!newChildSubtaskTitle.trim() || !taskToEdit?.id) return;
+    const subtask = {
+      title: newChildSubtaskTitle.trim(),
+      parent_task_id: taskToEdit.id,
+      department_id: departmentId || taskToEdit.department_id || 'dept-design',
+      section: section || taskToEdit.section || 'ВДН',
+      project_cipher: projectCipher || taskToEdit.project_cipher || '',
+      status: 'backlog',
+      assignee_id: newChildSubtaskAssignee || assigneeId || null,
+      created_at: new Date().toISOString()
+    };
+    if (onSaveTask) {
+      await onSaveTask(subtask);
+    }
+    setNewChildSubtaskTitle('');
+    setNewChildSubtaskAssignee('');
+    playSound('success');
   };
 
   // Quick Open in ProjectPay (tampermonkey script compatible)
@@ -1043,11 +1072,134 @@ export function TaskModal({
                 )}
               </div>
 
-              {/* 4. Чек-листы и подзадачи с персональными исполнителями */}
+              {/* 4. Вложенные подзадачи (Дерево подзадач задачи) */}
+              <div className="form-group" style={{ background: 'rgba(255, 102, 0, 0.04)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 102, 0, 0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                  <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px', color: '#ff8800' }}>
+                    <Layers size={14} style={{ color: '#ff6600' }} />
+                    <span>Вложенные подзадачи ({childTasks.filter(c => c.status === 'done').length}/{childTasks.length})</span>
+                  </label>
+                  {childTasks.length > 0 && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--accent-orange)', fontWeight: 700 }}>
+                      {Math.round((childTasks.filter(c => c.status === 'done').length / childTasks.length) * 100)}%
+                    </span>
+                  )}
+                </div>
+
+                {/* List of true subtasks */}
+                {childTasks.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                    {childTasks.map((child) => {
+                      const childAssignee = teamMembers.find(m => m.id === child.assignee_id);
+                      const isChildDone = child.status === 'done';
+                      return (
+                        <div
+                          key={child.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            background: 'var(--bg-card)',
+                            padding: '0.4rem 0.65rem',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)'
+                          }}
+                        >
+                          <span style={{ color: isChildDone ? '#10b981' : '#ff6600', fontWeight: 800 }}>↳</span>
+                          <span style={{
+                            flex: 1,
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            textDecoration: isChildDone ? 'line-through' : 'none',
+                            color: isChildDone ? 'var(--text-dim)' : 'var(--text-main)'
+                          }}>
+                            {child.title}
+                          </span>
+
+                          {childAssignee && (
+                            <span style={{ fontSize: '0.7rem', color: '#cbd5e1', padding: '1px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }}>
+                              👤 {childAssignee.full_name.split(' ')[0]}
+                            </span>
+                          )}
+
+                          <span style={{
+                            fontSize: '0.68rem',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            background: isChildDone ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 102, 0, 0.15)',
+                            color: isChildDone ? '#10b981' : '#ff8800',
+                            fontWeight: 700
+                          }}>
+                            {isChildDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Бэклог'}
+                          </span>
+
+                          <button
+                            type="button"
+                            className="btn-icon btn-icon-danger"
+                            style={{ width: 22, height: 22, padding: 0 }}
+                            title="Отвязать подзадачу (сделать самостоятельной карточкой)"
+                            onClick={() => {
+                              if (onSaveTask) {
+                                onSaveTask({ ...child, parent_task_id: null });
+                              }
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                    У этой задачи пока нет дочерних подзадач. Вы можете создать их ниже:
+                  </div>
+                )}
+
+                {/* Create subtask input */}
+                {taskToEdit?.id ? (
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Название новой подзадачи..."
+                      value={newChildSubtaskTitle}
+                      onChange={(e) => setNewChildSubtaskTitle(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChildSubtask(e); }}
+                      style={{ fontSize: '0.8rem', flex: 1 }}
+                    />
+                    <select
+                      className="form-select"
+                      value={newChildSubtaskAssignee}
+                      onChange={(e) => setNewChildSubtaskAssignee(e.target.value)}
+                      style={{ width: '135px', fontSize: '0.74rem', height: 32, backgroundColor: '#1a2234', color: '#f1f5f9' }}
+                    >
+                      <option value="">👤 Назначить...</option>
+                      {teamMembers.map(m => (
+                        <option key={m.id} value={m.id}>{m.full_name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleCreateChildSubtask}
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', background: '#ff6600', border: 'none' }}
+                    >
+                      <Plus size={14} /> Добавить
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    (Сохраните задачу, чтобы создавать к ней вложенные подзадачи)
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Чек-лист пунктов ТЗ (Простые пункты выполнения внутри карточки) */}
               <div className="form-group">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                   <label className="form-label" style={{ margin: 0 }}>
-                    Подзадачи и этапы ({checklist.filter(c => c.done).length}/{checklist.length})
+                    Чек-лист пунктов ТЗ ({checklist.filter(c => c.done).length}/{checklist.length})
                   </label>
                   {checklist.length > 0 && (
                     <span style={{ fontSize: '0.72rem', color: 'var(--accent-orange)', fontWeight: 700 }}>
@@ -1128,7 +1280,7 @@ export function TaskModal({
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Добавить подзадачу / этап..."
+                    placeholder="Добавить пункт чек-листа ТЗ..."
                     value={newChecklistText}
                     onChange={(e) => setNewChecklistText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddChecklist(e); }}
@@ -1139,7 +1291,7 @@ export function TaskModal({
                     value={newSubtaskAssignee}
                     onChange={(e) => setNewSubtaskAssignee(e.target.value)}
                     style={{ width: '130px', fontSize: '0.75rem', height: 32 }}
-                    title="Исполнитель создаваемой подзадачи"
+                    title="Исполнитель создаваемого пункта"
                   >
                     <option value="">👤 Без исп.</option>
                     {teamMembers.map(m => (

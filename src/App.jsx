@@ -168,22 +168,24 @@ export default function App() {
     return null;
   }, [tasks]);
 
-  // Sync #task/:id hash with activeTaskInPanel (Every task is a chat dock!)
+  // Standalone task view state (Jira-style full page view for #task/:id)
+  const [standaloneTaskId, setStandaloneTaskId] = useState(() => {
+    return extractTaskIdFromHash(typeof window !== 'undefined' ? window.location.hash : '');
+  });
+
   useEffect(() => {
     const handleHashChange = () => {
       const rawId = extractTaskIdFromHash(window.location.hash);
-      if (rawId) {
-        const found = resolveTaskFromId(rawId);
-        if (found) {
-          setActiveTaskInPanel(found);
-          setIsChatSidebarOpen(true);
-        }
-      }
+      setStandaloneTaskId(rawId);
     };
-    handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [resolveTaskFromId]);
+  }, []);
+
+  const standaloneTask = useMemo(() => {
+    if (!standaloneTaskId) return null;
+    return resolveTaskFromId(standaloneTaskId);
+  }, [standaloneTaskId, resolveTaskFromId]);
 
   const [teamMembers, setTeamMembers] = useState(() => {
     try {
@@ -567,6 +569,26 @@ export default function App() {
     }
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === newStatus) return;
+
+    // Validation for moving to "ГОТОВО / Выдано": mandatory fields must be filled
+    if (newStatus === 'done') {
+      const missing = [];
+      if (!task.title?.trim()) missing.push('Название задачи');
+      if (!task.assignee_id) missing.push('Исполнитель');
+      if (!task.department_id) missing.push('Отдел');
+      if (!task.section && !task.project_cipher) missing.push('Раздел / Шифр проекта');
+      if (!task.due_date && !task.deadline) missing.push('Срок сдачи (Дедлайн)');
+      if (!task.payroll_customer && !task.customer) missing.push('Внутр. заказчик ProjectPay');
+      if (!task.region) missing.push('Регион ProjectPay');
+      if (!task.payroll_work_group && !task.work_group) missing.push('Группа работ ProjectPay');
+      if (!task.payroll_work_type && !task.work_type) missing.push('Вид работ ProjectPay');
+
+      if (missing.length > 0) {
+        playSound('error');
+        showToast(`⚠️ Заполните обязательные поля: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ` (+ещё ${missing.length - 3})` : ''}`, '⚠️');
+        return;
+      }
+    }
 
     // Optimistic UI update
     setTasks((prev) =>
@@ -1122,6 +1144,53 @@ export default function App() {
 
   const effectiveUser = currentUser || INITIAL_MEMBERS[0];
 
+  // Dedicated Jira-style Standalone Full Page Task View
+  if (standaloneTaskId) {
+    return (
+      <div className="app-root-shell" style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
+        {standaloneTask ? (
+          <TaskDetailView
+            task={standaloneTask}
+            allTasks={tasks}
+            teamMembers={teamMembers}
+            projects={projects}
+            sections={sections}
+            columns={columns}
+            currentUser={effectiveUser}
+            onSaveTask={handleSaveTask}
+            onDeleteTask={handleDeleteTask}
+            onBack={() => {
+              window.location.hash = '';
+              setStandaloneTaskId(null);
+            }}
+            onNotifyMention={handleNotifyMention}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-main)', padding: '2rem' }}>
+            <div style={{ maxWidth: '480px', width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '16px', padding: '2rem', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.6rem' }}>
+                {loading ? 'Загрузка задачи...' : 'Задача не найдена или была удалена'}
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                Шифр / ID: <code style={{ color: '#ff8800' }}>{standaloneTaskId}</code>
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  window.location.hash = '';
+                  setStandaloneTaskId(null);
+                }}
+              >
+                ← Вернуться к доске задач
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="app-root-shell" style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
       {/* Top Navigation Header (Spans full 100% width across the top) */}
@@ -1398,6 +1467,7 @@ export default function App() {
         sections={sections}
         columns={columns}
         currentUser={currentUser}
+        allTasks={tasks}
         onSaveTask={handleSaveTask}
         onDeleteTask={handleDeleteTask}
         onNotifyMention={handleNotifyMention}

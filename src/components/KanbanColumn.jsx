@@ -80,9 +80,16 @@ export function KanbanColumn({
     if (!isDragOver) setIsDragOver(true);
   };
 
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    if (!isDragOver) setIsDragOver(true);
+  };
+
   const handleDragLeave = (e) => {
     e.preventDefault();
-    setIsDragOver(false);
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsDragOver(false);
+    }
   };
 
   const handleDrop = (e) => {
@@ -229,13 +236,20 @@ export function KanbanColumn({
     <div
       className={`kanban-column ${isDragOver ? 'drag-over' : ''} ${isOverWip ? 'column-wip-warning' : ''}`}
       onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={{
-        background: `linear-gradient(180deg, ${column.color || '#ff6600'}15 0%, var(--bg-secondary) 320px, var(--bg-secondary) 100%)`,
-        border: `1.5px solid ${column.color || '#ff6600'}38`,
-        boxShadow: `0 8px 24px -10px ${column.color || '#ff6600'}22`,
-        ...(isOverWip ? { borderColor: 'rgba(239, 68, 68, 0.65)', boxShadow: '0 0 16px rgba(239, 68, 68, 0.25)' } : {})
+        background: isDragOver 
+          ? 'rgba(255, 102, 0, 0.16)' 
+          : `linear-gradient(180deg, ${column.color || '#ff6600'}15 0%, var(--bg-secondary) 320px, var(--bg-secondary) 100%)`,
+        border: isDragOver
+          ? '2.5px dashed #ff6600'
+          : (isOverWip ? '1.5px solid rgba(239, 68, 68, 0.65)' : `1.5px solid ${column.color || '#ff6600'}38`),
+        boxShadow: isDragOver
+          ? '0 0 28px rgba(255, 102, 0, 0.45), inset 0 0 16px rgba(255, 102, 0, 0.12)'
+          : (isOverWip ? '0 0 16px rgba(239, 68, 68, 0.25)' : `0 8px 24px -10px ${column.color || '#ff6600'}22`),
+        transition: 'border 0.15s ease, background 0.15s ease, box-shadow 0.15s ease'
       }}
     >
       {/* Top Accent Color Line */}

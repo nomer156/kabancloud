@@ -20,7 +20,8 @@ import {
   Clock,
   CreditCard,
   Navigation,
-  Gauge
+  Gauge,
+  ExternalLink
 } from 'lucide-react';
 import { DEPARTMENTS } from '../lib/constants';
 import { playSound } from '../lib/sound';

@@ -975,13 +975,29 @@ button, input, select, textarea {
   max-width: 100%;
   box-sizing: border-box;
   display: block;
-  background: var(--bg-tertiary);
+  background-color: #1a2234 !important;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 0.6rem 0.85rem;
   font-size: 0.88rem;
-  color: var(--text-main);
+  color: #f1f5f9 !important;
   transition: border-color var(--transition-fast);
+}
+
+select, option, optgroup {
+  background-color: #1a2234 !important;
+  color: #f1f5f9 !important;
+}
+
+option {
+  padding: 8px 12px;
+  background: #1a2234 !important;
+  color: #f1f5f9 !important;
+}
+
+option:checked, option:hover {
+  background-color: #ff6600 !important;
+  color: #ffffff !important;
 }
 
 .form-textarea {

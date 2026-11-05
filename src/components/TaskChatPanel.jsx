@@ -1987,28 +1987,8 @@ export function TaskChatPanel({
                     <span>{activePdfFile.name}</span>
                   </div>
 
-                  {/* Multi-page Navigation: Стр. 1 из N */}
+                  {/* PDF Controls */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#fff', background: 'rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setPdfPage(p => Math.max(1, p - 1))}
-                        disabled={pdfPage <= 1}
-                        style={{ background: 'none', border: 'none', color: '#fff', cursor: pdfPage <= 1 ? 'not-allowed' : 'pointer', padding: '0 2px' }}
-                      >
-                        ◀
-                      </button>
-                      <span>Стр. {pdfPage} из {pdfTotalPages}</span>
-                      <button
-                        type="button"
-                        onClick={() => setPdfPage(p => Math.min(pdfTotalPages, p + 1))}
-                        disabled={pdfPage >= pdfTotalPages}
-                        style={{ background: 'none', border: 'none', color: '#fff', cursor: pdfPage >= pdfTotalPages ? 'not-allowed' : 'pointer', padding: '0 2px' }}
-                      >
-                        ▶
-                      </button>
-                    </div>
-
                     {/* Zoom */}
                     <button
                       type="button"

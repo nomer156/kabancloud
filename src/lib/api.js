@@ -133,18 +133,33 @@ export async function loginUser(param) {
         if (idx >= 0) members[idx] = data.user;
         else members.unshift(data.user);
         setLocalData(STORAGE_KEY_MEMBERS, members);
+        return { success: true, user: data.user };
       }
-      return data.user;
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, error: errData.error || 'Ошибка входа' };
     }
-  } catch {}
+  } catch (err) {
+    console.warn('API login failed, checking local:', err);
+  }
 
   // Local fallback
   const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
   let found = null;
-  if (payload.username === 'admin' || payload.memberId === 'admin' || payload.memberId === 'uf-admin-root') {
+  const q = (payload.username || payload.memberId || '').trim().toLowerCase();
+  if (q === 'admin' || q === 'uf-admin-root') {
     found = members.find((m) => m.full_name?.toLowerCase() === 'admin' || m.id === 'uf-admin-root');
-  } else if (payload.memberId) {
-    found = members.find((m) => m.id === payload.memberId || m.full_name?.toLowerCase() === payload.memberId.toLowerCase());
+  } else if (q) {
+    found = members.find((m) => {
+      if (!m) return false;
+      if (m.id === q || m.username?.toLowerCase() === q) return true;
+      const fn = (m.full_name || '').toLowerCase();
+      if (fn === q) return true;
+      const qWords = q.split(/\s+/);
+      const fnWords = fn.split(/\s+/);
+      if (qWords.length > 0 && qWords.every(qw => fnWords.some(nw => nw === qw || nw.startsWith(qw)))) return true;
+      return false;
+    });
   } else if (payload.workstation) {
     const norm = payload.workstation.trim().toLowerCase();
     found = members.find((m) => m.workstation_id?.toLowerCase() === norm);
@@ -152,8 +167,9 @@ export async function loginUser(param) {
 
   if (found) {
     saveCurrentUserLocally(found);
+    return { success: true, user: found };
   }
-  return found || null;
+  return { success: false, error: 'Сотрудник не найден' };
 }
 
 export async function bindWorkstation(memberId, workstation) {
@@ -183,12 +199,14 @@ export async function bindWorkstation(memberId, workstation) {
   return null;
 }
 
-export async function registerUser({ full_name, department_id, role, role_level, avatar_color, initials, specialty, workstation_id }) {
+export async function registerUser({ full_name, password = '', status = 'active', department_id, role, role_level, avatar_color, initials, specialty, workstation_id }) {
   const payload = { 
-    full_name, 
+    full_name: (full_name || '').trim(), 
+    password: password || '',
+    status: status || 'active',
     department_id: department_id || 'dept-design', 
-    role: role || 'Инженер', 
-    role_level: role_level || 6,
+    role: role || 'Инженер-проектировщик', 
+    role_level: Number(role_level) || 1,
     avatar_color: avatar_color || '#ff6600', 
     initials, 
     specialty,
@@ -207,10 +225,16 @@ export async function registerUser({ full_name, department_id, role, role_level,
         saveCurrentUserLocally(data.user);
         const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
         setLocalData(STORAGE_KEY_MEMBERS, [data.user, ...members]);
+        return { success: true, user: data.user };
       }
-      return data.user;
+      return { success: true, user: data };
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Ошибка регистрации');
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Backend register failed, saving locally:', err);
+  }
 
   // Local fallback
   const members = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
@@ -224,6 +248,8 @@ export async function registerUser({ full_name, department_id, role, role_level,
   const newUser = {
     id,
     full_name: full_name.trim(),
+    password: password || '',
+    status: 'active',
     department_id: payload.department_id,
     role: payload.role,
     role_level: payload.role_level,
@@ -236,7 +262,7 @@ export async function registerUser({ full_name, department_id, role, role_level,
   const updated = [newUser, ...members];
   setLocalData(STORAGE_KEY_MEMBERS, updated);
   saveCurrentUserLocally(newUser);
-  return newUser;
+  return { success: true, user: newUser };
 }
 
 export async function checkAuthSession() {
