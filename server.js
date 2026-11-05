@@ -1458,21 +1458,21 @@ async function handleRequest(req, res) {
       const currentUser = requireAuth(req, res, db);
       if (!currentUser) return;
 
-      const isSanya = currentUser.username?.toLowerCase() === 'sanya' || currentUser.id === 'uf-admin-sanya';
-      const userLevel = Number(currentUser.role_level) || 6;
-      const isChiefInSameDept = userLevel >= 8 && currentUser.department_id === reqItem.department_id;
-      if (!isSanya && userLevel < 10 && currentUser.full_name?.toLowerCase() !== 'admin' && !isChiefInSameDept) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Только администратор Sanya или начальник соответствующего отдела может одобрять заявки' }));
-        return;
-      }
-
       const reqId = pathname.split('/')[3];
       if (!Array.isArray(db.access_requests)) db.access_requests = [];
       const reqItem = db.access_requests.find((r) => r.id === reqId);
       if (!reqItem) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Запрос доступа не найден' }));
+        return;
+      }
+
+      const isSanya = currentUser.username?.toLowerCase() === 'sanya' || currentUser.id === 'uf-admin-sanya';
+      const userLevel = Number(currentUser.role_level) || 6;
+      const isChiefInSameDept = userLevel >= 8 && currentUser.department_id === reqItem.department_id;
+      if (!isSanya && userLevel < 10 && currentUser.full_name?.toLowerCase() !== 'admin' && !isChiefInSameDept) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Только администратор Sanya или начальник соответствующего отдела может одобрять заявки' }));
         return;
       }
 
