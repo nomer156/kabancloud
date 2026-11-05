@@ -974,9 +974,9 @@ async function handleRequest(req, res) {
 
 
 
-    // 3. POST /api/auth/register (Zero-password fast registration)
+    // 3. POST /api/auth/register (Registration with approval workflow)
     if (pathname === '/api/auth/register' && req.method === 'POST') {
-      const { full_name, department_id, role, role_level, avatar_color, avatar_url, initials, specialty, workstation_id, phone, email, telegram, office_room } = await parseBody(req);
+      const { full_name, password, status, department_id, role, role_level, avatar_color, avatar_url, initials, specialty, workstation_id, phone, email, telegram, office_room } = await parseBody(req);
 
       if (!full_name || !full_name.trim()) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
