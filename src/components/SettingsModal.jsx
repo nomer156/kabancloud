@@ -24,12 +24,15 @@ export function SettingsModal({
   currentUser,
   showToast
 }) {
-  const isAdmin = Boolean(
-    currentUser?.role_level >= 10 || 
+  // Only system Administrator (Sanya / admin) has access to global company departments and role matrix.
+  // Department heads and employees only have access to Feedback & Suggestions.
+  const isSuperAdmin = Boolean(
     currentUser?.username?.toLowerCase() === 'sanya' || 
     currentUser?.full_name?.toLowerCase() === 'admin' ||
-    currentUser?.role?.toLowerCase().includes('администратор')
+    currentUser?.id === 'uf-admin-sanya' ||
+    (Number(currentUser?.role_level) >= 10 && currentUser?.role?.toLowerCase().includes('администратор'))
   );
+  const isAdmin = isSuperAdmin;
 
   const [activeTab, setActiveTab] = useState('feedback'); // 'feedback' | 'departments' | 'permissions'
   const [permissionsMatrix, setPermissionsMatrix] = useState(DEFAULT_PERMISSIONS);

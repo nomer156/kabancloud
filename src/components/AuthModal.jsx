@@ -89,9 +89,42 @@ export function AuthModal({
 
       // Check if user is trying to login as Sanya with wrong password
       if (normId.toLowerCase() === 'sanya' && pass !== 'Nomer1') {
-        setLoginError('Неверный пароль администратора Sanya');
+        setLoginError('Неверный пароль администратора');
         playSound('error');
         setIsSubmitting(false);
+        return;
+      }
+
+      // 1b. Department Accounts Fast Path (Password: vlx.ufanet.ru)
+      const deptLogins = {
+        design: { id: 'uf-dept-design', name: 'Отдел Проектирования', dept: 'dept-design', initials: 'ОП', color: '#ff6600' },
+        'проектирование': { id: 'uf-dept-design', name: 'Отдел Проектирования', dept: 'dept-design', initials: 'ОП', color: '#ff6600' },
+        welders: { id: 'uf-dept-welders', name: 'Отдел Сварщиков', dept: 'dept-welders', initials: 'ОС', color: '#f59e0b' },
+        'сварщики': { id: 'uf-dept-welders', name: 'Отдел Сварщиков', dept: 'dept-welders', initials: 'ОС', color: '#f59e0b' },
+        rss: { id: 'uf-dept-rss', name: 'Отдел РСС', dept: 'dept-rss', initials: 'РСС', color: '#3b82f6' },
+        'рсс': { id: 'uf-dept-rss', name: 'Отдел РСС', dept: 'dept-rss', initials: 'РСС', color: '#3b82f6' },
+        sales_corp: { id: 'uf-dept-sales-corp', name: 'Отдел Продаж ЮЛ', dept: 'dept-sales-corp', initials: 'ЮЛ', color: '#8b5cf6' },
+        'продажи юл': { id: 'uf-dept-sales-corp', name: 'Отдел Продаж ЮЛ', dept: 'dept-sales-corp', initials: 'ЮЛ', color: '#8b5cf6' },
+        sales_retail: { id: 'uf-dept-sales-retail', name: 'Отдел Продаж ФЛ', dept: 'dept-sales-retail', initials: 'ФЛ', color: '#ec4899' },
+        'продажи фл': { id: 'uf-dept-sales-retail', name: 'Отдел Продаж ФЛ', dept: 'dept-sales-retail', initials: 'ФЛ', color: '#ec4899' },
+      };
+      const deptMatch = deptLogins[normId.toLowerCase()];
+      if (deptMatch && (pass === 'vlx.ufanet.ru' || !pass)) {
+        const foundDeptUser = teamMembers.find((m) => m.id === deptMatch.id) || {
+          id: deptMatch.id,
+          username: normId.toLowerCase(),
+          full_name: deptMatch.name,
+          department_id: deptMatch.dept,
+          role: 'Начальник отдела',
+          role_level: 10,
+          initials: deptMatch.initials,
+          avatar_color: deptMatch.color,
+          status: 'active'
+        };
+        saveCurrentUserLocally(foundDeptUser);
+        onSelectUser(foundDeptUser);
+        playSound('success');
+        if (onClose) onClose();
         return;
       }
 
@@ -182,21 +215,43 @@ export function AuthModal({
         full_name: fullName,
         initials,
         department_id: regDeptId,
-        role: regRole,
-        role_level: 6,
+        role: `Гость (${regRole || 'Инженер'})`,
+        role_level: 1, // Register as Guest level 1 immediately active
         password: regPassword,
         workstation_id: normPc,
-        status: 'pending', // Awaiting approval by department head or Sanya
+        status: 'active', // Active immediately!
         avatar_color: '#ff6600'
       };
 
-      await registerUser(newMemberData);
+      const res = await registerUser(newMemberData);
+      const registeredUser = res?.user || newMemberData;
+      saveCurrentUserLocally(registeredUser);
+      onSelectUser(registeredUser);
       setRegSuccess(true);
       playSound('success');
+      setTimeout(() => {
+        if (onClose) onClose();
+      }, 1200);
     } catch (err) {
       // Local optimistic fallback
+      const fallbackUser = {
+        id: `uf-${Date.now()}`,
+        full_name: fullName,
+        initials,
+        department_id: regDeptId,
+        role: `Гость (${regRole || 'Инженер'})`,
+        role_level: 1,
+        workstation_id: normPc,
+        status: 'active',
+        avatar_color: '#ff6600'
+      };
+      saveCurrentUserLocally(fallbackUser);
+      onSelectUser(fallbackUser);
       setRegSuccess(true);
       playSound('success');
+      setTimeout(() => {
+        if (onClose) onClose();
+      }, 1200);
     } finally {
       setIsSubmitting(false);
     }
@@ -260,7 +315,7 @@ export function AuthModal({
             </div>
             <div>
               <h2 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-primary, #fff)', letterSpacing: '-0.02em' }}>
-                KabanCloud • Уфанет
+                Уфанет • Доска
               </h2>
               <p style={{ fontSize: '0.74rem', margin: 0, color: 'var(--text-muted, #94a3b8)' }}>
                 Корпоративная авторизация
@@ -388,7 +443,7 @@ export function AuthModal({
                     type="text"
                     value={loginIdentifier}
                     onChange={(e) => setLoginIdentifier(e.target.value)}
-                    placeholder="Например: Sanya, Смирнов или vlproject01"
+                    placeholder="Например: Смирнов, design или vlproject01"
                     autoFocus
                     required
                     style={{
@@ -412,9 +467,6 @@ export function AuthModal({
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary, #cbd5e1)' }}>
                     Пароль:
                   </label>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-dim, #64748b)' }}>
-                    (Для админа Sanya: Nomer1)
-                  </span>
                 </div>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <KeyRound size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted, #64748b)' }} />

@@ -17,7 +17,9 @@ export function KanbanColumn({
   activeStopwatchTaskId,
   onToggleStopwatch,
   currentUser,
-  onUpdateColumn
+  onUpdateColumn,
+  allTasks = [],
+  onSaveTask
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAddingInline, setIsAddingInline] = useState(false);
@@ -228,7 +230,12 @@ export function KanbanColumn({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      style={isOverWip ? { borderColor: 'rgba(239, 68, 68, 0.45)', boxShadow: '0 0 12px rgba(239, 68, 68, 0.15)' } : undefined}
+      style={{
+        background: `linear-gradient(180deg, ${column.color || '#ff6600'}15 0%, var(--bg-secondary) 320px, var(--bg-secondary) 100%)`,
+        border: `1.5px solid ${column.color || '#ff6600'}38`,
+        boxShadow: `0 8px 24px -10px ${column.color || '#ff6600'}22`,
+        ...(isOverWip ? { borderColor: 'rgba(239, 68, 68, 0.65)', boxShadow: '0 0 16px rgba(239, 68, 68, 0.25)' } : {})
+      }}
     >
       {/* Top Accent Color Line */}
       <div style={{ height: '3.5px', background: column.color || '#ff6600', borderRadius: '4px 4px 0 0', margin: '-0.75rem -0.75rem 0.6rem -0.75rem' }} />
@@ -527,6 +534,9 @@ export function KanbanColumn({
             activeDepartmentId={activeDepartmentId}
             activeStopwatchTaskId={activeStopwatchTaskId}
             onToggleStopwatch={onToggleStopwatch}
+            allTasks={allTasks}
+            currentUser={currentUser}
+            onSaveTask={onSaveTask}
           />
         ))}
 

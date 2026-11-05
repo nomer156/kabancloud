@@ -60,8 +60,8 @@ export function DepartmentBar({
             padding: '0.4rem 0.8rem',
             borderRadius: 'var(--radius-md, 8px)',
             border: activeDepartmentId === 'all' ? '1.5px solid var(--accent-orange, #ff6600)' : '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
-            background: activeDepartmentId === 'all' ? 'rgba(255, 102, 0, 0.16)' : 'var(--bg-tertiary, #1c2233)',
-            color: activeDepartmentId === 'all' ? '#ffffff' : 'var(--text-muted, #94a3b8)',
+            background: activeDepartmentId === 'all' ? 'rgba(255, 102, 0, 0.14)' : 'var(--bg-card, #1c2233)',
+            color: activeDepartmentId === 'all' ? 'var(--accent-orange, #ff6600)' : 'var(--text-muted, #94a3b8)',
             cursor: 'pointer',
             fontWeight: activeDepartmentId === 'all' ? 800 : 600,
             fontSize: '0.78rem',
@@ -105,8 +105,8 @@ export function DepartmentBar({
                 padding: '0.4rem 0.8rem',
                 borderRadius: 'var(--radius-md, 8px)',
                 border: isSelected ? `1.5px solid ${dept.color}` : '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
-                background: isSelected ? `${dept.color}22` : 'var(--bg-tertiary, #1c2233)',
-                color: isSelected ? '#ffffff' : 'var(--text-muted, #94a3b8)',
+                background: isSelected ? `${dept.color}1c` : 'var(--bg-card, #1c2233)',
+                color: isSelected ? dept.color : 'var(--text-muted, #94a3b8)',
                 cursor: 'pointer',
                 fontWeight: isSelected ? 800 : 600,
                 fontSize: '0.78rem',
@@ -116,13 +116,13 @@ export function DepartmentBar({
               title={dept.desc}
             >
               <span>{dept.icon}</span>
-              <span>{dept.name}</span>
+              <span style={{ fontWeight: isSelected ? 800 : 600 }}>{dept.name}</span>
               <span
                 style={{
                   padding: '1px 6px',
                   borderRadius: '10px',
-                  background: isSelected ? dept.color : 'rgba(255,255,255,0.08)',
-                  color: isSelected ? '#ffffff' : 'var(--text-muted, #94a3b8)',
+                  background: isSelected ? dept.color : 'rgba(255,255,255,0.12)',
+                  color: '#ffffff',
                   fontSize: '0.68rem',
                   fontWeight: 800
                 }}

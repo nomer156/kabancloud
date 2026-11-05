@@ -119,22 +119,6 @@ export default function App() {
     return null;
   };
 
-  // Hash routing for Jira full page view: #task/:id or #/task/:id
-  const [detailTaskId, setDetailTaskId] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return extractTaskIdFromHash(window.location.hash);
-    }
-    return null;
-  });
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      setDetailTaskId(extractTaskIdFromHash(window.location.hash));
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
   // App data state - initial synchronous fallback ensures no empty screen on refresh or direct new tab opening!
   const [tasks, setTasks] = useState(() => {
     try {
@@ -146,6 +130,60 @@ export default function App() {
     } catch {}
     return INITIAL_TASKS || [];
   });
+
+  // Resolve task matching loose ID or ciphers
+  const resolveTaskFromId = useCallback((rawId) => {
+    if (!rawId) return null;
+    let cleanId = String(rawId).trim().toLowerCase();
+    try {
+      cleanId = decodeURIComponent(cleanId);
+    } catch {}
+    const cleanIdWithoutHash = cleanId.replace(/^#/, '');
+
+    const stripChars = (s) => String(s || '').toLowerCase().replace(/[^a-zа-я0-9]/gi, '');
+    const strippedClean = stripChars(cleanIdWithoutHash);
+
+    const matchTask = (t) => {
+      if (!t) return false;
+      const tid = String(t.id || '').trim().toLowerCase();
+      const tdisp = String(t.display_id || '').trim().toLowerCase();
+      if (tid === cleanId || tdisp === cleanId || tid === cleanIdWithoutHash || tdisp === cleanIdWithoutHash) return true;
+      if (strippedClean && (stripChars(tid) === strippedClean || stripChars(tdisp) === strippedClean)) return true;
+      return false;
+    };
+
+    const inState = tasks.find(matchTask);
+    if (inState) return inState;
+
+    try {
+      const raw = localStorage.getItem('ufanet_local_tasks_v3');
+      if (raw) {
+        const localList = JSON.parse(raw);
+        if (Array.isArray(localList)) {
+          const inLocal = localList.find(matchTask);
+          if (inLocal) return inLocal;
+        }
+      }
+    } catch {}
+    return null;
+  }, [tasks]);
+
+  // Sync #task/:id hash with activeTaskInPanel (Every task is a chat dock!)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const rawId = extractTaskIdFromHash(window.location.hash);
+      if (rawId) {
+        const found = resolveTaskFromId(rawId);
+        if (found) {
+          setActiveTaskInPanel(found);
+          setIsChatSidebarOpen(true);
+        }
+      }
+    };
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [resolveTaskFromId]);
 
   const [teamMembers, setTeamMembers] = useState(() => {
     try {
@@ -236,15 +274,28 @@ export default function App() {
   // Notifications state
   const [notifications, setNotifications] = useState([]);
 
-  // Toast feedback
+  // Toast feedback with deduplication, unique ID, max 4 items, and auto-dismiss
   const [toasts, setToasts] = useState([]);
+  const lastToastRef = useRef({ msg: '', time: 0 });
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const showToast = useCallback((msg, icon = '✓') => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, msg, icon }]);
+    if (!msg) return;
+    const now = Date.now();
+    if (lastToastRef.current.msg === msg && (now - lastToastRef.current.time) < 1500) {
+      return;
+    }
+    lastToastRef.current = { msg, time: now };
+
+    const id = `${now}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((prev) => [...prev.slice(-3), { id, msg, icon }]);
+
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
+    }, 3500);
   }, []);
 
   // Set theme on root
@@ -631,10 +682,36 @@ export default function App() {
       updated_at: new Date().toISOString()
     };
 
+    // Cascade archive / unarchive to all child and descendant tasks (Requirement 10.2)
+    const affectedDescendantIds = new Set();
+    if (taskData.is_archived !== undefined) {
+      const collectDescendants = (parentId) => {
+        tasks.filter((t) => t.parent_task_id === parentId).forEach((child) => {
+          affectedDescendantIds.add(child.id);
+          collectDescendants(child.id);
+        });
+      };
+      collectDescendants(taskId);
+    }
+
     const cleanId = String(taskId).trim().toLowerCase();
     if (isEditing) {
-      setTasks((prev) => prev.map((t) => (String(t.id).trim().toLowerCase() === cleanId || String(t.display_id || '').trim().toLowerCase() === cleanId ? { ...t, ...taskToSave } : t)));
-      showToast('Карточка успешно сохранена');
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (affectedDescendantIds.has(t.id)) {
+            return { ...t, is_archived: taskData.is_archived, updated_at: new Date().toISOString() };
+          }
+          if (String(t.id).trim().toLowerCase() === cleanId || String(t.display_id || '').trim().toLowerCase() === cleanId) {
+            return { ...t, ...taskToSave };
+          }
+          return t;
+        })
+      );
+      if (taskData.is_archived !== undefined) {
+        showToast(taskData.is_archived ? 'Задача и её подзадачи отправлены в архив' : 'Задача и подзадачи разархивированы', '📦');
+      } else {
+        showToast('Карточка успешно сохранена');
+      }
     } else {
       setTasks((prev) => [taskToSave, ...prev]);
       showToast('Новая задача создана');
@@ -660,6 +737,16 @@ export default function App() {
             return next;
           }
           return [saved, ...prev];
+        });
+      }
+
+      // Persist cascaded archive state for all descendants
+      if (affectedDescendantIds.size > 0) {
+        affectedDescendantIds.forEach((childId) => {
+          const childTask = tasks.find((t) => t.id === childId);
+          if (childTask) {
+            saveTask({ ...childTask, is_archived: taskData.is_archived }).catch(console.error);
+          }
         });
       }
     } catch (e) {
@@ -697,7 +784,7 @@ export default function App() {
           user_name: currentUser?.full_name || 'Инженер',
           date: new Date().toISOString().split('T')[0],
           hours,
-          comment: `Списано по секундомеру KabanCloud (${stopwatchElapsedSec} сек)`
+          comment: `Списано по секундомеру Доски (${stopwatchElapsedSec} сек)`
         };
         const currentLogs = Array.isArray(targetTask.worklogs) ? targetTask.worklogs : [];
         const updatedLogs = [newLog, ...currentLogs];
@@ -733,7 +820,7 @@ export default function App() {
     }
   };
 
-  // YouGile Inline Task Creation in any Column
+  // Inline Task Creation in any Column (auto-mirrors RSS tasks to Design)
   const handleInlineCreateTask = async (columnId, title) => {
     if (!title || !title.trim()) return;
     if (!hasPermission(currentUser, 'can_create_task', permissionsMatrix)) {
@@ -744,6 +831,7 @@ export default function App() {
     const sec = sections[0]?.id || 'ВДН';
     const proj = projects[0] || 'ЖК «Агидель»';
     const taskId = generateTaskDisplayId(sec, proj, tasks);
+    const isRss = dept === 'dept-rss';
     const newTask = {
       id: taskId,
       display_id: taskId,
@@ -754,6 +842,7 @@ export default function App() {
       assignee_id: currentUser?.id || null,
       section: sec,
       project_code: proj,
+      mirrored_departments: isRss ? ['dept-design'] : [],
       created_at: new Date().toISOString()
     };
     await handleSaveTask(newTask);
@@ -1016,10 +1105,11 @@ export default function App() {
 
   const handleOpenTaskFromNotification = (taskId) => {
     if (!taskId) return;
-    const task = tasks.find((t) => String(t.id) === String(taskId));
+    const task = resolveTaskFromId(taskId);
     if (task) {
-      window.location.hash = `#task/${taskId}`;
-      setDetailTaskId(taskId);
+      window.location.hash = `#task/${encodeURIComponent(task.id)}`;
+      setActiveTaskInPanel(task);
+      setIsChatSidebarOpen(true);
     }
   };
 
@@ -1073,8 +1163,12 @@ export default function App() {
 
   // Edit task (switches right panel to task chat & details)
   const handleEditTask = (task) => {
+    if (!task) return;
     setActiveTaskInPanel(task);
     setIsChatSidebarOpen(true);
+    if (task.id) {
+      window.location.hash = `#task/${encodeURIComponent(task.id)}`;
+    }
     playSound('click');
   };
 
@@ -1094,51 +1188,7 @@ export default function App() {
 
   return (
     <div className="app-root-shell" style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
-      {/* Detail Task Page (Jira view in new tab or direct link) */}
-      {detailTaskId ? (
-        activeDetailTask ? (
-          <TaskDetailView
-            task={activeDetailTask}
-            teamMembers={teamMembers}
-            projects={projects}
-            sections={sections}
-            columns={columns}
-            currentUser={effectiveUser}
-            onSaveTask={handleSaveTask}
-            onDeleteTask={(id) => {
-              handleDeleteTask(id);
-              window.location.hash = '';
-              setDetailTaskId(null);
-            }}
-            onBack={() => {
-              window.location.hash = '';
-              setDetailTaskId(null);
-            }}
-            onNotifyMention={handleNotifyMention}
-          />
-        ) : (
-          <div style={{ padding: '6rem 2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '0.8rem', color: 'var(--text-primary)' }}>
-              {loading ? 'Загрузка данных задачи...' : 'Задача не найдена или была удалена'}
-            </h2>
-            <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>
-              {loading ? 'Пожалуйста, подождите...' : `ID: ${detailTaskId}`}
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                window.location.hash = '';
-                setDetailTaskId(null);
-              }}
-            >
-              Вернуться на доску
-            </button>
-          </div>
-        )
-      ) : (
-        <>
-          {/* Top Navigation Header (Spans full 100% width across the top) */}
+      {/* Top Navigation Header (Spans full 100% width across the top) */}
           <Header
             tasks={tasks}
             teamMembers={teamMembers}
@@ -1293,16 +1343,18 @@ export default function App() {
             {activeView === 'board' ? (
               <main className="board-container" style={{ flex: 1, minWidth: 0, height: '100%', overflowX: 'auto', display: 'flex' }}>
                 {columns.map((col) => {
-                  const colTasks = filteredTasks.filter((t) => t.status === col.id);
+                  const colTasks = filteredTasks.filter((t) => t.status === col.id && !t.parent_task_id);
 
                   return (
                     <KanbanColumn
                       key={col.id}
                       column={col}
                       tasks={colTasks}
+                      allTasks={tasks}
                       teamMembers={teamMembers}
                       sections={sections}
                       onEditTask={handleEditTask}
+                      onSaveTask={handleSaveTask}
                       onQuickAddTask={handleQuickAdd}
                       onInlineCreateTask={handleInlineCreateTask}
                       onShareToChat={handleShareTaskToChat}
@@ -1319,9 +1371,11 @@ export default function App() {
             ) : activeView === 'gantt' ? (
               <GanttChart
                 tasks={filteredTasks}
+                allTasks={tasks}
                 teamMembers={teamMembers}
                 sections={sections}
                 onEditTask={handleEditTask}
+                onSaveTask={handleSaveTask}
                 onQuickAddTask={handleQuickAdd}
               />
             ) : (
@@ -1341,6 +1395,7 @@ export default function App() {
             {activeTaskInPanel ? (
               <TaskChatPanel
                 task={activeTaskInPanel}
+                allTasks={tasks}
                 columns={columns}
                 teamMembers={teamMembers}
                 departments={departments}
@@ -1352,7 +1407,12 @@ export default function App() {
                 stopwatchElapsedSec={stopwatchElapsedSec}
                 formatStopwatchTime={formatStopwatchTime}
                 onSaveTask={handleSaveTask}
-                onClose={() => setActiveTaskInPanel(null)}
+                onClose={() => {
+                  setActiveTaskInPanel(null);
+                  if (window.location.hash.startsWith('#task/')) {
+                    window.location.hash = '';
+                  }
+                }}
                 showToast={showToast}
               />
             ) : (
@@ -1383,8 +1443,6 @@ export default function App() {
               />
             )}
           </div>
-        </>
-      )}
 
       {/* Task Creation / Editing Modal */}
       <TaskModal
@@ -1497,9 +1555,25 @@ export default function App() {
       {/* Toast Feedback */}
       <div className="toast-container">
         {toasts.map((t) => (
-          <div key={t.id} className="toast">
+          <div key={t.id} className="toast" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>{t.icon}</span>
-            <span>{t.msg}</span>
+            <span style={{ flex: 1 }}>{t.msg}</span>
+            <button
+              type="button"
+              onClick={() => dismissToast(t.id)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'inherit',
+                opacity: 0.6,
+                cursor: 'pointer',
+                padding: '0 4px',
+                fontSize: '0.85rem'
+              }}
+              title="Закрыть"
+            >
+              ✕
+            </button>
           </div>
         ))}
       </div>

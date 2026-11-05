@@ -13,11 +13,14 @@ import {
   MessageSquare,
   Link2,
   Play,
-  Square
+  Square,
+  ChevronDown,
+  ChevronRight,
+  UploadCloud
 } from 'lucide-react';
 import { PRIORITIES, DEPARTMENTS, formatPathEnd, DEFAULT_STICKERS } from '../lib/constants';
 import { playSound } from '../lib/sound';
-import { openFolderInExplorer } from '../lib/api';
+import { openFolderInExplorer, uploadTaskFile } from '../lib/api';
 import { renderWithMentions } from '../lib/mentions';
 
 export function TaskCard({
@@ -29,19 +32,29 @@ export function TaskCard({
   onShareToChat,
   activeDepartmentId,
   activeStopwatchTaskId,
-  onToggleStopwatch
+  onToggleStopwatch,
+  allTasks = [],
+  currentUser,
+  onSaveTask
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
+  const [isFileOver, setIsFileOver] = useState(false);
 
   // Check if task is running live stopwatch
   const isStopwatchActive = activeStopwatchTaskId === task.id;
 
   // Check if task is mirrored from another department
-  const isMirrored = activeDepartmentId && 
+  const isMirroredTarget = Boolean(
+    activeDepartmentId && 
     activeDepartmentId !== 'all' && 
     task.department_id !== activeDepartmentId && 
     Array.isArray(task.mirrored_departments) && 
-    task.mirrored_departments.includes(activeDepartmentId);
+    task.mirrored_departments.includes(activeDepartmentId)
+  );
+
+  const isMirroredSource = Array.isArray(task.mirrored_departments) && task.mirrored_departments.length > 0;
+  const isMirrored = isMirroredTarget;
 
   // Find department metadata
   const deptMeta = DEPARTMENTS.find((d) => d.id === task.department_id) || DEPARTMENTS[0];
@@ -61,10 +74,23 @@ export function TaskCard({
   // Find assignee
   const assignee = teamMembers.find((m) => m.id === task.assignee_id);
 
-  // Subtasks / Checklist statistics
-  const subtasksList = Array.isArray(task.subtasks) && task.subtasks.length > 0 ? task.subtasks : (Array.isArray(task.checklist) ? task.checklist : []);
-  const totalSubtasks = subtasksList.length;
-  const doneSubtasks = subtasksList.filter((c) => c.done).length;
+  // 1. Checklist items (checkboxes on task)
+  const checklist = Array.isArray(task.checklist) ? task.checklist : [];
+  const totalChecks = checklist.length;
+  const doneChecks = checklist.filter((c) => c.done || c.completed).length;
+
+  // 2. Real Hierarchical Subtasks (child tasks in tasks array)
+  const childTasks = React.useMemo(() => {
+    if (!Array.isArray(allTasks) || allTasks.length === 0) return [];
+    return allTasks.filter((t) => t.parent_task_id === task.id);
+  }, [allTasks, task.id]);
+  const totalChildTasks = childTasks.length;
+  const doneChildTasks = childTasks.filter((t) => t.status === 'done').length;
+
+  // Combined for member pills
+  const subtasksList = totalChildTasks > 0 ? childTasks : (Array.isArray(task.subtasks) ? task.subtasks : []);
+  const totalSubtasks = totalChildTasks > 0 ? totalChildTasks : totalChecks;
+  const doneSubtasks = totalChildTasks > 0 ? doneChildTasks : doneChecks;
   const subtasksPercent = totalSubtasks > 0 ? (doneSubtasks / totalSubtasks) * 100 : 0;
 
   // Distinct subtask assignees for YouGile multi-assignee visualization
@@ -113,17 +139,52 @@ export function TaskCard({
     }
   }
 
-  // Open in new tab (Jira full page view)
-  const handleOpenInNewTab = (e) => {
-    e.stopPropagation();
-    window.open(`/#task/${encodeURIComponent(task.id)}`, '_blank');
+  // Open task in docked task chat & panel
+  const handleOpenTask = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    onEdit(task);
+    window.location.hash = `#task/${encodeURIComponent(task.id)}`;
   };
 
   const handleMiddleClick = (e) => {
     if (e.button === 1) { // Middle mouse wheel click!
       e.preventDefault();
       e.stopPropagation();
-      window.open(`/#task/${encodeURIComponent(task.id)}`, '_blank');
+      handleOpenTask(e);
+    }
+  };
+
+  const handleCardDragOver = (e) => {
+    if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsFileOver(true);
+    }
+  };
+
+  const handleCardDragLeave = () => {
+    setIsFileOver(false);
+  };
+
+  const handleCardDrop = async (e) => {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsFileOver(false);
+      const file = e.dataTransfer.files[0];
+      try {
+        const uploaded = await uploadTaskFile(file, currentUser?.full_name || 'Инженер');
+        const updatedFiles = [...(task.files || []), uploaded];
+        if (onSaveTask) {
+          onSaveTask({ ...task, files: updatedFiles });
+        }
+        playSound('success');
+      } catch (err) {
+        console.error('Ошибка загрузки файла на карточку:', err);
+      }
     }
   };
 
@@ -246,8 +307,8 @@ export function TaskCard({
             {sectionMeta.id}
           </span>
 
-          {/* YouGile Mirror Badge (if mirrored from another department) */}
-          {isMirrored && (
+          {/* Bidirectional Mirror Badges */}
+          {isMirroredTarget && (
             <span
               style={{
                 fontSize: '0.65rem',
@@ -264,7 +325,28 @@ export function TaskCard({
               title={`Зеркальная задача из отдела: ${deptMeta.name}`}
             >
               <Link2 size={10} style={{ color: '#a78bfa' }} />
-              <span>Зеркало: {deptMeta.name}</span>
+              <span>Зеркало из: {deptMeta.name}</span>
+            </span>
+          )}
+
+          {isMirroredSource && (
+            <span
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                background: 'rgba(59, 130, 246, 0.18)',
+                color: '#93c5fd',
+                border: '1px solid rgba(59, 130, 246, 0.45)',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title={`Зеркалировано в отделы: ${task.mirrored_departments.map((id) => DEPARTMENTS.find((d) => d.id === id)?.name || id).join(', ')}`}
+            >
+              <Link2 size={10} style={{ color: '#60a5fa' }} />
+              <span>Зеркалировано в: {task.mirrored_departments.map((id) => DEPARTMENTS.find((d) => d.id === id)?.name || id).join(', ')}</span>
             </span>
           )}
 
@@ -438,27 +520,127 @@ export function TaskCard({
         </a>
       )}
 
-      {/* Subtasks Progress Bar (YouGile Subtask Feature) */}
-      {totalSubtasks > 0 && (
-        <div className="card-checklist-group" style={{ margin: '0.45rem 0' }}>
+      {/* Checklist Checkboxes Progress */}
+      {totalChecks > 0 && (
+        <div className="card-checklist-group" style={{ margin: '0.4rem 0' }}>
           <div className="card-checklist-stats" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: doneSubtasks === totalSubtasks ? '#10b981' : 'var(--text-muted)' }}>
-              <CheckSquare size={12} style={{ color: doneSubtasks === totalSubtasks ? '#10b981' : 'inherit' }} />
-              <span>Подзадачи: {doneSubtasks}/{totalSubtasks}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: doneChecks === totalChecks ? '#10b981' : 'var(--text-muted)' }}>
+              <CheckSquare size={12} style={{ color: doneChecks === totalChecks ? '#10b981' : 'inherit' }} />
+              <span>Чек-лист: {doneChecks}/{totalChecks}</span>
             </span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: doneSubtasks === totalSubtasks ? '#10b981' : 'var(--text-dim)' }}>
-              {Math.round(subtasksPercent)}%
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: doneChecks === totalChecks ? '#10b981' : 'var(--text-dim)' }}>
+              {Math.round((doneChecks / totalChecks) * 100)}%
             </span>
           </div>
-          <div className="checklist-progress-bar">
+          <div className="checklist-progress-bar" style={{ marginTop: '2px' }}>
             <div
               className="checklist-progress-fill"
               style={{
-                width: `${subtasksPercent}%`,
-                backgroundColor: doneSubtasks === totalSubtasks ? '#10b981' : 'var(--accent-orange)'
+                width: `${(doneChecks / totalChecks) * 100}%`,
+                backgroundColor: doneChecks === totalChecks ? '#10b981' : 'var(--accent-orange)'
               }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Real Nested Subtasks Tree (YouGile Tree Feature) */}
+      {childTasks.length > 0 && (
+        <div style={{ marginTop: '0.45rem', marginBottom: '0.25rem' }}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSubtasksExpanded(!isSubtasksExpanded);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '6px',
+              width: '100%',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
+              color: doneChildTasks === childTasks.length ? '#10b981' : 'var(--text-main, #f8fafc)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              {isSubtasksExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+              <span>Подзадачи ({doneChildTasks}/{childTasks.length})</span>
+            </div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-dim, #64748b)' }}>
+              {isSubtasksExpanded ? 'свернуть' : 'развернуть'}
+            </span>
+          </button>
+
+          {isSubtasksExpanded && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '5px', paddingLeft: '8px', borderLeft: '2px solid rgba(255, 102, 0, 0.35)' }}>
+              {childTasks.map((child) => {
+                const childAssignee = teamMembers.find((m) => m.id === child.assignee_id);
+                const isChildDone = child.status === 'done';
+                return (
+                  <div
+                    key={child.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(child);
+                      window.location.hash = `#task/${encodeURIComponent(child.id)}`;
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      background: 'var(--bg-secondary, #0f172a)',
+                      border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '6px'
+                    }}
+                    title="Нажмите для открытия подзадачи"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1 }}>
+                      <span style={{ color: isChildDone ? '#10b981' : 'var(--accent-orange)' }}>↳</span>
+                      <span style={{ fontWeight: 600, color: isChildDone ? 'var(--text-muted)' : 'var(--text-main)', textDecoration: isChildDone ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {child.title}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      {childAssignee && (
+                        <div
+                          style={{
+                            width: 17,
+                            height: 17,
+                            borderRadius: '50%',
+                            background: childAssignee.avatar_color || '#ff6600',
+                            color: '#fff',
+                            fontSize: '0.55rem',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title={childAssignee.full_name}
+                        >
+                          {childAssignee.initials || childAssignee.full_name?.[0]}
+                        </div>
+                      )}
+                      <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: isChildDone ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)', color: isChildDone ? '#10b981' : 'var(--text-dim)' }}>
+                        {isChildDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Бэклог'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

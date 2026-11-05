@@ -35,7 +35,8 @@ import {
   Play,
   Square,
   Sparkles,
-  Link2
+  Link2,
+  Users
 } from 'lucide-react';
 import { 
   PRIORITIES, 
@@ -264,7 +265,7 @@ export function TaskDetailView({
           id: `wl-${Date.now()}`,
           date: new Date().toISOString().split('T')[0],
           hours: timeFormatted,
-          comment: `Списано по секундомеру KabanCloud (${stopwatchSeconds} сек)`
+          comment: `Списано по секундомеру Доски (${stopwatchSeconds} сек)`
         };
         const nextWorklogs = [newEntry, ...worklogs];
         setWorklogs(nextWorklogs);

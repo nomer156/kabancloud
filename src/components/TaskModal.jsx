@@ -178,7 +178,7 @@ export function TaskModal({
           id: `wl-${Date.now()}`,
           date: new Date().toISOString().split('T')[0],
           hours: timeFormatted,
-          comment: `Списано по секундомеру KabanCloud (${stopwatchSeconds} сек)`
+          comment: `Списано по секундомеру Доски (${stopwatchSeconds} сек)`
         };
         setWorklogs((prev) => [newEntry, ...prev]);
 

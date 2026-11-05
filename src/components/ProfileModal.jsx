@@ -17,7 +17,10 @@ import {
   Upload, 
   Trash2, 
   Sparkles,
-  Clock
+  Clock,
+  CreditCard,
+  Navigation,
+  Gauge
 } from 'lucide-react';
 import { DEPARTMENTS } from '../lib/constants';
 import { playSound } from '../lib/sound';
@@ -50,6 +53,15 @@ export function ProfileModal({
   const [avatarColor, setAvatarColor] = useState('#ff6600');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [initials, setInitials] = useState('');
+
+  // Profile and Fuel Card Tab
+  const [activeProfileTab, setActiveProfileTab] = useState('profile'); // 'profile' | 'fuel_card'
+  const [fuelTrips, setFuelTrips] = useState(() => {
+    return Array.isArray(currentUser?.fuel_trips) ? currentUser.fuel_trips : [
+      { id: 'trip-1', date: '2026-11-02', address: 'г. Москва, ул. Арбат, 24', km: 48, liters: 4.1, task_id: 'task-101', task_title: 'Обследование узла ВОЛС' },
+      { id: 'trip-2', date: '2026-11-04', address: 'г. Красногорск, ул. Ленина, 15', km: 62, liters: 5.3, task_id: 'task-104', task_title: 'Согласование кабельного ввода' }
+    ];
+  });
 
   // Access request state
   const [requestNote, setRequestNote] = useState('');
@@ -171,7 +183,8 @@ export function ProfileModal({
         specialty: specialty.trim(),
         avatar_color: avatarColor,
         avatar_url: avatarUrl || null,
-        initials: computedInitials
+        initials: computedInitials,
+        fuel_trips: fuelTrips
       };
 
       if (normPc) {
@@ -269,7 +282,217 @@ export function ProfileModal({
           </button>
         </div>
 
+        {/* Profile Tabs: Profile Details vs Fuel Card */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.08))', padding: '0 1.4rem' }}>
+          <button
+            type="button"
+            onClick={() => setActiveProfileTab('profile')}
+            style={{
+              padding: '0.65rem 1rem',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeProfileTab === 'profile' ? '2.5px solid #ff6600' : '2.5px solid transparent',
+              color: activeProfileTab === 'profile' ? '#ff6600' : 'var(--text-muted, #94a3b8)',
+              fontWeight: activeProfileTab === 'profile' ? 700 : 500,
+              fontSize: '0.84rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <User size={15} />
+            <span>Данные профиля</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveProfileTab('fuel_card')}
+            style={{
+              padding: '0.65rem 1rem',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeProfileTab === 'fuel_card' ? '2.5px solid #ff6600' : '2.5px solid transparent',
+              color: activeProfileTab === 'fuel_card' ? '#ff6600' : 'var(--text-muted, #94a3b8)',
+              fontWeight: activeProfileTab === 'fuel_card' ? 700 : 500,
+              fontSize: '0.84rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <CreditCard size={15} />
+            <span>Топливная карта (ГСМ)</span>
+            <span style={{ fontSize: '0.68rem', background: 'rgba(255, 102, 0, 0.18)', color: '#ff6600', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+              АИ-95
+            </span>
+          </button>
+        </div>
+
         {/* Modal Body */}
+        {activeProfileTab === 'fuel_card' ? (
+          <div style={{ padding: '1.4rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1 }}>
+            {/* Virtual Card Graphic */}
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '460px',
+                margin: '0 auto',
+                borderRadius: '16px',
+                padding: '1.4rem',
+                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                border: '1.5px solid rgba(255, 102, 0, 0.4)',
+                boxShadow: '0 14px 30px rgba(0, 0, 0, 0.6), 0 0 25px rgba(255, 102, 0, 0.15)',
+                color: '#fff',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                height: '210px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 900, color: '#ff6600', letterSpacing: '0.05em', fontSize: '0.95rem' }}>УФАНЕТ</span>
+                  <span style={{ fontSize: '0.72rem', background: 'rgba(255, 102, 0, 0.2)', padding: '2px 6px', borderRadius: '6px', color: '#ff8800', fontWeight: 800 }}>
+                    ТОПЛИВНАЯ КАРТА
+                  </span>
+                </div>
+                <CreditCard size={22} style={{ color: '#ff6600' }} />
+              </div>
+
+              {/* Card Chip & Type */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '0.4rem 0' }}>
+                <div style={{ width: 36, height: 26, borderRadius: '5px', background: 'linear-gradient(135deg, #eab308, #ca8a04)', border: '1px solid #fef08a' }} />
+                <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>Безналичный расчет ГСМ • АИ-95</span>
+              </div>
+
+              {/* Card Number */}
+              <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '1.15rem', letterSpacing: '0.12em', fontWeight: 700, color: '#f8fafc' }}>
+                ТК-7704 5412 {(currentUser.workstation_id?.replace(/\D/g, '') || '01').padStart(2, '0')}00 9500
+              </div>
+
+              {/* Footer: Cardholder & Base */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '0.74rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.62rem', color: '#94a3b8', textTransform: 'uppercase' }}>Держатель карты</div>
+                  <div style={{ fontWeight: 800, color: '#fff' }}>{fullName || currentUser.full_name}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.62rem', color: '#94a3b8', textTransform: 'uppercase' }}>База выезда</div>
+                  <div style={{ fontWeight: 700, color: '#cbd5e1' }}>Одинцово, БЦ Телеграф</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Monthly Consumption Statistics */}
+            {(() => {
+              const totalKm = fuelTrips.reduce((s, t) => s + (Number(t.km) || 0), 0);
+              const totalLiters = (totalKm * 0.085).toFixed(1);
+              const limitLiters = 150;
+              const remainingLiters = Math.max(0, limitLiters - Number(totalLiters)).toFixed(1);
+              const percentUsed = Math.min(100, Math.round((Number(totalLiters) / limitLiters) * 100));
+
+              return (
+                <div style={{ background: 'var(--bg-secondary, #0f172a)', border: '1px solid var(--border-subtle, #334155)', borderRadius: '12px', padding: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.85rem' }}>
+                      <Gauge size={16} style={{ color: '#ff6600' }} />
+                      <span>Расход топлива за Ноябрь 2026 (Норма 8.5 л / 100 км)</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#ff8800' }}>
+                      {percentUsed}% от лимита
+                    </span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{ height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
+                    <div style={{ width: `${percentUsed}%`, height: '100%', background: percentUsed > 90 ? '#ef4444' : 'linear-gradient(90deg, #ff6600, #ff8800)', transition: 'width 0.3s ease' }} />
+                  </div>
+
+                  {/* 3 Metric Pills */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                    <div style={{ background: 'rgba(255, 102, 0, 0.08)', border: '1px solid rgba(255, 102, 0, 0.25)', borderRadius: '8px', padding: '0.65rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Пробег выездов</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#ff6600' }}>{totalKm} км</div>
+                    </div>
+                    <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', padding: '0.65rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Списано АИ-95</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#38bdf8' }}>{totalLiters} л</div>
+                    </div>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '8px', padding: '0.65rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Остаток лимита</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#10b981' }}>{remainingLiters} л</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Trip Log Table */}
+            <div style={{ background: 'var(--bg-secondary, #0f172a)', border: '1px solid var(--border-subtle, #334155)', borderRadius: '12px', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.85rem' }}>
+                  <Navigation size={15} style={{ color: '#10b981' }} />
+                  <span>История поездок и выездов на объекты</span>
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Отправная точка: БЦ «Телеграф», ул. Молодёжная, 46
+                </span>
+              </div>
+
+              {fuelTrips.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  Поездок пока не зафиксировано. При завершении карточки с отметкой «🚗 Требует выезд» километраж записывается сюда автоматически.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {fuelTrips.map((trip) => (
+                    <div
+                      key={trip.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.55rem 0.75rem',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        fontSize: '0.78rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          🚗 {trip.address}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {trip.date} • {trip.task_title || trip.task_id || 'Выезд на объект'}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '0.75rem' }}>
+                        <div style={{ fontWeight: 800, color: '#ff6600' }}>{trip.km} км</div>
+                        <div style={{ fontSize: '0.68rem', color: '#38bdf8' }}>{trip.liters} л АИ-95</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSave}
+                style={{ padding: '0.55rem 1.35rem', fontSize: '0.82rem', fontWeight: 800 }}
+              >
+                <Check size={16} />
+                <span>Сохранить данные</span>
+              </button>
+            </div>
+          </div>
+        ) : (
         <form
           onSubmit={handleSave}
           style={{
@@ -761,6 +984,7 @@ export function ProfileModal({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

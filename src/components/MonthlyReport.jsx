@@ -15,9 +15,11 @@ import {
   Users,
   Check,
   Building2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Layers
 } from 'lucide-react';
 import { playSound } from '../lib/sound';
+import { DEPARTMENTS } from '../lib/constants';
 
 const MONTH_NAMES = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -63,6 +65,7 @@ export function MonthlyReport({
 }) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewAllTime, setViewAllTime] = useState(false);
+  const [selectedDeptId, setSelectedDeptId] = useState('all');
   const [copiedPayroll, setCopiedPayroll] = useState(false);
 
   const currentYear = currentDate.getFullYear();
@@ -84,9 +87,15 @@ export function MonthlyReport({
     playSound('click');
   };
 
-  // Filter tasks for this month and assignee
+  // Filter tasks for this month and assignee and department
   const reportTasks = useMemo(() => {
     return tasks.filter((task) => {
+      // 0. Department filter
+      if (selectedDeptId !== 'all') {
+        const taskDept = task.department_id || 'dept-design';
+        if (taskDept !== selectedDeptId) return false;
+      }
+
       // 1. Assignee filter if specific member selected
       if (selectedAssigneeId && task.assignee_id !== selectedAssigneeId) {
         return false;
@@ -104,7 +113,7 @@ export function MonthlyReport({
 
       return taskDate.getFullYear() === currentYear && taskDate.getMonth() === currentMonth;
     });
-  }, [tasks, selectedAssigneeId, currentYear, currentMonth, viewAllTime]);
+  }, [tasks, selectedAssigneeId, selectedDeptId, currentYear, currentMonth, viewAllTime]);
 
   // Aggregate stats
   const totalTasks = reportTasks.length;
@@ -136,9 +145,17 @@ export function MonthlyReport({
     return Object.entries(map).sort((a, b) => b[1].hours - a[1].hours);
   }, [reportTasks]);
 
-  // Breakdown by employee (for whole department view)
+  // Breakdown by employee (for whole department view, excluding admins from engineering table)
   const employeeBreakdown = useMemo(() => {
-    return teamMembers.map((member) => {
+    const targetMembers = teamMembers.filter((m) => {
+      const u = (m.username || '').toLowerCase();
+      const fn = (m.full_name || '').toLowerCase();
+      if (u === 'sanya' || u === 'admin' || fn.includes('администратор') || fn === 'admin') return false;
+      if (selectedDeptId !== 'all' && m.department_id && m.department_id !== selectedDeptId) return false;
+      return true;
+    });
+
+    return targetMembers.map((member) => {
       const memberTasks = reportTasks.filter((t) => t.assignee_id === member.id);
       const mDone = memberTasks.filter((t) => t.status === 'done').length;
       const mInProgress = memberTasks.filter((t) => t.status === 'in_progress' || t.status === 'review').length;
@@ -154,7 +171,7 @@ export function MonthlyReport({
         hours: Math.round(mHours * 10) / 10
       };
     }).sort((a, b) => b.hours - a.hours);
-  }, [teamMembers, reportTasks]);
+  }, [teamMembers, reportTasks, selectedDeptId]);
 
   // Export to CSV for Excel / Payroll
   const handleExportCSV = () => {
@@ -280,6 +297,29 @@ export function MonthlyReport({
 
           {/* Month Switcher & Action Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            {/* Department Filter Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-tertiary)', padding: '0.35rem 0.65rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+              <Layers size={14} style={{ color: 'var(--accent-orange)' }} />
+              <select
+                value={selectedDeptId}
+                onChange={(e) => setSelectedDeptId(e.target.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all" style={{ background: 'var(--bg-card)', color: 'var(--text-main)' }}>🏢 Все отделы</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d.id} value={d.id} style={{ background: 'var(--bg-card)', color: 'var(--text-main)' }}>{d.icon} {d.name}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Month Switcher */}
             <div
               style={{

@@ -279,7 +279,91 @@ export const PRIORITIES = [
 ];
 
 export const INITIAL_MEMBERS = [
-  // 0. Главный Администратор (Admin)
+  // 0. Главный Администратор (Sanya & Root)
+  {
+    id: 'uf-admin-sanya',
+    username: 'sanya',
+    password: 'Nomer1',
+    full_name: 'Александр Никитин (Администратор)',
+    department_id: 'dept-design',
+    role: 'Главный администратор системы',
+    role_level: 10,
+    initials: 'АН',
+    avatar_color: '#ff6600',
+    specialty: 'Полный доступ (Администратор)',
+    workstation_id: 'vlxproject00',
+    status: 'active'
+  },
+  {
+    id: 'uf-dept-design',
+    username: 'design',
+    password: 'vlx.ufanet.ru',
+    full_name: 'Отдел Проектирования',
+    department_id: 'dept-design',
+    role: 'Начальник отдела проектирования',
+    role_level: 10,
+    initials: 'ОП',
+    avatar_color: '#ff6600',
+    specialty: 'Проектирование ВОЛС и СКС',
+    workstation_id: 'vlxproject01',
+    status: 'active'
+  },
+  {
+    id: 'uf-dept-welders',
+    username: 'welders',
+    password: 'vlx.ufanet.ru',
+    full_name: 'Отдел Сварщиков',
+    department_id: 'dept-welders',
+    role: 'Бригадир сварщиков',
+    role_level: 10,
+    initials: 'ОС',
+    avatar_color: '#f59e0b',
+    specialty: 'Сварка ВОЛС и муфты',
+    workstation_id: 'vlxproject05',
+    status: 'active'
+  },
+  {
+    id: 'uf-dept-rss',
+    username: 'rss',
+    password: 'vlx.ufanet.ru',
+    full_name: 'Отдел РСС',
+    department_id: 'dept-rss',
+    role: 'Начальник участка РСС',
+    role_level: 10,
+    initials: 'РСС',
+    avatar_color: '#3b82f6',
+    specialty: 'Распределительные сети связи',
+    workstation_id: 'vlxproject07',
+    status: 'active'
+  },
+  {
+    id: 'uf-dept-sales-corp',
+    username: 'sales_corp',
+    password: 'vlx.ufanet.ru',
+    full_name: 'Отдел Продаж ЮЛ',
+    department_id: 'dept-sales-corp',
+    role: 'Руководитель корпоративных продаж',
+    role_level: 10,
+    initials: 'ЮЛ',
+    avatar_color: '#8b5cf6',
+    specialty: 'Корпоративные клиенты',
+    workstation_id: 'vlxproject09',
+    status: 'active'
+  },
+  {
+    id: 'uf-dept-sales-retail',
+    username: 'sales_retail',
+    password: 'vlx.ufanet.ru',
+    full_name: 'Отдел Продаж ФЛ',
+    department_id: 'dept-sales-retail',
+    role: 'Руководитель розничных продаж',
+    role_level: 10,
+    initials: 'ФЛ',
+    avatar_color: '#ec4899',
+    specialty: 'Розничные клиенты',
+    workstation_id: 'vlxproject11',
+    status: 'active'
+  },
   {
     id: 'uf-admin-root',
     full_name: 'admin',

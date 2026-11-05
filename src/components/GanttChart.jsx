@@ -16,15 +16,108 @@ import { playSound } from '../lib/sound';
 
 export function GanttChart({
   tasks = [],
+  allTasks = [],
   teamMembers = [],
   sections = [],
   onEditTask,
+  onSaveTask,
   onQuickAddTask
 }) {
   const [timeUnit, setTimeUnit] = useState('days'); // 'days' | 'weeks'
   const [centerDate, setCenterDate] = useState(() => new Date());
   const [hoveredTaskId, setHoveredTaskId] = useState(null);
+  const [draggingTask, setDraggingTask] = useState(null);
   const scrollContainerRef = useRef(null);
+
+  // Hierarchically sort tasks so child subtasks are indented beneath root tasks
+  const displayTasks = useMemo(() => {
+    const list = [];
+    const rootTasks = tasks.filter((t) => !t.parent_task_id);
+    const childTasksMap = new Map();
+    tasks.forEach((t) => {
+      if (t.parent_task_id) {
+        if (!childTasksMap.has(t.parent_task_id)) childTasksMap.set(t.parent_task_id, []);
+        childTasksMap.get(t.parent_task_id).push(t);
+      }
+    });
+
+    rootTasks.forEach((parent) => {
+      list.push({ ...parent, isChild: false, depth: 0 });
+      const children = childTasksMap.get(parent.id) || [];
+      children.forEach((child) => {
+        list.push({ ...child, isChild: true, depth: 1, parentTitle: parent.title });
+      });
+    });
+
+    // Add any orphaned child tasks whose parents aren't in current filter
+    tasks.forEach((t) => {
+      if (t.parent_task_id && !rootTasks.some((r) => r.id === t.parent_task_id)) {
+        list.push({ ...t, isChild: true, depth: 0 });
+      }
+    });
+
+    return list;
+  }, [tasks]);
+
+  const handleBarMouseDown = (e, task, mode) => {
+    e.stopPropagation();
+    e.preventDefault();
+    let startDate = task.created_at ? new Date(task.created_at) : new Date();
+    if (isNaN(startDate.getTime())) startDate = new Date();
+    let endDate = task.due_date ? new Date(task.due_date) : null;
+    if (!endDate || isNaN(endDate.getTime())) {
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 5);
+    }
+
+    setDraggingTask({
+      task,
+      mode,
+      startX: e.clientX,
+      originalStartMs: startDate.getTime(),
+      originalEndMs: endDate.getTime()
+    });
+  };
+
+  useEffect(() => {
+    if (!draggingTask) return;
+
+    const handleMouseUp = (e) => {
+      const dayPixelWidth = 44;
+      const deltaPx = e.clientX - draggingTask.startX;
+      const deltaDays = Math.round(deltaPx / dayPixelWidth);
+
+      if (deltaDays !== 0 && onSaveTask) {
+        const msPerDay = 86400000;
+        let newStartMs = draggingTask.originalStartMs;
+        let newEndMs = draggingTask.originalEndMs;
+
+        if (draggingTask.mode === 'move') {
+          newStartMs += deltaDays * msPerDay;
+          newEndMs += deltaDays * msPerDay;
+        } else if (draggingTask.mode === 'resize') {
+          newEndMs = Math.max(newStartMs + msPerDay, newEndMs + deltaDays * msPerDay);
+        }
+
+        const newStartDate = new Date(newStartMs).toISOString().split('T')[0];
+        const newEndDate = new Date(newEndMs).toISOString().split('T')[0];
+
+        onSaveTask({
+          ...draggingTask.task,
+          created_at: newStartDate,
+          due_date: newEndDate
+        });
+        playSound('click');
+      }
+
+      setDraggingTask(null);
+    };
+
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingTask, onSaveTask]);
 
   // Time window: 28 days around centerDate
   const daysRange = useMemo(() => {
@@ -224,12 +317,12 @@ export function GanttChart({
 
           {/* Task rows list */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-            {tasks.length === 0 ? (
+            {displayTasks.length === 0 ? (
               <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
                 Нет задач, соответствующих текущим фильтрам
               </div>
             ) : (
-              tasks.map((task) => {
+              displayTasks.map((task) => {
                 const assignee = teamMembers.find((m) => m.id === task.assignee_id);
                 const isHovered = hoveredTaskId === task.id;
                 const isDone = task.status === 'done';
@@ -255,7 +348,8 @@ export function GanttChart({
                       transition: 'background 0.15s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, paddingLeft: task.depth > 0 ? '16px' : '0' }}>
+                      {task.depth > 0 && <span style={{ color: 'var(--accent-orange)', fontSize: '0.75rem', fontWeight: 800 }}>↳</span>}
                       <span
                         style={{
                           fontSize: '0.65rem',
@@ -391,7 +485,7 @@ export function GanttChart({
                 bottom: 0,
                 display: 'flex',
                 pointerEvents: 'none',
-                height: `${tasks.length * 42}px`
+                height: `${displayTasks.length * 42}px`
               }}
             >
               {daysRange.map((day, idx) => {
@@ -431,7 +525,7 @@ export function GanttChart({
             </div>
 
             {/* Task rows and bars */}
-            {tasks.map((task) => {
+            {displayTasks.map((task) => {
               const metrics = getTaskBarMetrics(task);
               const isHovered = hoveredTaskId === task.id;
               const isDone = task.status === 'done';
@@ -464,7 +558,8 @@ export function GanttChart({
                   {metrics && (
                     <div
                       onClick={() => { if (onEditTask) onEditTask(task); }}
-                      title={`${task.display_id || ''}: ${task.title} (Выполнено: ${percent}%)`}
+                      onMouseDown={(e) => handleBarMouseDown(e, task, 'move')}
+                      title={`${task.display_id || ''}: ${task.title} (Потяните для переноса дат или правый край для изменения срока)`}
                       style={{
                         position: 'absolute',
                         left: metrics.left,
@@ -473,7 +568,7 @@ export function GanttChart({
                         background: 'var(--bg-card)',
                         border: `1.5px solid ${barColor}`,
                         borderRadius: '6px',
-                        cursor: 'pointer',
+                        cursor: 'grab',
                         overflow: 'hidden',
                         display: 'flex',
                         alignItems: 'center',
@@ -511,12 +606,29 @@ export function GanttChart({
                           fontSize: '0.72rem',
                           fontWeight: 700,
                           color: 'var(--text-main)',
-                          width: '100%'
+                          width: 'calc(100% - 10px)'
                         }}
                       >
                         <span style={{ color: barColor }}>{task.display_id}</span>
                         <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>{task.title}</span>
                       </div>
+
+                      {/* Right edge drag resize handle */}
+                      <div
+                        onMouseDown={(e) => handleBarMouseDown(e, task, 'resize')}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          bottom: 0,
+                          width: '10px',
+                          cursor: 'ew-resize',
+                          background: 'rgba(255, 255, 255, 0.2)',
+                          borderLeft: '1px solid rgba(0, 0, 0, 0.2)',
+                          zIndex: 10
+                        }}
+                        title="Потяните для изменения срока"
+                      />
                     </div>
                   )}
                 </div>

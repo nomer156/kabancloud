@@ -60,6 +60,15 @@ export function Header({
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
 
+  // Role permissions
+  const isSuperAdmin = Boolean(
+    currentUser?.username?.toLowerCase() === 'sanya' ||
+    currentUser?.full_name?.toLowerCase() === 'admin' ||
+    currentUser?.id === 'uf-admin-sanya' ||
+    (Number(currentUser?.role_level) >= 10 && currentUser?.role?.toLowerCase().includes('администратор'))
+  );
+  const isDeptHead = isSuperAdmin || (Number(currentUser?.role_level) >= 8);
+
   // Compute live statistics
   const totalCount = tasks.length;
   const inProgressCount = tasks.filter(t => t.status === 'in_progress').length;
@@ -78,17 +87,17 @@ export function Header({
     <header className="app-header">
       {/* Left: Brand & Main Navigation Tabs */}
       <div className="brand-section">
-        <div className="brand-logo" title="Уфанет • KabanCloud">
+        <div className="brand-logo" title="Уфанет • Доска">
           <Kanban size={22} strokeWidth={2.4} />
         </div>
         <div>
           <div className="brand-title">
             <span className="brand-accent">Уфанет</span>
-            <span>KabanCloud</span>
-            <span className="brand-badge">Канбан филиала</span>
+            <span>Доска</span>
+            <span className="brand-badge">Филиал Москва</span>
           </div>
           <div className="brand-subtitle">
-            Корпоративная облачная доска
+            Корпоративная канбан-доска
           </div>
         </div>
 
@@ -571,31 +580,50 @@ export function Header({
           })()}
         </div>
 
-        {/* Sections Management Button */}
-        <button
-          type="button"
-          className="btn-icon"
-          onClick={() => {
-            playSound('click');
-            onOpenSectionsModal();
-          }}
-          title="Управление разделами проекта (ВДН, ККС, МКЖ...)"
-        >
-          <Layers size={17} />
-        </button>
+        {/* Sections Management Button - Admin only */}
+        {isSuperAdmin && (
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => {
+              playSound('click');
+              onOpenSectionsModal();
+            }}
+            title="Управление разделами проекта (ВДН, ККС, МКЖ...)"
+          >
+            <Layers size={17} />
+          </button>
+        )}
 
-        {/* Columns Management Button */}
-        <button
-          type="button"
-          className="btn-icon"
-          onClick={() => {
-            playSound('click');
-            onOpenColumnsModal();
-          }}
-          title="Управление колонками доски (этапами разработки)"
-        >
-          <Kanban size={17} />
-        </button>
+        {/* Columns Management Button - Dept Head & Admin */}
+        {isDeptHead && (
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => {
+              playSound('click');
+              onOpenColumnsModal();
+            }}
+            title="Управление колонками доски (этапами разработки)"
+          >
+            <Kanban size={17} />
+          </button>
+        )}
+
+        {/* Team Members Management Button - Dept Head & Admin */}
+        {isDeptHead && onOpenTeamModal && (
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => {
+              playSound('click');
+              onOpenTeamModal();
+            }}
+            title="Управление сотрудниками отдела"
+          >
+            <Users size={17} />
+          </button>
+        )}
 
 
         {/* Settings & Departments / Feedback Modal Button */}

@@ -189,6 +189,76 @@ const DEFAULT_MEMBERS = [
     "status": "active"
   },
   {
+    "id": "uf-dept-design",
+    "username": "design",
+    "password": "vlx.ufanet.ru",
+    "full_name": "Отдел Проектирования",
+    "department_id": "dept-design",
+    "role": "Начальник отдела проектирования",
+    "role_level": 10,
+    "initials": "ОП",
+    "avatar_color": "#ff6600",
+    "specialty": "Проектирование ВОЛС и СКС",
+    "workstation_id": "vlxproject01",
+    "status": "active"
+  },
+  {
+    "id": "uf-dept-welders",
+    "username": "welders",
+    "password": "vlx.ufanet.ru",
+    "full_name": "Отдел Сварщиков",
+    "department_id": "dept-welders",
+    "role": "Бригадир сварщиков",
+    "role_level": 10,
+    "initials": "ОС",
+    "avatar_color": "#f59e0b",
+    "specialty": "Сварка ВОЛС и муфты",
+    "workstation_id": "vlxproject05",
+    "status": "active"
+  },
+  {
+    "id": "uf-dept-rss",
+    "username": "rss",
+    "password": "vlx.ufanet.ru",
+    "full_name": "Отдел РСС",
+    "department_id": "dept-rss",
+    "role": "Начальник участка РСС",
+    "role_level": 10,
+    "initials": "РСС",
+    "avatar_color": "#3b82f6",
+    "specialty": "Распределительные сети связи",
+    "workstation_id": "vlxproject07",
+    "status": "active"
+  },
+  {
+    "id": "uf-dept-sales-corp",
+    "username": "sales_corp",
+    "password": "vlx.ufanet.ru",
+    "full_name": "Отдел Продаж ЮЛ",
+    "department_id": "dept-sales-corp",
+    "role": "Руководитель корпоративных продаж",
+    "role_level": 10,
+    "initials": "ЮЛ",
+    "avatar_color": "#8b5cf6",
+    "specialty": "Корпоративные клиенты",
+    "workstation_id": "vlxproject09",
+    "status": "active"
+  },
+  {
+    "id": "uf-dept-sales-retail",
+    "username": "sales_retail",
+    "password": "vlx.ufanet.ru",
+    "full_name": "Отдел Продаж ФЛ",
+    "department_id": "dept-sales-retail",
+    "role": "Руководитель розничных продаж",
+    "role_level": 10,
+    "initials": "ФЛ",
+    "avatar_color": "#ec4899",
+    "specialty": "Розничные клиенты",
+    "workstation_id": "vlxproject11",
+    "status": "active"
+  },
+  {
     "id": "uf-admin-root",
     "full_name": "admin",
     "department_id": "dept-design",
@@ -449,13 +519,22 @@ function migrateDbSchema(db) {
       }
     });
 
-    // Ensure representatives for each department exist
-    const existingDeptIds = new Set(db.members.map((m) => m.department_id));
+    // Ensure default department accounts and admin exist in db
     DEFAULT_MEMBERS.forEach((dm) => {
-      if (!existingDeptIds.has(dm.department_id)) {
+      const idx = db.members.findIndex((m) => m.id === dm.id || (dm.username && m.username === dm.username));
+      if (idx === -1) {
         db.members.push(dm);
-        existingDeptIds.add(dm.department_id);
         modified = true;
+      } else {
+        // Sync password and username if missing
+        if (dm.password && !db.members[idx].password) {
+          db.members[idx].password = dm.password;
+          modified = true;
+        }
+        if (dm.username && !db.members[idx].username) {
+          db.members[idx].username = dm.username;
+          modified = true;
+        }
       }
     });
   } else {
@@ -831,7 +910,7 @@ async function handleRequest(req, res) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'online',
-        serverName: 'Уфанет KabanCloud Server',
+        serverName: 'Уфанет • Доска',
         version: '2.5.0',
         platform: os.platform(),
         uptime: Math.floor(os.uptime()),
@@ -890,6 +969,22 @@ async function handleRequest(req, res) {
         }
       } else if (normUser === 'admin' || memberId === 'admin' || memberId === 'uf-admin-root') {
         member = db.members?.find((m) => m.full_name?.toLowerCase() === 'admin' || m.id === 'uf-admin-root');
+      } else if (
+        normUser === 'design' || normUser === 'проектирование' ||
+        normUser === 'welders' || normUser === 'сварщики' ||
+        normUser === 'rss' || normUser === 'рсс' ||
+        normUser === 'sales_corp' || normUser === 'продажи юл' ||
+        normUser === 'sales_retail' || normUser === 'продажи фл'
+      ) {
+        const deptMap = {
+          design: 'dept-design', 'проектирование': 'dept-design',
+          welders: 'dept-welders', 'сварщики': 'dept-welders',
+          rss: 'dept-rss', 'рсс': 'dept-rss',
+          sales_corp: 'dept-sales-corp', 'продажи юл': 'dept-sales-corp',
+          sales_retail: 'dept-sales-retail', 'продажи фл': 'dept-sales-retail'
+        };
+        const targetDeptId = deptMap[normUser];
+        member = db.members?.find((m) => m.department_id === targetDeptId && (m.username === normUser || m.role_level >= 10));
       } else if (normUser) {
         member = db.members?.find((m) => {
           if (m.id === memberId) return true;
@@ -1725,14 +1820,16 @@ async function handleRequest(req, res) {
         const child = spawn('explorer.exe', args, { detached: true, stdio: 'ignore' });
         child.unref();
       } else {
-        const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
-        const child = spawn(cmd, [cleanPath], { detached: true, stdio: 'ignore' });
-        child.unref();
+        // Headless Linux or VM server: client runs on Windows host PC
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          isRemote: true,
+          path: cleanPath,
+          message: 'Сервер работает в Linux. Путь скопирован в буфер обмена Windows. Нажмите Win+R -> Ctrl+V для открытия'
+        }));
+        return;
       }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, path: cleanPath }));
-      return;
     }
 
     // ------------------ SECURED: UPLOAD FILE (WHITELIST & PATH TRAVERSAL DEFENSE) ------------------ //
@@ -1875,7 +1972,7 @@ async function handleRequest(req, res) {
         <html>
           <head>
             <meta charset="utf-8" />
-            <title>Уфанет • Сервер KabanCloud</title>
+            <title>Уфанет • Доска</title>
             <style>
               body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b1120; color: #f8fafc; padding: 3rem; text-align: center; }
               .card { max-width: 520px; margin: 0 auto; background: #1e293b; padding: 2rem; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -1885,7 +1982,7 @@ async function handleRequest(req, res) {
           </head>
           <body>
             <div class="card">
-              <h1>Уфанет • Сервер KabanCloud запущен!</h1>
+              <h1>Уфанет • Доска запущена!</h1>
               <p style="color: #94a3b8; font-size: 0.95rem;">Для сборки веб-интерфейса выполните:</p>
               <p><code>npm run build</code></p>
               <p style="font-size: 0.85rem; color: #64748b; margin-top: 1.5rem;">Все API эндпоинты, HTTPS и Realtime SSE активны.</p>
@@ -1922,7 +2019,7 @@ const httpServer = http.createServer(handleRequest);
 httpServer.listen(HTTP_PORT, '0.0.0.0', () => {
   const ips = getLanIps();
   console.log('\n========================================================================');
-  console.log('🟧  УФАНЕТ • KabanCloud Сервер (Корпоративная канбан-доска)');
+  console.log('🟧  УФАНЕТ • Доска (Корпоративная канбан-доска)');
   console.log('🔒  Безопасность: Zero-Password Auth • Защита путей • HMAC-256 DB');
   console.log('📝  Логирование: data/logs/audit.log & access.log');
   console.log('------------------------------------------------------------------------');
