@@ -308,7 +308,7 @@ export function TaskCard({
                 e.stopPropagation();
                 onShareToChat(task);
               }}
-              title="Поделиться в чате отдела (YouGile)"
+              title="Поделиться в чате отдела"
             >
               <MessageSquare size={12} />
             </button>
@@ -351,7 +351,7 @@ export function TaskCard({
                     border: `1px solid ${st.border || 'rgba(255, 102, 0, 0.35)'}`,
                     lineHeight: 1.2
                   }}
-                  title={`Стикер YouGile: ${st.name}`}
+                  title={`Стикер: ${st.name}`}
                 >
                   {st.name}
                 </span>
@@ -635,7 +635,7 @@ export function TaskCard({
                 borderRadius: '4px',
                 background: 'rgba(255, 255, 255, 0.06)'
               }}
-              title={`Чат задачи: ${task.comments.length} сообщений (YouGile)`}
+              title={`Чат задачи: ${task.comments.length} сообщений`}
             >
               <MessageSquare size={11} style={{ opacity: 0.7 }} />
               <span>{task.comments.length}</span>

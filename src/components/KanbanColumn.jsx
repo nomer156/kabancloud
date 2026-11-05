@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Inbox, X, ArrowRight, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Plus, Inbox, X, ArrowRight, ChevronLeft, ChevronRight, AlertTriangle, Palette } from 'lucide-react';
 import { TaskCard } from './TaskCard';
 import { playSound } from '../lib/sound';
 
@@ -15,7 +15,9 @@ export function KanbanColumn({
   onShareToChat,
   activeDepartmentId,
   activeStopwatchTaskId,
-  onToggleStopwatch
+  onToggleStopwatch,
+  currentUser,
+  onUpdateColumn
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAddingInline, setIsAddingInline] = useState(false);
@@ -27,10 +29,36 @@ export function KanbanColumn({
       return false;
     }
   });
+  const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const [editTitle, setEditTitle] = useState(column.title || '');
+  const [editWip, setEditWip] = useState(column.wip_limit || 0);
+  const [editColor, setEditColor] = useState(column.color || '#ff6600');
   const inputRef = useRef(null);
+
+  const canEditColumn = Boolean(
+    currentUser && (
+      currentUser.role_level >= 10 ||
+      currentUser.username?.toLowerCase() === 'sanya' ||
+      currentUser.full_name?.toLowerCase() === 'admin' ||
+      (currentUser.role_level >= 8 && currentUser.department_id === activeDepartmentId)
+    )
+  );
 
   const wipLimit = column.wip_limit || 0;
   const isOverWip = wipLimit > 0 && tasks.length > wipLimit;
+
+  const handleSaveColumnSettings = (e) => {
+    e?.preventDefault();
+    if (onUpdateColumn) {
+      onUpdateColumn(column.id, {
+        title: editTitle.trim() || column.title,
+        wip_limit: Math.max(0, parseInt(editWip, 10) || 0),
+        color: editColor
+      });
+    }
+    setIsEditingSettings(false);
+    playSound('success');
+  };
 
   const handleToggleCollapse = () => {
     playSound('click');
@@ -143,7 +171,7 @@ export function KanbanColumn({
             e.stopPropagation();
             handleToggleCollapse();
           }}
-          title="Развернуть колонку (YouGile)"
+          title="Развернуть колонку"
         >
           <ChevronRight size={14} />
         </button>
@@ -202,12 +230,15 @@ export function KanbanColumn({
       onDrop={handleDrop}
       style={isOverWip ? { borderColor: 'rgba(239, 68, 68, 0.45)', boxShadow: '0 0 12px rgba(239, 68, 68, 0.15)' } : undefined}
     >
+      {/* Top Accent Color Line */}
+      <div style={{ height: '3.5px', background: column.color || '#ff6600', borderRadius: '4px 4px 0 0', margin: '-0.75rem -0.75rem 0.6rem -0.75rem' }} />
+
       {/* Column Header */}
       <div className="column-header">
         <div className="column-title-group" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0, flex: 1 }}>
           <div
             className="column-color-indicator"
-            style={{ backgroundColor: column.color }}
+            style={{ backgroundColor: column.color || '#ff6600' }}
           />
           <h3 className="column-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {column.title}
@@ -240,11 +271,22 @@ export function KanbanColumn({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {canEditColumn && (
+            <button
+              type="button"
+              className="btn-mini-action"
+              onClick={() => setIsEditingSettings(!isEditingSettings)}
+              title="Настроить цвет и лимиты этапа"
+            >
+              <Palette size={13} style={{ color: column.color || 'var(--accent-orange)' }} />
+            </button>
+          )}
+
           <button
             type="button"
             className="btn-mini-action"
             onClick={handleStartInline}
-            title={`Добавить задачу в «${column.title}» (YouGile)`}
+            title={`Добавить задачу в «${column.title}»`}
           >
             <Plus size={14} />
           </button>
@@ -253,12 +295,112 @@ export function KanbanColumn({
             type="button"
             className="btn-mini-action"
             onClick={handleToggleCollapse}
-            title="Свернуть колонку в рельсу (YouGile)"
+            title="Свернуть колонку в компактный вид"
           >
             <ChevronLeft size={14} />
           </button>
         </div>
       </div>
+
+      {/* Column Settings Popover for Admin / Dept Head */}
+      {isEditingSettings && (
+        <form
+          onSubmit={handleSaveColumnSettings}
+          style={{
+            margin: '0.4rem 0.65rem 0.6rem',
+            padding: '0.75rem',
+            background: 'var(--bg-tertiary, #1a2234)',
+            border: `1.5px solid ${editColor}`,
+            borderRadius: '10px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#fff' }}>Настройка колонки</span>
+            <button
+              type="button"
+              onClick={() => setIsEditingSettings(false)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: 2 }}>
+              Название этапа:
+            </label>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="form-input"
+              style={{ padding: '0.35rem 0.5rem', fontSize: '0.78rem', width: '100%' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: 2 }}>
+              Лимит задач (WIP): 0 = без лимита
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="50"
+              value={editWip}
+              onChange={(e) => setEditWip(e.target.value)}
+              className="form-input"
+              style={{ padding: '0.35rem 0.5rem', fontSize: '0.78rem', width: '100%' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+              Цвет колонки:
+            </label>
+            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+              {['#64748b', '#0284c7', '#ff6600', '#8b5cf6', '#10b981', '#ef4444', '#f59e0b', '#06b6d4', '#ec4899'].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setEditColor(c)}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    backgroundColor: c,
+                    border: editColor === c ? '2px solid #fff' : '1px solid transparent',
+                    boxShadow: editColor === c ? '0 0 0 2px var(--accent-orange)' : 'none',
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', marginTop: 4 }}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.74rem' }}
+            >
+              Сохранить
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsEditingSettings(false)}
+              style={{ padding: '0.35rem 0.6rem', fontSize: '0.74rem' }}
+            >
+              Отмена
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Top Action Area: Inline Form or Top "+ Добавить задачу" Button */}
       <div style={{ padding: '0.45rem 0.65rem 0.25rem 0.65rem' }}>

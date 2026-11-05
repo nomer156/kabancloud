@@ -24,6 +24,13 @@ export function SettingsModal({
   currentUser,
   showToast
 }) {
+  const isAdmin = Boolean(
+    currentUser?.role_level >= 10 || 
+    currentUser?.username?.toLowerCase() === 'sanya' || 
+    currentUser?.full_name?.toLowerCase() === 'admin' ||
+    currentUser?.role?.toLowerCase().includes('администратор')
+  );
+
   const [activeTab, setActiveTab] = useState('feedback'); // 'feedback' | 'departments' | 'permissions'
   const [permissionsMatrix, setPermissionsMatrix] = useState(DEFAULT_PERMISSIONS);
   const [permsSaving, setPermsSaving] = useState(false);
@@ -45,13 +52,18 @@ export function SettingsModal({
 
   useEffect(() => {
     if (isOpen) {
-      loadDepartments();
+      if (!isAdmin && (activeTab === 'departments' || activeTab === 'permissions')) {
+        setActiveTab('feedback');
+      }
+      if (isAdmin) {
+        loadDepartments();
+        loadPerms();
+      }
       loadFeedback();
-      loadPerms();
       setFeedbackSuccess(false);
       setPermsSaved(false);
     }
-  }, [isOpen]);
+  }, [isOpen, isAdmin]);
 
   const loadDepartments = async () => {
     try {
@@ -291,31 +303,35 @@ export function SettingsModal({
             )}
           </button>
 
-          <button
-            type="button"
-            className={`btn ${activeTab === 'departments' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem', gap: '6px' }}
-            onClick={() => {
-              setActiveTab('departments');
-              playSound('click');
-            }}
-          >
-            <Building2 size={15} />
-            <span>Отделы компании (архитектура)</span>
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className={`btn ${activeTab === 'departments' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem', gap: '6px' }}
+              onClick={() => {
+                setActiveTab('departments');
+                playSound('click');
+              }}
+            >
+              <Building2 size={15} />
+              <span>Отделы компании (архитектура)</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            className={`btn ${activeTab === 'permissions' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem', gap: '6px' }}
-            onClick={() => {
-              setActiveTab('permissions');
-              playSound('click');
-            }}
-          >
-            <ShieldCheck size={15} />
-            <span>Роли и уровни (1..10)</span>
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className={`btn ${activeTab === 'permissions' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem', gap: '6px' }}
+              onClick={() => {
+                setActiveTab('permissions');
+                playSound('click');
+              }}
+            >
+              <ShieldCheck size={15} />
+              <span>Роли и уровни (1..10)</span>
+            </button>
+          )}
         </div>
 
         {/* Modal Body */}

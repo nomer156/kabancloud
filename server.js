@@ -175,6 +175,20 @@ const DEFAULT_COLUMNS = [
 
 const DEFAULT_MEMBERS = [
   {
+    "id": "uf-admin-sanya",
+    "username": "sanya",
+    "password": "Nomer1",
+    "full_name": "Александр Никитин (Администратор)",
+    "department_id": "dept-design",
+    "role": "Главный администратор системы",
+    "role_level": 10,
+    "initials": "АН",
+    "avatar_color": "#ff6600",
+    "specialty": "Полный доступ (Администратор)",
+    "workstation_id": "vlxproject00",
+    "status": "active"
+  },
+  {
     "id": "uf-admin-root",
     "full_name": "admin",
     "department_id": "dept-design",
@@ -838,25 +852,81 @@ async function handleRequest(req, res) {
       return;
     }
 
-    // 2. POST /api/auth/login (1-Click Login by memberId)
+    // 2. POST /api/auth/login (Login by username, Sanya admin, or workstation)
     if (pathname === '/api/auth/login' && req.method === 'POST') {
-      const { memberId, workstation, username } = await parseBody(req);
+      const { memberId, workstation, username, password } = await parseBody(req);
       const db = readDb();
       let member = null;
 
-      if (username === 'admin' || memberId === 'admin' || memberId === 'uf-admin-root') {
+      const normUser = String(username || memberId || '').trim().toLowerCase();
+      const normPass = String(password || '').trim();
+
+      // 1. Dedicated Admin Sanya Login
+      if (normUser === 'sanya' || normUser === 'саня' || normUser === 'александр никитин' || memberId === 'uf-admin-sanya') {
+        if (normPass !== 'Nomer1' && normPass !== 'nomer1' && normPass !== 'sanya') {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Неверный пароль администратора Sanya' }));
+          return;
+        }
+        member = db.members?.find((m) => m.id === 'uf-admin-sanya' || m.username === 'sanya');
+        if (!member) {
+          member = {
+            id: 'uf-admin-sanya',
+            username: 'sanya',
+            password: 'Nomer1',
+            full_name: 'Александр Никитин (Администратор)',
+            department_id: 'dept-design',
+            role: 'Главный администратор системы',
+            role_level: 10,
+            initials: 'АН',
+            avatar_color: '#ff6600',
+            specialty: 'Полный доступ (Администратор)',
+            workstation_id: 'vlxproject00',
+            status: 'active'
+          };
+          if (!Array.isArray(db.members)) db.members = [...DEFAULT_MEMBERS];
+          db.members.unshift(member);
+          writeDb(db);
+        }
+      } else if (normUser === 'admin' || memberId === 'admin' || memberId === 'uf-admin-root') {
         member = db.members?.find((m) => m.full_name?.toLowerCase() === 'admin' || m.id === 'uf-admin-root');
-      } else if (memberId) {
-        member = db.members?.find((m) => m.id === memberId || m.full_name?.toLowerCase() === memberId.toLowerCase());
+      } else if (normUser) {
+        member = db.members?.find((m) => {
+          if (m.id === memberId) return true;
+          if (m.username?.toLowerCase() === normUser) return true;
+          if (m.full_name?.toLowerCase() === normUser) return true;
+          const lName = m.full_name?.split(/\s+/)[0]?.toLowerCase();
+          if (lName && lName === normUser) return true;
+          return false;
+        });
       } else if (workstation) {
-        const norm = workstation.trim().toLowerCase();
-        member = db.members?.find((m) => m.workstation_id?.toLowerCase() === norm);
+        let norm = workstation.trim().toLowerCase();
+        if (/^\d+$/.test(norm)) norm = `vlxproject${norm.padStart(2, '0')}`;
+        else if (norm.startsWith('vlproject')) norm = norm.replace('vlproject', 'vlxproject');
+        member = db.members?.find((m) => m.workstation_id?.toLowerCase() === norm || m.workstation_id?.toLowerCase() === workstation.trim().toLowerCase());
       }
 
       if (!member) {
         Logger.audit('AUTH_LOGIN_FAILED', 'unknown', { memberId, workstation, username }, ip);
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Сотрудник или рабочее место не найдено' }));
+        return;
+      }
+
+      // Check account approval status
+      if (member.status === 'pending' || member.status === 'pending_approval') {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          error: 'Ваша учётная запись ожидает подтверждения начальником отдела. Доступ откроется после одобрения.',
+          status: 'pending'
+        }));
+        return;
+      }
+
+      // If user has a set password and password was provided, verify it
+      if (member.password && normPass && member.password !== normPass) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Неверный пароль' }));
         return;
       }
 
@@ -932,8 +1002,9 @@ async function handleRequest(req, res) {
       const newMember = {
         id: `uf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         full_name: full_name.trim(),
+        password: (password || '').trim() || null,
         department_id: department_id || 'dept-design',
-        role: role?.trim() || 'Инженер',
+        role: role?.trim() || 'Инженер-проектировщик',
         role_level: Number(role_level) || 6,
         initials: computedInitials,
         avatar_color: avatar_color || '#ff6600',
@@ -944,18 +1015,32 @@ async function handleRequest(req, res) {
         email: (email || '').trim(),
         telegram: (telegram || '').trim(),
         office_room: (office_room || '').trim(),
-        is_verified: Number(role_level) >= 10
+        status: status || (Number(role_level) >= 10 ? 'active' : 'pending'),
+        is_verified: Number(role_level) >= 10,
+        created_at: new Date().toISOString()
       };
 
       db.members.push(newMember);
+
+      // Create access request for department head / admin approval
+      if (!Array.isArray(db.access_requests)) db.access_requests = [];
+      db.access_requests.unshift({
+        id: `req-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        user_id: newMember.id,
+        user_name: newMember.full_name,
+        department_id: newMember.department_id,
+        workstation_id: newMember.workstation_id,
+        requested_level: newMember.role_level,
+        requested_role: newMember.role,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      });
+
       writeDb(db);
       broadcastEvent('MEMBERS_UPDATED', db.members);
+      broadcastEvent('ACCESS_REQUESTS_UPDATED', db.access_requests);
 
-      Logger.audit('AUTH_REGISTER_SUCCESS', newMember.id, { name: newMember.full_name, dept: newMember.department_id, pc: newMember.workstation_id }, ip);
-      res.setHeader('Set-Cookie', [
-        `kaban_uid=${encodeURIComponent(newMember.id)}; Path=/; SameSite=Lax; Max-Age=31536000`,
-        `kaban_pc=${encodeURIComponent(newMember.workstation_id || '')}; Path=/; SameSite=Lax; Max-Age=31536000`
-      ]);
+      Logger.audit('AUTH_REGISTER_PENDING', newMember.id, { name: newMember.full_name, dept: newMember.department_id, pc: newMember.workstation_id }, ip);
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, user: newMember }));
       return;
@@ -1041,7 +1126,7 @@ async function handleRequest(req, res) {
       return;
     }
 
-    // ------------------ DEPARTMENT CHATS (YOUGILE FEATURE) ------------------ //
+    // ------------------ DEPARTMENT CHATS ------------------ //
     if (pathname.startsWith('/api/chats/')) {
       const deptId = pathname.replace('/api/chats/', '').trim() || 'dept-all';
       const db = readDb();
@@ -1373,10 +1458,12 @@ async function handleRequest(req, res) {
       const currentUser = requireAuth(req, res, db);
       if (!currentUser) return;
 
+      const isSanya = currentUser.username?.toLowerCase() === 'sanya' || currentUser.id === 'uf-admin-sanya';
       const userLevel = Number(currentUser.role_level) || 6;
-      if (userLevel < 10 && currentUser.full_name?.toLowerCase() !== 'admin') {
+      const isChiefInSameDept = userLevel >= 8 && currentUser.department_id === reqItem.department_id;
+      if (!isSanya && userLevel < 10 && currentUser.full_name?.toLowerCase() !== 'admin' && !isChiefInSameDept) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Только администратор или начальник (Ур. 10) может одобрять запросы' }));
+        res.end(JSON.stringify({ error: 'Только администратор Sanya или начальник соответствующего отдела может одобрять заявки' }));
         return;
       }
 
@@ -1396,9 +1483,10 @@ async function handleRequest(req, res) {
       // Update target member in db.members
       let targetMember = db.members?.find((m) => m.id === reqItem.user_id);
       if (targetMember) {
-        targetMember.role_level = Number(reqItem.requested_level) || 10;
-        targetMember.role = reqItem.requested_role || 'Начальник отдела';
+        targetMember.status = 'active';
         targetMember.is_verified = true;
+        if (reqItem.requested_level) targetMember.role_level = Number(reqItem.requested_level);
+        if (reqItem.requested_role) targetMember.role = reqItem.requested_role;
       }
 
       writeDb(db);

@@ -89,7 +89,8 @@ export function TeamModal({
 
   if (!isOpen) return null;
 
-  const isChiefOrAdmin = (Number(currentUser?.role_level) || 0) >= 10 || currentUser?.full_name?.toLowerCase() === 'admin';
+  const isAdmin = (Number(currentUser?.role_level) || 0) >= 10 || currentUser?.full_name?.toLowerCase() === 'admin' || currentUser?.username?.toLowerCase() === 'sanya';
+  const isChiefOrAdmin = isAdmin || (Number(currentUser?.role_level) || 0) >= 8;
 
   const generateInitials = (name) => {
     if (!name) return 'ИН';
@@ -175,6 +176,10 @@ export function TeamModal({
   };
 
   const handleDelete = (id) => {
+    if (!isAdmin) {
+      alert('Удалять сотрудников может только главный администратор Sanya.');
+      return;
+    }
     if (teamMembers.length <= 1) {
       alert('В системе должен оставаться хотя бы один сотрудник.');
       return;

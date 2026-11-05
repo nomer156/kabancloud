@@ -8,7 +8,8 @@ const PRESET_COLORS = [
   '#ef4444', '#84cc16', '#14b8a6', '#64748b'
 ];
 
-export function SectionsModal({ isOpen, onClose, sections = [], onSaveSections }) {
+export function SectionsModal({ isOpen, onClose, sections = [], onSaveSections, currentUser }) {
+  const isAdmin = (Number(currentUser?.role_level) || 0) >= 10 || currentUser?.username?.toLowerCase() === 'sanya' || currentUser?.full_name?.toLowerCase() === 'admin';
   const [items, setItems] = useState(() => sections);
   const [renamesMap, setRenamesMap] = useState({}); // { oldId: newId }
   
@@ -193,71 +194,84 @@ export function SectionsModal({ isOpen, onClose, sections = [], onSaveSections }
           )}
 
           {/* Form to add new section */}
-          <form
-            onSubmit={handleAdd}
-            style={{
-              padding: '0.85rem',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.65rem'
-            }}
-          >
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Plus size={14} style={{ color: 'var(--accent-orange)' }} />
-              <span>Добавить новый раздел:</span>
-            </div>
+          {isAdmin ? (
+            <form
+              onSubmit={handleAdd}
+              style={{
+                padding: '0.85rem',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.65rem'
+              }}
+            >
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Plus size={14} style={{ color: 'var(--accent-orange)' }} />
+                <span>Добавить новый раздел:</span>
+              </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.5rem' }}>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Код: ККС"
-                value={newId}
-                onChange={(e) => setNewId(e.target.value.toUpperCase())}
-                style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}
-              />
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Расшифровка: Кабельная канализация связи"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-            </div>
-
-            {/* Color picker */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginRight: '0.3rem' }}>Цвет:</span>
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setNewColor(c)}
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: '50%',
-                    backgroundColor: c,
-                    border: newColor === c ? '2px solid white' : '1px solid transparent',
-                    boxShadow: newColor === c ? '0 0 0 2px var(--accent-orange)' : 'none',
-                    cursor: 'pointer',
-                    padding: 0
-                  }}
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Код: ККС"
+                  value={newId}
+                  onChange={(e) => setNewId(e.target.value.toUpperCase())}
+                  style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}
                 />
-              ))}
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ marginLeft: 'auto', padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}
-              >
-                <Plus size={14} />
-                <span>Добавить</span>
-              </button>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Расшифровка: Кабельная канализация связи"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
+
+              {/* Color picker */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginRight: '0.3rem' }}>Цвет:</span>
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewColor(c)}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      backgroundColor: c,
+                      border: newColor === c ? '2px solid white' : '1px solid transparent',
+                      boxShadow: newColor === c ? '0 0 0 2px var(--accent-orange)' : 'none',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  />
+                ))}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ marginLeft: 'auto', padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}
+                >
+                  <Plus size={14} />
+                  <span>Добавить</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              color: 'var(--text-muted)',
+              fontSize: '0.78rem'
+            }}>
+              🔒 Добавление и удаление марок доступно только администратору Sanya.
             </div>
-          </form>
+          )}
 
           {/* Current Sections List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

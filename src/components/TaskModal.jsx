@@ -178,7 +178,7 @@ export function TaskModal({
           id: `wl-${Date.now()}`,
           date: new Date().toISOString().split('T')[0],
           hours: timeFormatted,
-          comment: `Списано по секундомеру YouGile (${stopwatchSeconds} сек)`
+          comment: `Списано по секундомеру KabanCloud (${stopwatchSeconds} сек)`
         };
         setWorklogs((prev) => [newEntry, ...prev]);
 
@@ -887,12 +887,12 @@ export function TaskModal({
                 )}
               </div>
 
-              {/* YouGile Stickers / Метки */}
+              {/* Stickers / Метки */}
               <div className="form-group" style={{ margin: '0.1rem 0 0.4rem 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                   <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <Tag size={13} style={{ color: 'var(--accent-orange)' }} />
-                    <span style={{ fontWeight: 700 }}>Стикеры YouGile:</span>
+                    <span style={{ fontWeight: 700 }}>Стикеры задачи:</span>
                   </label>
                   <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Кликните для выбора</span>
                 </div>
@@ -1145,14 +1145,14 @@ export function TaskModal({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                     <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Link2 size={13} style={{ color: '#8b5cf6' }} />
-                      <span style={{ fontWeight: 700 }}>Зеркалирование (YouGile Mirrors):</span>
+                      <span style={{ fontWeight: 700 }}>Зеркалирование в отделы:</span>
                     </label>
                     <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)' }}>
                       Отразить на досках других служб
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {departments.filter(d => d.id !== departmentId).map((dept) => {
+                    {DEPARTMENTS.filter(d => d.id !== departmentId).map((dept) => {
                       const isMirrored = mirroredDepartments.includes(dept.id);
                       return (
                         <button
@@ -1354,7 +1354,7 @@ export function TaskModal({
                     {isStopwatchRunning && (
                       <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#10b981' }} />
-                        Идёт отсчёт YouGile...
+                        Идёт учёт времени...
                       </span>
                     )}
                   </div>

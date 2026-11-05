@@ -264,7 +264,7 @@ export function TaskDetailView({
           id: `wl-${Date.now()}`,
           date: new Date().toISOString().split('T')[0],
           hours: timeFormatted,
-          comment: `Списано по секундомеру YouGile (${stopwatchSeconds} сек)`
+          comment: `Списано по секундомеру KabanCloud (${stopwatchSeconds} сек)`
         };
         const nextWorklogs = [newEntry, ...worklogs];
         setWorklogs(nextWorklogs);
@@ -973,7 +973,7 @@ export function TaskDetailView({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   <Tag size={13} style={{ color: 'var(--accent-orange)' }} />
-                  <span>Стикеры YouGile</span>
+                  <span>Стикеры задачи</span>
                 </div>
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Кликните для выбора</span>
               </div>
@@ -1365,7 +1365,7 @@ export function TaskDetailView({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
                 <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Link2 size={13} style={{ color: '#8b5cf6' }} />
-                  <span style={{ fontWeight: 700 }}>Зеркалирование (YouGile Mirrors):</span>
+                  <span style={{ fontWeight: 700 }}>Зеркалирование в отделы:</span>
                 </label>
                 <span style={{ fontSize: '0.67rem', color: 'var(--text-dim)' }}>
                   Отразить на досках смежных служб
@@ -1640,7 +1640,7 @@ export function TaskDetailView({
                       {isStopwatchRunning && (
                         <span style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }} />
-                          Идёт живой тайм-трекинг YouGile...
+                          Идёт учёт времени...
                         </span>
                       )}
                     </div>

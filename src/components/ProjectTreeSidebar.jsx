@@ -16,7 +16,8 @@ import {
   Sparkles,
   Plus,
   Building,
-  CheckCircle2
+  CheckCircle2,
+  Archive
 } from 'lucide-react';
 import { playSound } from '../lib/sound';
 
@@ -31,7 +32,9 @@ export function ProjectTreeSidebar({
   onSelectAssignee,
   currentUser = null,
   activeDepartmentId = 'dept-design',
-  onAddNewProject
+  onAddNewProject,
+  isArchiveView = false,
+  onToggleArchiveView
 }) {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('kaban_tree_sidebar_collapsed') === 'true';
@@ -65,18 +68,19 @@ export function ProjectTreeSidebar({
 
   // Task statistics
   const stats = useMemo(() => {
-    const total = tasks.length;
-    const myTasks = currentUser ? tasks.filter((t) => t.assignee_id === currentUser.id).length : 0;
-    const urgent = tasks.filter((t) => t.priority === 'urgent' && t.status !== 'done').length;
-    const mirrored = tasks.filter((t) => Array.isArray(t.mirrored_departments) && t.mirrored_departments.length > 0).length;
+    const total = tasks.filter((t) => !t.is_archived).length;
+    const myTasks = currentUser ? tasks.filter((t) => !t.is_archived && t.assignee_id === currentUser.id).length : 0;
+    const urgent = tasks.filter((t) => !t.is_archived && t.priority === 'urgent' && t.status !== 'done').length;
+    const mirrored = tasks.filter((t) => !t.is_archived && Array.isArray(t.mirrored_departments) && t.mirrored_departments.length > 0).length;
+    const archived = tasks.filter((t) => t.is_archived).length;
 
     // Per-project task counts
     const projectCounts = {};
     projects.forEach((p) => {
-      projectCounts[p] = tasks.filter((t) => (t.project_code === p || t.project_cipher === p)).length;
+      projectCounts[p] = tasks.filter((t) => !t.is_archived && (t.project_code === p || t.project_cipher === p)).length;
     });
 
-    return { total, myTasks, urgent, mirrored, projectCounts };
+    return { total, myTasks, urgent, mirrored, archived, projectCounts };
   }, [tasks, projects, currentUser]);
 
   const handleCreateProjectSubmit = async (e) => {
@@ -103,7 +107,7 @@ export function ProjectTreeSidebar({
 
   return (
     <aside
-      className={`yougile-tree-sidebar ${isCollapsed ? 'collapsed' : ''}`}
+      className={`kaban-tree-sidebar ${isCollapsed ? 'collapsed' : ''}`}
       style={{
         width: isCollapsed ? '52px' : '230px',
         minWidth: isCollapsed ? '52px' : '230px',
@@ -152,7 +156,7 @@ export function ProjectTreeSidebar({
             </span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                YouGile • Проекты
+                Kaban • Проекты
               </div>
               <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
                 Уфанет Москва
@@ -423,6 +427,40 @@ export function ProjectTreeSidebar({
               )}
             </button>
           )}
+
+          {/* 5. Archived Tasks */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onToggleArchiveView) onToggleArchiveView(!isArchiveView);
+              playSound('click');
+            }}
+            title="Архив выполненных и закрытых задач"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: isCollapsed ? 'center' : 'space-between',
+              padding: isCollapsed ? '0.5rem 0' : '0.35rem 0.6rem',
+              background: isArchiveView ? 'rgba(100, 116, 139, 0.25)' : 'transparent',
+              color: isArchiveView ? '#f1f5f9' : 'var(--text-muted)',
+              border: isArchiveView ? '1px solid rgba(148, 163, 184, 0.4)' : 'none',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              fontSize: '0.78rem',
+              width: '100%',
+              fontWeight: isArchiveView ? 700 : 500
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Archive size={14} style={{ color: isArchiveView ? '#94a3b8' : 'var(--text-dim)' }} />
+              {!isCollapsed && <span>Архив задач</span>}
+            </div>
+            {!isCollapsed && (
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', background: 'var(--bg-base)', padding: '1px 5px', borderRadius: '10px' }}>
+                {stats.archived}
+              </span>
+            )}
+          </button>
         </div>
 
         <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.35rem 0' }} />

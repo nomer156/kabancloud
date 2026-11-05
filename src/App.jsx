@@ -61,6 +61,7 @@ import { AuthModal } from './components/AuthModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ProjectTreeSidebar } from './components/ProjectTreeSidebar';
 import { GanttChart } from './components/GanttChart';
+import { TaskChatPanel } from './components/TaskChatPanel';
 
 export default function App() {
   // Theme state
@@ -69,7 +70,13 @@ export default function App() {
   // Navigation view: 'board' | 'gantt' | 'report'
   const [activeView, setActiveView] = useState('board');
 
-  // YouGile Global Stopwatch State (Live Time Tracking)
+  // Active Task in Right Dock (Every Task is a Chat)
+  const [activeTaskInPanel, setActiveTaskInPanel] = useState(null);
+
+  // Archive view toggle
+  const [isArchiveView, setIsArchiveView] = useState(false);
+
+  // Global Stopwatch State (Live Time Tracking)
   const [activeStopwatchTaskId, setActiveStopwatchTaskId] = useState(() => {
     return (typeof localStorage !== 'undefined' ? localStorage.getItem('kaban_active_stopwatch_task') : null) || null;
   });
@@ -514,7 +521,14 @@ export default function App() {
   // Filter tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      // 0. Department filter (includes cross-department collaborative tasks and YouGile mirrors)
+      // -1. Archive filter (Feature 3)
+      if (isArchiveView) {
+        if (!task.is_archived) return false;
+      } else {
+        if (task.is_archived) return false;
+      }
+
+      // 0. Department filter (includes cross-department collaborative tasks and department mirrors)
       if (activeDepartmentId && activeDepartmentId !== 'all') {
         const taskDept = task.department_id || 'dept-design';
         const isParticipant = Array.isArray(task.participant_ids) && currentUser && task.participant_ids.includes(currentUser.id) && (currentUser.department_id === activeDepartmentId);
@@ -556,7 +570,7 @@ export default function App() {
 
       return true;
     });
-  }, [tasks, activeDepartmentId, selectedAssigneeId, selectedSection, selectedProject, searchQuery]);
+  }, [tasks, activeDepartmentId, selectedAssigneeId, selectedSection, selectedProject, searchQuery, isArchiveView]);
 
   // Handle Drag & Drop move
   const handleDropTask = async (taskId, newStatus) => {
@@ -600,9 +614,14 @@ export default function App() {
 
     const sec = taskData.section || (sections[0]?.id || 'ВДН');
     const proj = taskData.project_cipher || taskData.project_code || '';
-    const isEditing = Boolean(taskData.id && !taskData.id.startsWith('temp-') && !taskData.id.startsWith('task-uf-'));
+    const cleanInputId = String(taskData.id || '').trim().toLowerCase();
+    const isEditing = Boolean(
+      taskData.id &&
+      !taskData.id.startsWith('temp-') &&
+      tasks.some((t) => String(t.id).trim().toLowerCase() === cleanInputId || String(t.display_id || '').trim().toLowerCase() === cleanInputId)
+    );
     const taskId = isEditing ? taskData.id : generateTaskDisplayId(sec, proj, tasks);
-    const displayId = taskId;
+    const displayId = taskData.display_id || taskId;
 
     const taskToSave = {
       ...taskData,
@@ -620,6 +639,15 @@ export default function App() {
       setTasks((prev) => [taskToSave, ...prev]);
       showToast('Новая задача создана');
     }
+
+    // Sync active task panel if open
+    setActiveTaskInPanel((prev) => {
+      if (!prev) return null;
+      if (String(prev.id).trim().toLowerCase() === cleanId || String(prev.display_id || '').trim().toLowerCase() === cleanId) {
+        return { ...prev, ...taskToSave };
+      }
+      return prev;
+    });
 
     try {
       const saved = await saveTask(taskToSave);
@@ -654,7 +682,7 @@ export default function App() {
     }
   };
 
-  // YouGile Global Stopwatch Toggle Handler
+  // Global Stopwatch Toggle Handler
   const handleToggleStopwatch = (taskId) => {
     if (activeStopwatchTaskId === taskId) {
       const targetTask = tasks.find((t) => t.id === taskId);
@@ -669,7 +697,7 @@ export default function App() {
           user_name: currentUser?.full_name || 'Инженер',
           date: new Date().toISOString().split('T')[0],
           hours,
-          comment: `Списано по секундомеру YouGile (${stopwatchElapsedSec} сек)`
+          comment: `Списано по секундомеру KabanCloud (${stopwatchElapsedSec} сек)`
         };
         const currentLogs = Array.isArray(targetTask.worklogs) ? targetTask.worklogs : [];
         const updatedLogs = [newLog, ...currentLogs];
@@ -1043,11 +1071,23 @@ export default function App() {
     setIsTaskModalOpen(true);
   };
 
-  // Edit task
+  // Edit task (switches right panel to task chat & details)
   const handleEditTask = (task) => {
-    setTaskToEdit(task);
-    setInitialModalStatus(task.status);
-    setIsTaskModalOpen(true);
+    setActiveTaskInPanel(task);
+    setIsChatSidebarOpen(true);
+    playSound('click');
+  };
+
+  // Update column title, wip_limit, or color
+  const handleUpdateColumn = async (columnId, updates) => {
+    const updated = columns.map((c) => c.id === columnId ? { ...c, ...updates } : c);
+    setColumns(updated);
+    try {
+      await saveColumnsList(updated);
+      showToast('Настройки колонки сохранены', '🎨');
+    } catch (err) {
+      console.error('Ошибка сохранения колонки:', err);
+    }
   };
 
   const effectiveUser = currentUser || INITIAL_MEMBERS[0];
@@ -1163,7 +1203,7 @@ export default function App() {
             activeDepartmentId={activeDepartmentId}
           />
 
-          {/* YouGile Global Live Stopwatch Top Banner */}
+          {/* Global Live Stopwatch Top Banner */}
           {activeStopwatchTaskId && (
             <div
               style={{
@@ -1181,7 +1221,7 @@ export default function App() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '1.1rem' }}>⏱️</span>
-                <span>Идёт учет времени YouGile:</span>
+                <span>Идёт учет времени:</span>
                 <span style={{ color: 'var(--text-main)', background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-subtle)', fontFamily: 'var(--font-mono)' }}>
                   {tasks.find(t => t.id === activeStopwatchTaskId)?.display_id || activeStopwatchTaskId}
                 </span>
@@ -1201,9 +1241,39 @@ export default function App() {
             </div>
           )}
 
+          {/* Archive Banner (when viewing archived tasks) */}
+          {isArchiveView && (
+            <div
+              style={{
+                background: 'rgba(100, 116, 139, 0.15)',
+                borderBottom: '1px solid rgba(100, 116, 139, 0.3)',
+                padding: '0.45rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.78rem',
+                color: '#cbd5e1',
+                zIndex: 14
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1rem' }}>📦</span>
+                <span><strong>Архив задач:</strong> Вы просматриваете заархивированные карточки. Они скрыты с основной рабочей доски.</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsArchiveView(false)}
+                style={{ padding: '0.2rem 0.65rem', fontSize: '0.72rem' }}
+              >
+                Вернуться на активную доску
+              </button>
+            </div>
+          )}
+
           {/* Main Board Workspace Row: Columns Workspace + Chat Sidebar (At Column Level Down to Bottom) */}
           <div className="board-workspace-row" style={{ flex: 1, minHeight: 0, display: 'flex', width: '100%', overflow: 'hidden', position: 'relative' }}>
-            {/* YouGile Projects & Folders Tree Navigation Sidebar */}
+            {/* Kaban Projects & Folders Tree Navigation Sidebar */}
             <ProjectTreeSidebar
               projects={projects}
               tasks={tasks}
@@ -1216,6 +1286,8 @@ export default function App() {
               currentUser={currentUser}
               activeDepartmentId={activeDepartmentId}
               onAddNewProject={handleAddNewProject}
+              isArchiveView={isArchiveView}
+              onToggleArchiveView={setIsArchiveView}
             />
 
             {activeView === 'board' ? (
@@ -1238,6 +1310,8 @@ export default function App() {
                       activeDepartmentId={activeDepartmentId}
                       activeStopwatchTaskId={activeStopwatchTaskId}
                       onToggleStopwatch={handleToggleStopwatch}
+                      currentUser={currentUser}
+                      onUpdateColumn={handleUpdateColumn}
                     />
                   );
                 })}
@@ -1263,31 +1337,51 @@ export default function App() {
               />
             )}
 
-            {/* Chat Sidebar (Only inside workspace at column level, never pushes or covers header!) */}
-            <ChatSidebar
-              currentUser={currentUser}
-              departments={departments}
-              tasks={tasks}
-              teamMembers={teamMembers}
-              onOpenTask={(id) => {
-                const clean = String(id || '').trim();
-                const matched = tasks.find(
-                  (t) => String(t.id).toLowerCase() === clean.toLowerCase() ||
-                         String(t.display_id || '').toLowerCase() === clean.toLowerCase() ||
-                         String(t.display_id || '').toLowerCase() === clean.toLowerCase().replace(/^#/, '')
-                );
-                const canonicalId = matched ? matched.id : clean;
-                window.location.hash = '#task/' + canonicalId;
-                setDetailTaskId(canonicalId);
-              }}
-              preQuotedTask={chatPreQuotedTask}
-              onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
-              isOpen={isChatSidebarOpen}
-              onToggleOpen={(open) => {
-                setIsChatSidebarOpen(open);
-                localStorage.setItem('kaban_chat_open', String(open));
-              }}
-            />
+            {/* Right Dock: Task Chat & Details Panel (when task selected) OR Department Chat Sidebar */}
+            {activeTaskInPanel ? (
+              <TaskChatPanel
+                task={activeTaskInPanel}
+                columns={columns}
+                teamMembers={teamMembers}
+                departments={departments}
+                sections={sections}
+                currentUser={currentUser}
+                activeDepartmentId={activeDepartmentId}
+                activeStopwatchTaskId={activeStopwatchTaskId}
+                onToggleStopwatch={handleToggleStopwatch}
+                stopwatchElapsedSec={stopwatchElapsedSec}
+                formatStopwatchTime={formatStopwatchTime}
+                onSaveTask={handleSaveTask}
+                onClose={() => setActiveTaskInPanel(null)}
+                showToast={showToast}
+              />
+            ) : (
+              <ChatSidebar
+                currentUser={currentUser}
+                departments={departments}
+                tasks={tasks}
+                teamMembers={teamMembers}
+                onOpenTask={(id) => {
+                  const clean = String(id || '').trim();
+                  const matched = tasks.find(
+                    (t) => String(t.id).toLowerCase() === clean.toLowerCase() ||
+                           String(t.display_id || '').toLowerCase() === clean.toLowerCase() ||
+                           String(t.display_id || '').toLowerCase() === clean.toLowerCase().replace(/^#/, '')
+                  );
+                  if (matched) {
+                    setActiveTaskInPanel(matched);
+                    setIsChatSidebarOpen(true);
+                  }
+                }}
+                preQuotedTask={chatPreQuotedTask}
+                onClearPreQuotedTask={() => setChatPreQuotedTask(null)}
+                isOpen={isChatSidebarOpen}
+                onToggleOpen={(open) => {
+                  setIsChatSidebarOpen(open);
+                  localStorage.setItem('kaban_chat_open', String(open));
+                }}
+              />
+            )}
           </div>
         </>
       )}
@@ -1365,6 +1459,7 @@ export default function App() {
         onClose={() => setIsSectionsModalOpen(false)}
         sections={sections}
         onSaveSections={handleSaveSections}
+        currentUser={currentUser}
       />
 
       {/* Kanban Columns Management Modal */}
