@@ -59,13 +59,44 @@ import { TaskDetailView } from './components/TaskDetailView';
 import { ImportModal } from './components/ImportModal';
 import { AuthModal } from './components/AuthModal';
 import { SettingsModal } from './components/SettingsModal';
+import { ProjectTreeSidebar } from './components/ProjectTreeSidebar';
+import { GanttChart } from './components/GanttChart';
 
 export default function App() {
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem('kaban_theme') || 'dark');
 
-  // Navigation view: 'board' | 'report'
+  // Navigation view: 'board' | 'gantt' | 'report'
   const [activeView, setActiveView] = useState('board');
+
+  // YouGile Global Stopwatch State (Live Time Tracking)
+  const [activeStopwatchTaskId, setActiveStopwatchTaskId] = useState(() => {
+    return (typeof localStorage !== 'undefined' ? localStorage.getItem('kaban_active_stopwatch_task') : null) || null;
+  });
+  const [stopwatchElapsedSec, setStopwatchElapsedSec] = useState(() => {
+    const started = typeof localStorage !== 'undefined' ? Number(localStorage.getItem('kaban_active_stopwatch_start')) : 0;
+    if (started && typeof localStorage !== 'undefined' && localStorage.getItem('kaban_active_stopwatch_task')) {
+      return Math.max(0, Math.floor((Date.now() - started) / 1000));
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    let interval = null;
+    if (activeStopwatchTaskId) {
+      interval = setInterval(() => {
+        setStopwatchElapsedSec((s) => s + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [activeStopwatchTaskId]);
+
+  const formatStopwatchTime = (totalSec) => {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   // Robust hash extraction with decodeURIComponent
   const extractTaskIdFromHash = (hash) => {
@@ -483,12 +514,13 @@ export default function App() {
   // Filter tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      // 0. Department filter (includes cross-department collaborative tasks)
+      // 0. Department filter (includes cross-department collaborative tasks and YouGile mirrors)
       if (activeDepartmentId && activeDepartmentId !== 'all') {
         const taskDept = task.department_id || 'dept-design';
         const isParticipant = Array.isArray(task.participant_ids) && currentUser && task.participant_ids.includes(currentUser.id) && (currentUser.department_id === activeDepartmentId);
         const isAssignee = currentUser && task.assignee_id === currentUser.id && (currentUser.department_id === activeDepartmentId);
-        if (taskDept !== activeDepartmentId && !isParticipant && !isAssignee) {
+        const isMirrored = Array.isArray(task.mirrored_departments) && task.mirrored_departments.includes(activeDepartmentId);
+        if (taskDept !== activeDepartmentId && !isParticipant && !isAssignee && !isMirrored) {
           return false;
         }
       }
@@ -503,8 +535,8 @@ export default function App() {
         return false;
       }
 
-      // 4. Project filter
-      if (selectedProject && task.project_code !== selectedProject) {
+      // 4. Project filter (matches project_code or project_cipher)
+      if (selectedProject && task.project_code !== selectedProject && task.project_cipher !== selectedProject) {
         return false;
       }
 
@@ -604,6 +636,72 @@ export default function App() {
       }
     } catch (e) {
       console.error('Ошибка сохранения задачи:', e);
+    }
+  };
+
+  // Add new project from Project Tree Sidebar
+  const handleAddNewProject = async (projectName) => {
+    const trimmed = (projectName || '').trim();
+    if (!trimmed) return;
+    try {
+      const updated = await addProjectItem(trimmed);
+      if (Array.isArray(updated)) setProjects(updated);
+      setSelectedProject(trimmed);
+      showToast(`Проект «${trimmed}» успешно создан`, '📁');
+    } catch {
+      setProjects((prev) => [...prev, trimmed]);
+      setSelectedProject(trimmed);
+    }
+  };
+
+  // YouGile Global Stopwatch Toggle Handler
+  const handleToggleStopwatch = (taskId) => {
+    if (activeStopwatchTaskId === taskId) {
+      const targetTask = tasks.find((t) => t.id === taskId);
+      const mins = Math.max(1, Math.round(stopwatchElapsedSec / 60));
+      const hours = (mins / 60).toFixed(2);
+      playSound('success');
+
+      if (targetTask) {
+        const newLog = {
+          id: `wl-${Date.now()}`,
+          user_id: currentUser?.id || null,
+          user_name: currentUser?.full_name || 'Инженер',
+          date: new Date().toISOString().split('T')[0],
+          hours,
+          comment: `Списано по секундомеру YouGile (${stopwatchElapsedSec} сек)`
+        };
+        const currentLogs = Array.isArray(targetTask.worklogs) ? targetTask.worklogs : [];
+        const updatedLogs = [newLog, ...currentLogs];
+        const newTotalHours = updatedLogs.reduce((acc, l) => acc + (parseFloat(l.hours) || 0), 0).toFixed(2);
+
+        const updatedTask = {
+          ...targetTask,
+          worklogs: updatedLogs,
+          hours_spent: newTotalHours
+        };
+
+        handleSaveTask(updatedTask);
+        showToast(`Секундомер остановлен: списано ${hours} ч. в ${targetTask.display_id || targetTask.title}`, '⏱️');
+      }
+
+      setActiveStopwatchTaskId(null);
+      setStopwatchElapsedSec(0);
+      try {
+        localStorage.removeItem('kaban_active_stopwatch_task');
+        localStorage.removeItem('kaban_active_stopwatch_start');
+      } catch {}
+    } else {
+      const now = Date.now();
+      setActiveStopwatchTaskId(taskId);
+      setStopwatchElapsedSec(0);
+      try {
+        localStorage.setItem('kaban_active_stopwatch_task', taskId);
+        localStorage.setItem('kaban_active_stopwatch_start', String(now));
+      } catch {}
+      playSound('click');
+      const targetTask = tasks.find((t) => t.id === taskId);
+      showToast(`Секундомер запущен: ${targetTask?.display_id || ''}`, '⏱️');
     }
   };
 
@@ -1065,8 +1163,61 @@ export default function App() {
             activeDepartmentId={activeDepartmentId}
           />
 
+          {/* YouGile Global Live Stopwatch Top Banner */}
+          {activeStopwatchTaskId && (
+            <div
+              style={{
+                background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.08))',
+                borderBottom: '1.5px solid #10b981',
+                padding: '0.4rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                color: '#10b981',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                zIndex: 15
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.1rem' }}>⏱️</span>
+                <span>Идёт учет времени YouGile:</span>
+                <span style={{ color: 'var(--text-main)', background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-subtle)', fontFamily: 'var(--font-mono)' }}>
+                  {tasks.find(t => t.id === activeStopwatchTaskId)?.display_id || activeStopwatchTaskId}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 800, color: '#10b981', letterSpacing: '0.04em' }}>
+                  {formatStopwatchTime(stopwatchElapsedSec)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleToggleStopwatch(activeStopwatchTaskId)}
+                style={{ padding: '0.25rem 0.75rem', fontSize: '0.74rem' }}
+              >
+                ⏹ Остановить и списать в табель
+              </button>
+            </div>
+          )}
+
           {/* Main Board Workspace Row: Columns Workspace + Chat Sidebar (At Column Level Down to Bottom) */}
           <div className="board-workspace-row" style={{ flex: 1, minHeight: 0, display: 'flex', width: '100%', overflow: 'hidden', position: 'relative' }}>
+            {/* YouGile Projects & Folders Tree Navigation Sidebar */}
+            <ProjectTreeSidebar
+              projects={projects}
+              tasks={tasks}
+              activeView={activeView}
+              onChangeView={setActiveView}
+              selectedProject={selectedProject}
+              onSelectProject={setSelectedProject}
+              selectedAssigneeId={selectedAssigneeId}
+              onSelectAssignee={setSelectedAssigneeId}
+              currentUser={currentUser}
+              activeDepartmentId={activeDepartmentId}
+              onAddNewProject={handleAddNewProject}
+            />
+
             {activeView === 'board' ? (
               <main className="board-container" style={{ flex: 1, minWidth: 0, height: '100%', overflowX: 'auto', display: 'flex' }}>
                 {columns.map((col) => {
@@ -1084,10 +1235,21 @@ export default function App() {
                       onInlineCreateTask={handleInlineCreateTask}
                       onShareToChat={handleShareTaskToChat}
                       onDropTask={handleDropTask}
+                      activeDepartmentId={activeDepartmentId}
+                      activeStopwatchTaskId={activeStopwatchTaskId}
+                      onToggleStopwatch={handleToggleStopwatch}
                     />
                   );
                 })}
               </main>
+            ) : activeView === 'gantt' ? (
+              <GanttChart
+                tasks={filteredTasks}
+                teamMembers={teamMembers}
+                sections={sections}
+                onEditTask={handleEditTask}
+                onQuickAddTask={handleQuickAdd}
+              />
             ) : (
               <MonthlyReport
                 tasks={tasks}

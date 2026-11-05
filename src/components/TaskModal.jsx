@@ -30,7 +30,8 @@ import {
   MessageSquare,
   Tag,
   Play,
-  Square
+  Square,
+  Link2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -135,6 +136,25 @@ export function TaskModal({
     });
   };
 
+  // YouGile Mirrors / Зеркалирование задачи в смежные отделы
+  const [mirroredDepartments, setMirroredDepartments] = useState(() => 
+    Array.isArray(taskToEdit?.mirrored_departments) ? [...taskToEdit.mirrored_departments] : []
+  );
+
+  const handleToggleMirroredDept = (deptId) => {
+    playSound('click');
+    setMirroredDepartments((prev) => {
+      const exists = prev.includes(deptId);
+      return exists ? prev.filter((id) => id !== deptId) : [...prev, deptId];
+    });
+  };
+
+  const handleUpdateChecklistItem = (id, fields) => {
+    setChecklist((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...fields } : item))
+    );
+  };
+
   const formatStopwatch = (totalSec) => {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
@@ -223,6 +243,7 @@ export function TaskModal({
       setAttachments(Array.isArray(taskToEdit.attachments) ? [...taskToEdit.attachments] : []);
       setComments(Array.isArray(taskToEdit.comments) ? [...taskToEdit.comments] : []);
       setStickers(Array.isArray(taskToEdit.stickers) ? [...taskToEdit.stickers] : []);
+      setMirroredDepartments(Array.isArray(taskToEdit.mirrored_departments) ? [...taskToEdit.mirrored_departments] : []);
       setIsStopwatchRunning(false);
       setStopwatchSeconds(0);
 
@@ -258,6 +279,7 @@ export function TaskModal({
       setAttachments([]);
       setComments([]);
       setStickers([]);
+      setMirroredDepartments([]);
       setIsStopwatchRunning(false);
       setStopwatchSeconds(0);
 
@@ -689,6 +711,7 @@ export function TaskModal({
       ksl,
       kvyp,
       stickers: stickers || [],
+      mirrored_departments: mirroredDepartments || [],
       comments: comments || []
     };
 
@@ -1009,47 +1032,85 @@ export function TaskModal({
                 )}
               </div>
 
-              {/* 4. Чек-листы */}
+              {/* 4. Чек-листы и подзадачи с персональными исполнителями */}
               <div className="form-group">
-                <label className="form-label">Чек-лист этапов разработки</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                  <label className="form-label" style={{ margin: 0 }}>
+                    Подзадачи и этапы ({checklist.filter(c => c.done).length}/{checklist.length})
+                  </label>
+                  {checklist.length > 0 && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--accent-orange)', fontWeight: 700 }}>
+                      {Math.round((checklist.filter(c => c.done).length / checklist.length) * 100)}%
+                    </span>
+                  )}
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.6rem' }}>
-                  {checklist.map((item) => (
-                    <div 
-                      key={item.id} 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.5rem',
-                        background: 'var(--bg-card)',
-                        padding: '0.4rem 0.6rem',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--border-subtle)'
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.done}
-                        onChange={() => handleToggleChecklist(item.id)}
-                        style={{ cursor: 'pointer', accentColor: 'var(--accent-orange)' }}
-                      />
-                      <span style={{ 
-                        flex: 1, 
-                        fontSize: '0.82rem', 
-                        textDecoration: item.done ? 'line-through' : 'none',
-                        color: item.done ? 'var(--text-dim)' : 'var(--text-main)'
-                      }}>
-                        {item.text}
-                      </span>
-                      <button 
-                        type="button" 
-                        className="btn-icon btn-icon-danger" 
-                        style={{ width: 22, height: 22, padding: 0 }}
-                        onClick={() => handleDeleteChecklist(item.id)}
+                  {checklist.map((item) => {
+                    const itemAssignee = teamMembers.find(m => m.id === item.assignee_id);
+                    return (
+                      <div 
+                        key={item.id} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.5rem',
+                          background: 'var(--bg-card)',
+                          padding: '0.4rem 0.6rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-subtle)'
+                        }}
                       >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ))}
+                        <input
+                          type="checkbox"
+                          checked={item.done}
+                          onChange={() => handleToggleChecklist(item.id)}
+                          style={{ cursor: 'pointer', accentColor: 'var(--accent-orange)', width: 15, height: 15 }}
+                        />
+                        <span style={{ 
+                          flex: 1, 
+                          fontSize: '0.82rem', 
+                          textDecoration: item.done ? 'line-through' : 'none',
+                          color: item.done ? 'var(--text-dim)' : 'var(--text-main)'
+                        }}>
+                          {item.text}
+                        </span>
+
+                        {/* Subtask Assignee Selector */}
+                        <select
+                          className="form-select"
+                          value={item.assignee_id || ''}
+                          onChange={(e) => handleUpdateChecklistItem(item.id, { assignee_id: e.target.value || null })}
+                          style={{
+                            padding: '2px 6px',
+                            fontSize: '0.72rem',
+                            height: 24,
+                            width: 'auto',
+                            maxWidth: '130px',
+                            background: itemAssignee ? (itemAssignee.avatar_color ? `${itemAssignee.avatar_color}22` : 'var(--bg-base)') : 'transparent',
+                            borderColor: itemAssignee ? itemAssignee.avatar_color : 'var(--border-subtle)',
+                            color: itemAssignee ? 'var(--text-main)' : 'var(--text-dim)',
+                            borderRadius: '4px'
+                          }}
+                          title={itemAssignee ? `Исполнитель: ${itemAssignee.full_name}` : 'Назначить исполнителя на этап'}
+                        >
+                          <option value="">👤 Назначить...</option>
+                          {teamMembers.map(m => (
+                            <option key={m.id} value={m.id}>{m.full_name}</option>
+                          ))}
+                        </select>
+
+                        <button 
+                          type="button" 
+                          className="btn-icon btn-icon-danger" 
+                          style={{ width: 22, height: 22, padding: 0 }}
+                          onClick={() => handleDeleteChecklist(item.id)}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -1060,11 +1121,64 @@ export function TaskModal({
                     value={newChecklistText}
                     onChange={(e) => setNewChecklistText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddChecklist(e); }}
-                    style={{ fontSize: '0.8rem' }}
+                    style={{ fontSize: '0.8rem', flex: 1 }}
                   />
+                  <select
+                    className="form-select"
+                    value={newSubtaskAssignee}
+                    onChange={(e) => setNewSubtaskAssignee(e.target.value)}
+                    style={{ width: '130px', fontSize: '0.75rem', height: 32 }}
+                    title="Исполнитель создаваемой подзадачи"
+                  >
+                    <option value="">👤 Без исп.</option>
+                    {teamMembers.map(m => (
+                      <option key={m.id} value={m.id}>{m.full_name}</option>
+                    ))}
+                  </select>
                   <button type="button" className="btn btn-secondary" onClick={handleAddChecklist} style={{ padding: '0.35rem 0.65rem' }}>
                     <Plus size={14} />
                   </button>
+                </div>
+
+                {/* YouGile Mirrors / Зеркалирование задачи в смежные отделы */}
+                <div style={{ background: 'rgba(0, 0, 0, 0.08)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', marginTop: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                    <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Link2 size={13} style={{ color: '#8b5cf6' }} />
+                      <span style={{ fontWeight: 700 }}>Зеркалирование (YouGile Mirrors):</span>
+                    </label>
+                    <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)' }}>
+                      Отразить на досках других служб
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {departments.filter(d => d.id !== departmentId).map((dept) => {
+                      const isMirrored = mirroredDepartments.includes(dept.id);
+                      return (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          onClick={() => handleToggleMirroredDept(dept.id)}
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.72rem',
+                            borderRadius: '5px',
+                            border: isMirrored ? '1.5px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                            background: isMirrored ? 'rgba(139, 92, 246, 0.2)' : 'var(--bg-card)',
+                            color: isMirrored ? '#a78bfa' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            fontWeight: isMirrored ? 700 : 400,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <span>{isMirrored ? '🔗' : '+'}</span>
+                          <span>{dept.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

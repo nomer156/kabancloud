@@ -10,7 +10,10 @@ import {
   Briefcase,
   ExternalLink,
   MapPin,
-  MessageSquare
+  MessageSquare,
+  Link2,
+  Play,
+  Square
 } from 'lucide-react';
 import { PRIORITIES, DEPARTMENTS, formatPathEnd, DEFAULT_STICKERS } from '../lib/constants';
 import { playSound } from '../lib/sound';
@@ -23,9 +26,22 @@ export function TaskCard({
   sections,
   onEdit,
   onDragStart,
-  onShareToChat
+  onShareToChat,
+  activeDepartmentId,
+  activeStopwatchTaskId,
+  onToggleStopwatch
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Check if task is running live stopwatch
+  const isStopwatchActive = activeStopwatchTaskId === task.id;
+
+  // Check if task is mirrored from another department
+  const isMirrored = activeDepartmentId && 
+    activeDepartmentId !== 'all' && 
+    task.department_id !== activeDepartmentId && 
+    Array.isArray(task.mirrored_departments) && 
+    task.mirrored_departments.includes(activeDepartmentId);
 
   // Find department metadata
   const deptMeta = DEPARTMENTS.find((d) => d.id === task.department_id) || DEPARTMENTS[0];
@@ -50,6 +66,15 @@ export function TaskCard({
   const totalSubtasks = subtasksList.length;
   const doneSubtasks = subtasksList.filter((c) => c.done).length;
   const subtasksPercent = totalSubtasks > 0 ? (doneSubtasks / totalSubtasks) * 100 : 0;
+
+  // Distinct subtask assignees for YouGile multi-assignee visualization
+  const distinctSubtaskMembers = React.useMemo(() => {
+    const ids = [...new Set(subtasksList.map((s) => s.assignee_id).filter(Boolean))];
+    return ids
+      .filter((id) => id !== task.assignee_id)
+      .map((id) => teamMembers.find((m) => m.id === id))
+      .filter(Boolean);
+  }, [subtasksList, task.assignee_id, teamMembers]);
 
   // Due date human calculation
   let deadlineBadge = null;
@@ -220,6 +245,28 @@ export function TaskCard({
           >
             {sectionMeta.id}
           </span>
+
+          {/* YouGile Mirror Badge (if mirrored from another department) */}
+          {isMirrored && (
+            <span
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                background: 'rgba(139, 92, 246, 0.2)',
+                color: '#c4b5fd',
+                border: '1px solid rgba(139, 92, 246, 0.45)',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title={`Зеркальная задача из отдела: ${deptMeta.name}`}
+            >
+              <Link2 size={10} style={{ color: '#a78bfa' }} />
+              <span>Зеркало: {deptMeta.name}</span>
+            </span>
+          )}
 
           {/* Project / Object Tag */}
           {task.project_code && (
@@ -417,6 +464,43 @@ export function TaskCard({
 
       {/* ERP Meta Tags */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: '0.2rem 0', flexWrap: 'wrap' }}>
+        {/* YouGile Quick Stopwatch Button */}
+        {onToggleStopwatch && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStopwatch(task.id);
+            }}
+            title={isStopwatchActive ? 'Остановить секундомер и записать время' : 'Запустить секундомер по задаче'}
+            style={{
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: '4px',
+              border: isStopwatchActive ? '1px solid #10b981' : '1px solid var(--border-subtle)',
+              background: isStopwatchActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+              color: isStopwatchActive ? '#10b981' : 'var(--text-dim)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {isStopwatchActive ? (
+              <>
+                <Square size={10} style={{ color: '#ef4444' }} fill="#ef4444" />
+                <span style={{ color: '#10b981' }}>⏱️ Идёт отсчет... [Стоп]</span>
+              </>
+            ) : (
+              <>
+                <Play size={10} style={{ color: 'var(--accent-orange)' }} />
+                <span>Секундомер</span>
+              </>
+            )}
+          </button>
+        )}
+
         {task.hours_spent && (
           <span
             style={{
@@ -583,6 +667,26 @@ export function TaskCard({
               ?
             </div>
           )}
+
+          {/* YouGile Distinct Subtask Assignees Avatars */}
+          {distinctSubtaskMembers.slice(0, 2).map((subM) => (
+            <div
+              key={subM.id}
+              className="assignee-avatar-sm"
+              style={{
+                backgroundColor: subM.avatar_color,
+                width: 20,
+                height: 20,
+                fontSize: '0.58rem',
+                marginLeft: '-6px',
+                border: '1.5px solid var(--bg-card)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+              }}
+              title={`Исполнитель этапа: ${subM.full_name}`}
+            >
+              {subM.initials}
+            </div>
+          ))}
         </div>
       </div>
     </div>

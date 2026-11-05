@@ -23,7 +23,8 @@ import {
   Settings,
   MessageSquare,
   Crown,
-  UserCog
+  UserCog,
+  Calendar
 } from 'lucide-react';
 import { playSound, isSoundEnabled, setSoundEnabled } from '../lib/sound';
 import { renderWithMentions } from '../lib/mentions';
@@ -115,6 +116,19 @@ export function Header({
           >
             <Kanban size={14} />
             <span>Доска задач</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn ${activeView === 'gantt' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', border: 'none' }}
+            onClick={() => {
+              playSound('click');
+              onSelectView('gantt');
+            }}
+          >
+            <Calendar size={14} />
+            <span>Диаграмма Ганта</span>
           </button>
 
           <button

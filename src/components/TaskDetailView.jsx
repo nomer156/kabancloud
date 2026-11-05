@@ -34,7 +34,8 @@ import {
   Tag,
   Play,
   Square,
-  Sparkles
+  Sparkles,
+  Link2
 } from 'lucide-react';
 import { 
   PRIORITIES, 
@@ -161,6 +162,12 @@ export function TaskDetailView({
   const [description, setDescription] = useState(task?.description || '');
   const [checklist, setChecklist] = useState(task?.checklist || []);
   const [newChecklistText, setNewChecklistText] = useState('');
+  const [newSubtaskAssignee, setNewSubtaskAssignee] = useState('');
+
+  // YouGile Mirrors / Зеркалирование задачи в другие отделы
+  const [mirroredDepartments, setMirroredDepartments] = useState(() => 
+    Array.isArray(task?.mirrored_departments) ? [...task.mirrored_departments] : []
+  );
 
   // ERP & Timesheet fields
   const [erpProjectId, setErpProjectId] = useState(task?.erp_project_id || task?.erp_task_number || '');
@@ -698,18 +705,20 @@ export function TaskDetailView({
     handleSaveAll({ checklist: updated });
   };
 
-  // Add checklist item
+  // Add checklist item with optional subtask assignee
   const handleAddChecklistItem = (e) => {
     e?.preventDefault();
     if (!newChecklistText.trim()) return;
     const newItem = {
       id: `check-${Date.now()}`,
       text: newChecklistText.trim(),
+      assignee_id: newSubtaskAssignee || null,
       done: false
     };
     const updated = [...checklist, newItem];
     setChecklist(updated);
     setNewChecklistText('');
+    setNewSubtaskAssignee('');
     playSound('click');
     handleSaveAll({ checklist: updated });
   };
@@ -742,6 +751,7 @@ export function TaskDetailView({
       house_id: extraOverrides.house_id !== undefined ? (extraOverrides.house_id ? extraOverrides.house_id.trim() : null) : (houseId.trim() || null),
       hours_spent: finalHours,
       stickers: extraOverrides.stickers !== undefined ? extraOverrides.stickers : stickers,
+      mirrored_departments: extraOverrides.mirrored_departments !== undefined ? extraOverrides.mirrored_departments : mirroredDepartments,
       worklogs: extraOverrides.worklogs !== undefined ? extraOverrides.worklogs : worklogs,
       comments: extraOverrides.comments !== undefined ? extraOverrides.comments : comments,
 
@@ -1246,45 +1256,78 @@ export function TaskDetailView({
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.85rem' }}>
-              {checklist.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    padding: '0.45rem 0.65rem',
-                    background: 'var(--bg-card)',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-subtle)'
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    onChange={() => handleToggleChecklist(item.id)}
-                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent-orange)' }}
-                  />
-                  <span style={{ flex: 1, fontSize: '0.84rem', textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--text-dim)' : 'var(--text-main)' }}>
-                    {item.text}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = checklist.filter((i) => i.id !== item.id);
-                      setChecklist(updated);
-                      handleSaveAll({ checklist: updated });
+              {checklist.map((item) => {
+                const itemAssignee = teamMembers.find(m => m.id === item.assignee_id);
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.45rem 0.65rem',
+                      background: 'var(--bg-card)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)'
                     }}
-                    className="btn-icon btn-icon-danger"
-                    style={{ width: 22, height: 22, padding: 0 }}
                   >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
+                    <input
+                      type="checkbox"
+                      checked={item.done}
+                      onChange={() => handleToggleChecklist(item.id)}
+                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent-orange)' }}
+                    />
+                    <span style={{ flex: 1, fontSize: '0.84rem', textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--text-dim)' : 'var(--text-main)' }}>
+                      {item.text}
+                    </span>
+
+                    {/* Subtask Assignee Selector */}
+                    <select
+                      className="form-select"
+                      value={item.assignee_id || ''}
+                      onChange={(e) => {
+                        const nextAssignee = e.target.value || null;
+                        const updated = checklist.map(c => c.id === item.id ? { ...c, assignee_id: nextAssignee } : c);
+                        setChecklist(updated);
+                        handleSaveAll({ checklist: updated });
+                      }}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.74rem',
+                        height: 26,
+                        width: 'auto',
+                        maxWidth: '130px',
+                        background: itemAssignee ? (itemAssignee.avatar_color ? `${itemAssignee.avatar_color}22` : 'var(--bg-base)') : 'transparent',
+                        borderColor: itemAssignee ? itemAssignee.avatar_color : 'var(--border-subtle)',
+                        color: itemAssignee ? 'var(--text-main)' : 'var(--text-dim)',
+                        borderRadius: '4px'
+                      }}
+                      title={itemAssignee ? `Исполнитель этапа: ${itemAssignee.full_name}` : 'Назначить исполнителя на этап'}
+                    >
+                      <option value="">👤 Назначить...</option>
+                      {teamMembers.map(m => (
+                        <option key={m.id} value={m.id}>{m.full_name}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = checklist.filter((i) => i.id !== item.id);
+                        setChecklist(updated);
+                        handleSaveAll({ checklist: updated });
+                      }}
+                      className="btn-icon btn-icon-danger"
+                      style={{ width: 22, height: 22, padding: 0 }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
               <input
                 type="text"
                 className="form-input"
@@ -1297,11 +1340,72 @@ export function TaskDetailView({
                     handleAddChecklistItem();
                   }
                 }}
+                style={{ flex: 1 }}
               />
+              <select
+                className="form-select"
+                value={newSubtaskAssignee}
+                onChange={(e) => setNewSubtaskAssignee(e.target.value)}
+                style={{ width: '135px', fontSize: '0.75rem' }}
+                title="Исполнитель создаваемой подзадачи"
+              >
+                <option value="">👤 Без исп.</option>
+                {teamMembers.map(m => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
               <button type="button" className="btn btn-secondary" onClick={handleAddChecklistItem}>
                 <Plus size={14} />
                 <span>Добавить</span>
               </button>
+            </div>
+
+            {/* YouGile Mirrors / Зеркалирование задачи в смежные отделы */}
+            <div style={{ background: 'rgba(0, 0, 0, 0.08)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', marginBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+                <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Link2 size={13} style={{ color: '#8b5cf6' }} />
+                  <span style={{ fontWeight: 700 }}>Зеркалирование (YouGile Mirrors):</span>
+                </label>
+                <span style={{ fontSize: '0.67rem', color: 'var(--text-dim)' }}>
+                  Отразить на досках смежных служб
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {DEPARTMENTS.filter(d => d.id !== departmentId).map((dept) => {
+                  const isMirrored = mirroredDepartments.includes(dept.id);
+                  return (
+                    <button
+                      key={dept.id}
+                      type="button"
+                      onClick={() => {
+                        const next = isMirrored
+                          ? mirroredDepartments.filter(id => id !== dept.id)
+                          : [...mirroredDepartments, dept.id];
+                        setMirroredDepartments(next);
+                        handleSaveAll({ mirrored_departments: next });
+                        playSound('click');
+                      }}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.74rem',
+                        borderRadius: '5px',
+                        border: isMirrored ? '1.5px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                        background: isMirrored ? 'rgba(139, 92, 246, 0.2)' : 'var(--bg-card)',
+                        color: isMirrored ? '#a78bfa' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontWeight: isMirrored ? 700 : 400,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <span>{isMirrored ? '🔗' : '+'}</span>
+                      <span>{dept.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

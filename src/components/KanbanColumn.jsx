@@ -12,7 +12,10 @@ export function KanbanColumn({
   onQuickAddTask,
   onInlineCreateTask,
   onDropTask,
-  onShareToChat
+  onShareToChat,
+  activeDepartmentId,
+  activeStopwatchTaskId,
+  onToggleStopwatch
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAddingInline, setIsAddingInline] = useState(false);
@@ -379,6 +382,9 @@ export function KanbanColumn({
             onEdit={onEditTask}
             onDragStart={handleDragStart}
             onShareToChat={onShareToChat}
+            activeDepartmentId={activeDepartmentId}
+            activeStopwatchTaskId={activeStopwatchTaskId}
+            onToggleStopwatch={onToggleStopwatch}
           />
         ))}
 
