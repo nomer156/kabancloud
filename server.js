@@ -987,18 +987,38 @@ async function handleRequest(req, res) {
         member = db.members?.find((m) => m.department_id === targetDeptId && (m.username === normUser || m.role_level >= 10));
       } else if (normUser) {
         member = db.members?.find((m) => {
-          if (m.id === memberId) return true;
-          if (m.username?.toLowerCase() === normUser) return true;
-          if (m.full_name?.toLowerCase() === normUser) return true;
-          const lName = m.full_name?.split(/\s+/)[0]?.toLowerCase();
-          if (lName && lName === normUser) return true;
+          if (!m) return false;
+          if (m.id && String(m.id).toLowerCase() === normUser) return true;
+          if (m.username && m.username.toLowerCase() === normUser) return true;
+
+          const fn = (m.full_name || '').toLowerCase().trim();
+          if (fn === normUser) return true;
+
+          // Check if words match in any order (e.g. "Иванов Иван" vs "Иван Иванов")
+          const queryWords = normUser.split(/\s+/).filter(Boolean);
+          const nameWords = fn.split(/\s+/).filter(Boolean);
+
+          if (queryWords.length > 0 && queryWords.every(qw => nameWords.some(nw => nw === qw || nw.startsWith(qw)))) {
+            return true;
+          }
+          if (nameWords.some(nw => nw === normUser)) return true;
+
+          // Check workstation matching inside normUser (e.g. vlproject01 or 01)
+          let pcCandidate = normUser;
+          if (/^\d+$/.test(pcCandidate)) pcCandidate = `vlproject${pcCandidate.padStart(2, '0')}`;
+          const mPc = (m.workstation_id || '').toLowerCase().replace('vlxproject', 'vlproject');
+          if (mPc && (mPc === pcCandidate || mPc === normUser || mPc.endsWith(normUser.padStart(2, '0')))) return true;
+
           return false;
         });
       } else if (workstation) {
         let norm = workstation.trim().toLowerCase();
-        if (/^\d+$/.test(norm)) norm = `vlxproject${norm.padStart(2, '0')}`;
-        else if (norm.startsWith('vlproject')) norm = norm.replace('vlproject', 'vlxproject');
-        member = db.members?.find((m) => m.workstation_id?.toLowerCase() === norm || m.workstation_id?.toLowerCase() === workstation.trim().toLowerCase());
+        if (/^\d+$/.test(norm)) norm = `vlproject${norm.padStart(2, '0')}`;
+        norm = norm.replace('vlxproject', 'vlproject');
+        member = db.members?.find((m) => {
+          const mPc = (m.workstation_id || '').toLowerCase().replace('vlxproject', 'vlproject');
+          return mPc === norm || m.workstation_id?.toLowerCase() === workstation.trim().toLowerCase();
+        });
       }
 
       if (!member) {
@@ -1018,11 +1038,18 @@ async function handleRequest(req, res) {
         return;
       }
 
-      // If user has a set password and password was provided, verify it
-      if (member.password && normPass && member.password !== normPass) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Неверный пароль' }));
-        return;
+      // Check password: if member has password configured, require and verify it
+      if (member.password) {
+        if (!normPass) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Введите пароль для входа' }));
+          return;
+        }
+        if (member.password !== normPass) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Неверный пароль' }));
+          return;
+        }
       }
 
       // If workstation was passed with login, bind it to member
@@ -1094,13 +1121,19 @@ async function handleRequest(req, res) {
         normPc = `vlxproject${normPc.padStart(2, '0')}`;
       }
 
+      const nameParts = full_name.trim().split(/\s+/);
+      const usernameGen = nameParts.length > 1
+        ? `${nameParts[0].toLowerCase()}.${nameParts[1].toLowerCase()}`
+        : full_name.trim().toLowerCase();
+
       const newMember = {
         id: `uf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         full_name: full_name.trim(),
+        username: usernameGen,
         password: (password || '').trim() || null,
         department_id: department_id || 'dept-design',
         role: role?.trim() || 'Инженер-проектировщик',
-        role_level: Number(role_level) || 6,
+        role_level: Number(role_level) || 1,
         initials: computedInitials,
         avatar_color: avatar_color || '#ff6600',
         avatar_url: avatar_url || null,
@@ -1110,7 +1143,7 @@ async function handleRequest(req, res) {
         email: (email || '').trim(),
         telegram: (telegram || '').trim(),
         office_room: (office_room || '').trim(),
-        status: status || (Number(role_level) >= 10 ? 'active' : 'pending'),
+        status: status || 'active',
         is_verified: Number(role_level) >= 10,
         created_at: new Date().toISOString()
       };
@@ -1899,7 +1932,10 @@ async function handleRequest(req, res) {
 
     // ------------------ SECURED: SERVE UPLOADED FILES ------------------ //
     if (pathname.startsWith('/uploads/')) {
-      const requestedName = path.basename(pathname);
+      let requestedName = path.basename(pathname);
+      try {
+        requestedName = decodeURIComponent(requestedName);
+      } catch {}
       const safeFilePath = path.resolve(UPLOADS_DIR, requestedName);
 
       if (safeFilePath.startsWith(UPLOADS_DIR) && fs.existsSync(safeFilePath) && !fs.statSync(safeFilePath).isDirectory()) {
@@ -1907,6 +1943,7 @@ async function handleRequest(req, res) {
         const contentType = MIME_TYPES[ext] || 'application/octet-stream';
         res.writeHead(200, {
           'Content-Type': contentType,
+          'Content-Disposition': `inline; filename="${encodeURIComponent(requestedName)}"`,
           'X-Content-Type-Options': 'nosniff',
           'Cache-Control': 'public, max-age=86400'
         });

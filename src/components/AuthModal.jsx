@@ -141,11 +141,15 @@ export function AuthModal({
         // Fallback local member lookup if server offline or standalone
         const cleanQuery = normId.toLowerCase();
         const found = teamMembers.find((m) => {
+          if (!m) return false;
           if (m.id === normId) return true;
-          if (m.full_name?.toLowerCase() === cleanQuery) return true;
-          if (m.workstation_id?.toLowerCase() === cleanQuery) return true;
-          const lName = m.full_name?.split(/\s+/)[0]?.toLowerCase();
-          if (lName && lName === cleanQuery) return true;
+          if (m.username?.toLowerCase() === cleanQuery) return true;
+          const fn = (m.full_name || '').toLowerCase().trim();
+          if (fn === cleanQuery) return true;
+          const queryWords = cleanQuery.split(/\s+/).filter(Boolean);
+          const nameWords = fn.split(/\s+/).filter(Boolean);
+          if (queryWords.length > 0 && queryWords.every(qw => nameWords.some(nw => nw === qw || nw.startsWith(qw)))) return true;
+          if (nameWords.some(nw => nw === cleanQuery)) return true;
           // Number matching like 04 -> vlxproject04
           if (/^\d+$/.test(cleanQuery) && m.workstation_id?.toLowerCase().endsWith(cleanQuery.padStart(2, '0'))) return true;
           return false;
@@ -262,7 +266,11 @@ export function AuthModal({
   return (
     <div 
       className="modal-overlay" 
-      onClick={!isStandalonePage ? onClose : undefined}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !isStandalonePage && onClose) {
+          onClose();
+        }
+      }}
       style={{
         position: 'fixed',
         inset: 0,

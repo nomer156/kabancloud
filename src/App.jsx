@@ -285,17 +285,18 @@ export default function App() {
   const showToast = useCallback((msg, icon = '✓') => {
     if (!msg) return;
     const now = Date.now();
-    if (lastToastRef.current.msg === msg && (now - lastToastRef.current.time) < 1500) {
+    if (lastToastRef.current.msg === msg && (now - lastToastRef.current.time) < 2500) {
       return;
     }
     lastToastRef.current = { msg, time: now };
 
     const id = `${now}-${Math.random().toString(36).slice(2, 7)}`;
-    setToasts((prev) => [...prev.slice(-3), { id, msg, icon }]);
+    // Keep at most 2 visible toasts, discard old matching messages
+    setToasts((prev) => [...prev.filter((t) => t.msg !== msg).slice(-1), { id, msg, icon }]);
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, 3000);
   }, []);
 
   // Set theme on root
@@ -1299,6 +1300,10 @@ export default function App() {
                       onToggleStopwatch={handleToggleStopwatch}
                       currentUser={currentUser}
                       onUpdateColumn={handleUpdateColumn}
+                      onOpenFullModal={(task) => {
+                        setTaskToEdit(task);
+                        setIsTaskModalOpen(true);
+                      }}
                     />
                   );
                 })}

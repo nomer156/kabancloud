@@ -70,7 +70,7 @@ export function AccessRequestsModal({
   return (
     <div
       className="modal-overlay"
-      onClick={onClose}
+      onMouseDown={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -152,7 +152,7 @@ export function AccessRequestsModal({
           <button
             type="button"
             className="btn-icon"
-            onClick={onClose}
+            onMouseDown={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
             title="Закрыть"
             style={{ width: 32, height: 32 }}
           >

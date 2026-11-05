@@ -70,6 +70,16 @@ export function TaskChatPanel({
   const [commentInput, setCommentInput] = useState('');
   const [mentionQuery, setMentionQuery] = useState(null);
   const [taskQuery, setTaskQuery] = useState(null);
+  const chatInputRef = useRef(null);
+
+  // Searchable Assignee & Observers Combobox state (scales to 300+ members)
+  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
+  const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
+  const [observerSearchQuery, setObserverSearchQuery] = useState('');
+  const [isObserverDropdownOpen, setIsObserverDropdownOpen] = useState(false);
+
+  // Drag and drop state for files tab
+  const [isFilesDropOver, setIsFilesDropOver] = useState(false);
 
   // Hierarchical Subtasks & Nesting state
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -279,11 +289,17 @@ export function TaskChatPanel({
     }
   };
 
-  // Open Network Folder in Windows Explorer (handles both local and remote headless Linux VM)
+  // Open Network Folder in Windows Explorer (handles web links, local PC and remote headless Linux VM)
   const handleOpenFolder = async (customPath) => {
     const rawPath = customPath || currentTask.network_path || currentTask.project_path || currentTask.network_link;
     if (!rawPath || !rawPath.trim()) return;
     const cleanPath = rawPath.trim();
+
+    // 0. If it's a web URL, open directly in browser
+    if (/^https?:\/\//i.test(cleanPath)) {
+      window.open(cleanPath, '_blank', 'noopener,noreferrer');
+      return;
+    }
 
     // 1. Copy to clipboard
     try {
@@ -311,12 +327,30 @@ export function TaskChatPanel({
     }
   };
 
-  // Launch Salary Autofill
+  // Launch Salary Autofill (Immediate flow: opens PP in new tab and prompts for confirmation)
   const handleOpenPayrollModal = () => {
-    setPayrollCipher(currentTask.project_cipher || currentTask.project_code || currentTask.display_id || '');
-    setPayrollCustomer(currentTask.internal_customer || 'Уфанет Москва');
-    setPayrollWorkType(currentTask.requires_site_visit ? 'Выезд на объект' : 'Проектирование');
-    setPayrollStep('form');
+    const cipher = currentTask.project_cipher || currentTask.erp_project_id || currentTask.display_id || '';
+    const customer = currentTask.internal_customer || 'Уфанет Москва';
+    const workType = currentTask.requires_site_visit ? 'Выезд на объект' : 'Проектирование';
+    setPayrollCipher(cipher);
+    setPayrollCustomer(customer);
+    setPayrollWorkType(workType);
+
+    const payload = {
+      user_id: currentUser?.id,
+      user_name: currentUser?.full_name,
+      project_cipher: cipher,
+      internal_customer: customer,
+      work_type: workType,
+      kst: payrollKst,
+      kizm: payrollKizm,
+      ksl: payrollKsl,
+      task_id: currentTask.id,
+      task_title: currentTask.title
+    };
+    const hash = encodeURIComponent(JSON.stringify(payload));
+    window.open(`https://pp.core.ufanet.ru/works/new#kaban=${hash}`, '_blank');
+    setPayrollStep('confirm');
     setShowPayrollModal(true);
     playSound('click');
   };
@@ -348,7 +382,7 @@ export function TaskChatPanel({
     );
 
     if (isDup) {
-      if (showToast) showToast(`Отчет по виду «${payrollWorkType}» уже сохранен в этой задаче!`, '⚠️');
+      if (showToast) showToast(`Отчет по виду «${payrollWorkType}» уже сохранен в этой задаче для вас!`, '⚠️');
       setShowPayrollModal(false);
       return;
     }
@@ -576,15 +610,37 @@ export function TaskChatPanel({
           </div>
         )}
 
-        {/* Task Title */}
+        {/* Task Title (Click opens task in new browser tab) */}
         <h2 style={{
           fontSize: '0.98rem',
           fontWeight: 800,
           margin: '0 0 0.5rem 0',
-          color: 'var(--text-primary, #fff)',
           lineHeight: 1.35
         }}>
-          {currentTask.title}
+          <a
+            href={`/#task/${encodeURIComponent(currentTask.id)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Открыть задачу в новой вкладке браузера"
+            style={{
+              color: 'var(--text-primary, #fff)',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#ff6600';
+              e.currentTarget.style.textDecoration = 'underline';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-primary, #fff)';
+              e.currentTarget.style.textDecoration = 'none';
+            }}
+          >
+            <span>{currentTask.title}</span>
+            <ExternalLink size={13} style={{ opacity: 0.65, flexShrink: 0 }} />
+          </a>
         </h2>
 
         {/* Quick Stickers Bar (Feature 1: 1-click toggle) */}
@@ -814,27 +870,30 @@ export function TaskChatPanel({
             {/* Input Form at bottom with Mentions Popup */}
             <div style={{ position: 'relative' }}>
               {mentionQuery !== null && (
-                <div style={{ position: 'absolute', bottom: '100%', left: '12px', right: '12px', zIndex: 100, marginBottom: '6px' }}>
+                <div style={{ position: 'absolute', bottom: '100%', left: '12px', right: '12px', zIndex: 10050, marginBottom: '8px' }}>
                   <MentionAutocompleteDropdown
                     query={mentionQuery}
                     teamMembers={teamMembers}
+                    position={{ position: 'relative', width: '100%', bottom: 'auto' }}
                     onSelect={(member) => {
                       const rep = member.isAll ? '@все ' : `@${member.full_name} `;
                       setCommentInput((prev) => prev.replace(/@([a-zA-Zа-яА-ЯёЁ0-9_]*)$/, rep));
                       setMentionQuery(null);
+                      chatInputRef.current?.focus();
                     }}
                   />
                 </div>
               )}
 
               {taskQuery !== null && (
-                <div style={{ position: 'absolute', bottom: '100%', left: '12px', right: '12px', zIndex: 100, marginBottom: '6px', background: 'var(--bg-card, #1c2233)', border: '1px solid var(--border-subtle)', borderRadius: '8px', maxHeight: '160px', overflowY: 'auto', padding: '4px', boxShadow: 'var(--shadow-lg)' }}>
+                <div style={{ position: 'absolute', bottom: '100%', left: '12px', right: '12px', zIndex: 10050, marginBottom: '8px', background: 'var(--bg-card, #1c2233)', border: '1px solid var(--border-subtle)', borderRadius: '8px', maxHeight: '160px', overflowY: 'auto', padding: '4px', boxShadow: 'var(--shadow-lg)' }}>
                   {allTasks.filter(t => (t.title || '').toLowerCase().includes(taskQuery.toLowerCase()) || (t.display_id || '').toLowerCase().includes(taskQuery.toLowerCase())).slice(0, 5).map(t => (
                     <div
                       key={t.id}
                       onClick={() => {
                         setCommentInput(prev => prev.replace(/#([a-zA-Zа-яА-ЯёЁ0-9_.-]*)$/, `#${t.display_id || t.id} `));
                         setTaskQuery(null);
+                        chatInputRef.current?.focus();
                       }}
                       style={{ padding: '6px 8px', fontSize: '0.74rem', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff' }}
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 102, 0, 0.15)'}
@@ -850,7 +909,7 @@ export function TaskChatPanel({
               <form
                 onSubmit={handleSendComment}
                 style={{
-                  padding: '0.75rem',
+                  padding: '0.65rem 0.75rem 0.35rem 0.75rem',
                   borderTop: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
                   background: 'var(--bg-secondary, #141824)',
                   display: 'flex',
@@ -859,6 +918,7 @@ export function TaskChatPanel({
                 }}
               >
                 <input
+                  ref={chatInputRef}
                   type="text"
                   value={commentInput}
                   onChange={(e) => {
@@ -901,6 +961,82 @@ export function TaskChatPanel({
                   <Send size={15} />
                 </button>
               </form>
+
+              {/* Quick Mention & Task Tag Buttons */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  padding: '0 0.75rem 0.6rem 0.75rem',
+                  background: 'var(--bg-secondary, #141824)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommentInput(prev => (prev ? `${prev.trimEnd()} @` : '@'));
+                    setMentionQuery('');
+                    setTimeout(() => chatInputRef.current?.focus(), 50);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'rgba(255, 102, 0, 0.12)',
+                    border: '1px solid rgba(255, 102, 0, 0.35)',
+                    color: '#ff8800',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 102, 0, 0.22)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 102, 0, 0.12)';
+                  }}
+                  title="Быстро упомянуть коллегу в чате"
+                >
+                  <span>@</span>
+                  <span>Упомянуть</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommentInput(prev => (prev ? `${prev.trimEnd()} #` : '#'));
+                    setTaskQuery('');
+                    setTimeout(() => chatInputRef.current?.focus(), 50);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    color: '#38bdf8',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.22)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+                  }}
+                  title="Привязать задачу по номеру или шифру"
+                >
+                  <span>#</span>
+                  <span>Привязать задачу</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -933,30 +1069,188 @@ export function TaskChatPanel({
               </select>
             </div>
 
-            {/* Assignee Selector */}
-            <div>
+            {/* Assignee Searchable Combobox (scales to 300+ employees) */}
+            <div style={{ position: 'relative' }}>
               <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 700, color: 'var(--text-secondary, #cbd5e1)', marginBottom: '0.35rem' }}>
                 Ответственный исполнитель:
               </label>
-              <select
-                value={currentTask.assignee_id || ''}
-                onChange={(e) => commitTaskUpdate({ assignee_id: e.target.value || null })}
-                style={{
-                  width: '100%',
-                  padding: '0.55rem 0.75rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
-                  background: '#1a2638',
-                  color: '#fff',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="">Не назначен</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.full_name} ({m.role})</option>
-                ))}
-              </select>
+
+              {(() => {
+                const currentAssignee = teamMembers.find(m => m.id === currentTask.assignee_id);
+                return (
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.45rem 0.65rem',
+                        borderRadius: '8px',
+                        border: isAssigneeDropdownOpen ? '1.5px solid #ff6600' : '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
+                        background: '#1a2638',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen)}
+                    >
+                      {currentAssignee ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                          <div
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: '50%',
+                              background: currentAssignee.avatar_color || '#ff6600',
+                              color: '#fff',
+                              fontSize: '0.65rem',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            {currentAssignee.initials || currentAssignee.full_name?.[0]}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {currentAssignee.full_name}
+                            </span>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                              {currentAssignee.role} {departments.find(d => d.id === currentAssignee.department_id) ? `• ${departments.find(d => d.id === currentAssignee.department_id).name}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                          Не назначен (кликните для поиска исполнителя)
+                        </span>
+                      )}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {currentAssignee && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              commitTaskUpdate({ assignee_id: null });
+                            }}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '2px 4px', fontSize: '0.8rem' }}
+                            title="Снять назначение"
+                          >
+                            ✕
+                          </button>
+                        )}
+                        <ChevronDown size={14} style={{ color: 'var(--text-dim)' }} />
+                      </div>
+                    </div>
+
+                    {isAssigneeDropdownOpen && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          zIndex: 1000,
+                          marginTop: '4px',
+                          background: 'var(--bg-modal, #182234)',
+                          border: '1.5px solid var(--border-subtle, rgba(255, 255, 255, 0.18))',
+                          borderRadius: '8px',
+                          boxShadow: '0 12px 28px rgba(0,0,0,0.6)',
+                          padding: '6px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}
+                      >
+                        <input
+                          type="text"
+                          autoFocus
+                          value={assigneeSearchQuery}
+                          onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                          placeholder="Поиск по имени, фамилии или отделу..."
+                          style={{
+                            width: '100%',
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(255, 102, 0, 0.5)',
+                            background: 'rgba(0, 0, 0, 0.35)',
+                            color: '#fff',
+                            fontSize: '0.78rem',
+                            outline: 'none'
+                          }}
+                        />
+                        <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div
+                            onClick={() => {
+                              commitTaskUpdate({ assignee_id: null });
+                              setIsAssigneeDropdownOpen(false);
+                              setAssigneeSearchQuery('');
+                            }}
+                            style={{
+                              padding: '5px 8px',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                              color: 'var(--text-dim)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            ✕ Без ответственного
+                          </div>
+                          {teamMembers
+                            .filter((m) => {
+                              if (!assigneeSearchQuery.trim()) return true;
+                              const q = assigneeSearchQuery.toLowerCase().trim();
+                              const d = departments.find(dep => dep.id === m.department_id);
+                              return (
+                                m.full_name?.toLowerCase().includes(q) ||
+                                m.role?.toLowerCase().includes(q) ||
+                                d?.name?.toLowerCase().includes(q)
+                              );
+                            })
+                            .slice(0, 30)
+                            .map((m) => {
+                              const d = departments.find(dep => dep.id === m.department_id);
+                              return (
+                                <div
+                                  key={m.id}
+                                  onClick={() => {
+                                    commitTaskUpdate({ assignee_id: m.id });
+                                    setIsAssigneeDropdownOpen(false);
+                                    setAssigneeSearchQuery('');
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '5px 8px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    background: currentTask.assignee_id === m.id ? 'rgba(255, 102, 0, 0.15)' : 'transparent'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 102, 0, 0.12)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = currentTask.assignee_id === m.id ? 'rgba(255, 102, 0, 0.15)' : 'transparent'}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: m.avatar_color || '#ff6600', color: '#fff', fontSize: '0.58rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      {m.initials || m.full_name?.[0]}
+                                    </div>
+                                    <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>{m.full_name}</span>
+                                  </div>
+                                  <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)' }}>
+                                    {m.role} {d ? `• ${d.name}` : ''}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Department */}
@@ -1131,49 +1425,162 @@ export function TaskChatPanel({
               </div>
             </div>
 
-            {/* Observers / Watchers (participant_ids) */}
-            <div>
+            {/* Observers / Watchers (participant_ids) - Scalable for 300+ members */}
+            <div style={{ position: 'relative' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                 <label style={{ fontSize: '0.73rem', fontWeight: 700, color: 'var(--text-secondary, #cbd5e1)' }}>
-                  👥 Следящие / Ожидающие передачи:
+                  👥 Следящие / Ожидающие передачи ({(currentTask.participant_ids || []).length}):
                 </label>
                 <span style={{ fontSize: '0.66rem', color: 'var(--text-dim, #64748b)' }}>
                   Уведомлять об изменениях
                 </span>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                {teamMembers.map((m) => {
-                  const isPart = (currentTask.participant_ids || []).includes(m.id);
+
+              {/* Selected Observers Tags */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '6px' }}>
+                {(currentTask.participant_ids || []).map((pid) => {
+                  const m = teamMembers.find(mem => mem.id === pid);
+                  if (!m) return null;
                   return (
-                    <button
+                    <span
                       key={m.id}
-                      type="button"
-                      onClick={() => {
-                        const cur = currentTask.participant_ids || [];
-                        const next = cur.includes(m.id) ? cur.filter(id => id !== m.id) : [...cur, m.id];
-                        commitTaskUpdate({ participant_ids: next });
-                      }}
                       style={{
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        border: isPart ? '1.5px solid #8b5cf6' : '1px solid rgba(255,255,255,0.08)',
-                        background: isPart ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.03)',
-                        color: isPart ? '#c4b5fd' : 'var(--text-muted)',
-                        fontSize: '0.72rem',
-                        cursor: 'pointer',
-                        display: 'flex',
+                        display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '4px'
+                        gap: '5px',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        background: 'rgba(139, 92, 246, 0.18)',
+                        border: '1px solid rgba(139, 92, 246, 0.35)',
+                        color: '#c4b5fd',
+                        fontSize: '0.72rem',
+                        fontWeight: 600
                       }}
                     >
-                      <span style={{ width: 14, height: 14, borderRadius: '50%', background: m.avatar_color || '#ff6600', color: '#fff', fontSize: '0.55rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ width: 14, height: 14, borderRadius: '50%', background: m.avatar_color || '#8b5cf6', color: '#fff', fontSize: '0.52rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                         {m.initials || m.full_name?.[0]}
                       </span>
                       <span>{m.full_name}</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = (currentTask.participant_ids || []).filter(id => id !== m.id);
+                          commitTaskUpdate({ participant_ids: next });
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#c4b5fd',
+                          cursor: 'pointer',
+                          padding: '0 2px',
+                          fontSize: '0.75rem',
+                          lineHeight: 1
+                        }}
+                        title="Удалить из следящих"
+                      >
+                        ✕
+                      </button>
+                    </span>
                   );
                 })}
               </div>
+
+              {/* Search input for adding new observer */}
+              <input
+                type="text"
+                value={observerSearchQuery}
+                onFocus={() => setIsObserverDropdownOpen(true)}
+                onChange={(e) => {
+                  setObserverSearchQuery(e.target.value);
+                  setIsObserverDropdownOpen(true);
+                }}
+                placeholder="+ Добавить следящего (поиск по имени, фамилии или отделу)..."
+                style={{
+                  width: '100%',
+                  padding: '0.45rem 0.65rem',
+                  borderRadius: '6px',
+                  border: isObserverDropdownOpen ? '1.5px solid #8b5cf6' : '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
+                  background: '#1a2638',
+                  color: '#fff',
+                  fontSize: '0.76rem',
+                  outline: 'none'
+                }}
+              />
+
+              {isObserverDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 1000,
+                    marginTop: '4px',
+                    background: 'var(--bg-modal, #182234)',
+                    border: '1.5px solid rgba(139, 92, 246, 0.4)',
+                    borderRadius: '8px',
+                    boxShadow: '0 12px 28px rgba(0,0,0,0.6)',
+                    padding: '6px',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 4px', fontSize: '0.66rem', color: 'var(--text-dim)' }}>
+                    <span>Выберите сотрудника для добавления в следящие:</span>
+                    <button type="button" onClick={() => setIsObserverDropdownOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}>✕</button>
+                  </div>
+                  {teamMembers
+                    .filter(m => !(currentTask.participant_ids || []).includes(m.id))
+                    .filter(m => {
+                      if (!observerSearchQuery.trim()) return true;
+                      const q = observerSearchQuery.toLowerCase().trim();
+                      const d = departments.find(dep => dep.id === m.department_id);
+                      return (
+                        m.full_name?.toLowerCase().includes(q) ||
+                        m.role?.toLowerCase().includes(q) ||
+                        d?.name?.toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 30)
+                    .map((m) => {
+                      const d = departments.find(dep => dep.id === m.department_id);
+                      return (
+                        <div
+                          key={m.id}
+                          onClick={() => {
+                            const cur = currentTask.participant_ids || [];
+                            commitTaskUpdate({ participant_ids: [...cur, m.id] });
+                            setObserverSearchQuery('');
+                            setIsObserverDropdownOpen(false);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '5px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ width: 18, height: 18, borderRadius: '50%', background: m.avatar_color || '#8b5cf6', color: '#fff', fontSize: '0.58rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {m.initials || m.full_name?.[0]}
+                            </div>
+                            <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>{m.full_name}</span>
+                          </div>
+                          <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)' }}>
+                            {m.role} {d ? `• ${d.name}` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
 
             {/* Salary (ProjectPay) Section */}
@@ -1393,9 +1800,55 @@ export function TaskChatPanel({
           </div>
         )}
 
-        {/* TAB 4: FILES & INLINE PDF VIEWER */}
+        {/* TAB 4: FILES & INLINE PDF VIEWER WITH ACTIVE DRAG-AND-DROP */}
         {activeTab === 'files' && (
-          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div
+            onDragOver={(e) => {
+              if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsFilesDropOver(true);
+              }
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsFilesDropOver(false);
+            }}
+            onDrop={async (e) => {
+              if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsFilesDropOver(false);
+                setUploadingFile(true);
+                try {
+                  const newFiles = [...(currentTask.files || [])];
+                  for (const file of e.dataTransfer.files) {
+                    const uploaded = await uploadTaskFile(file, currentUser?.full_name || 'Инженер');
+                    newFiles.push(uploaded);
+                  }
+                  commitTaskUpdate({ files: newFiles });
+                  playSound('success');
+                  if (showToast) showToast('Чертежи и файлы успешно загружены в задачу', '📎');
+                } catch (err) {
+                  if (showToast) showToast('Ошибка при загрузке файлов', '⚠️');
+                } finally {
+                  setUploadingFile(false);
+                }
+              }
+            }}
+            style={{
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              minHeight: '100%',
+              background: isFilesDropOver ? 'rgba(255, 102, 0, 0.05)' : 'transparent',
+              outline: isFilesDropOver ? '2px dashed #ff6600' : 'none',
+              borderRadius: '8px',
+              transition: 'all 0.15s ease'
+            }}
+          >
             {/* Upload Area */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f8fafc' }}>
@@ -1433,10 +1886,32 @@ export function TaskChatPanel({
               </label>
             </div>
 
-            {/* Files List */}
+            {/* Files List / Active Drop Zone */}
             {(!currentTask.files || currentTask.files.length === 0) ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.78rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed var(--border-subtle)' }}>
-                Нет прикрепленных файлов. Вы можете перетащить сюда чертежи в формате PDF или DWG.
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '2.5rem 1.5rem',
+                  color: isFilesDropOver ? '#ff8800' : 'var(--text-muted)',
+                  fontSize: '0.8rem',
+                  background: isFilesDropOver ? 'rgba(255, 102, 0, 0.12)' : 'rgba(255,255,255,0.02)',
+                  borderRadius: '10px',
+                  border: isFilesDropOver ? '2px dashed #ff6600' : '1.5px dashed var(--border-subtle)',
+                  boxShadow: isFilesDropOver ? '0 0 20px rgba(255, 102, 0, 0.3)' : 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Paperclip size={28} style={{ color: isFilesDropOver ? '#ff6600' : 'var(--text-dim)', opacity: 0.8 }} />
+                <div style={{ fontWeight: 700, color: isFilesDropOver ? '#fff' : 'inherit' }}>
+                  {isFilesDropOver ? 'Отпустите файлы для прикрепления к задаче' : 'Нет прикрепленных файлов'}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                  Перетащите сюда чертежи в формате PDF или DWG из Проводника Windows, либо нажмите «+ Прикрепить файл» выше
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1588,98 +2063,147 @@ export function TaskChatPanel({
 
       {/* Salary Autofill Modal (pp.core.ufanet.ru) */}
       {showPayrollModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setShowPayrollModal(false)}>
-          <div style={{ background: 'var(--bg-modal, #141824)', border: '1.5px solid rgba(16, 185, 129, 0.4)', borderRadius: '16px', padding: '1.4rem', maxWidth: '480px', width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowPayrollModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--bg-modal, #141824)',
+              border: '1.5px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: '16px',
+              padding: '1.4rem',
+              maxWidth: '480px',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <DollarSign size={20} style={{ color: '#10b981' }} />
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#fff' }}>Автозаполнение ЗП (ProjectPay)</h3>
               </div>
-              <button type="button" onClick={() => setShowPayrollModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
+              <button
+                type="button"
+                onClick={() => setShowPayrollModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem' }}
+              >
+                ✕
+              </button>
             </div>
 
-            {payrollStep === 'form' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                  Данные предзаполнены из карточки задачи и будут автоматически переданы в форму на pp.core.ufanet.ru:
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'center', padding: '0.5rem 0' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                <HelpCircle size={26} />
+              </div>
+              <div>
+                <h4 style={{ margin: '0 0 0.35rem 0', color: '#fff', fontSize: '1.05rem', fontWeight: 800 }}>Вы сохранили отчет в системе ЗП?</h4>
+                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                  Система ProjectPay открыта в новой вкладке. После сохранения формы подтвердите начисление, чтобы прикрепить отметку к задаче.
                 </p>
+              </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '3px' }}>Шифр проекта / Название:</label>
-                  <input type="text" value={payrollCipher} onChange={e => setPayrollCipher(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-card)', color: '#fff', fontSize: '0.78rem' }} />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '3px' }}>Внутренний заказчик:</label>
-                  <input type="text" value={payrollCustomer} onChange={e => setPayrollCustomer(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-card)', color: '#fff', fontSize: '0.78rem' }} />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '3px' }}>Вид работы:</label>
-                  <select value={payrollWorkType} onChange={e => setPayrollWorkType(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-card)', color: '#fff', fontSize: '0.78rem' }}>
-                    <option value="Проектирование">Проектирование (РД / ВОЛС)</option>
-                    <option value="Выезд на объект">Выезд на объект / Обследование</option>
-                    <option value="Согласование">Согласование проектной документации</option>
-                  </select>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.66rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Кст:</label>
-                    <select value={payrollKst} onChange={e => setPayrollKst(e.target.value)} style={{ width: '100%', padding: '4px', borderRadius: '4px', background: 'var(--bg-card)', color: '#fff', fontSize: '0.72rem' }}>
-                      {KST_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.name.split('(')[0]}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.66rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Кизм:</label>
-                    <select value={payrollKizm} onChange={e => setPayrollKizm(e.target.value)} style={{ width: '100%', padding: '4px', borderRadius: '4px', background: 'var(--bg-card)', color: '#fff', fontSize: '0.72rem' }}>
-                      {KIZM_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.name.split('(')[0]}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.66rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Ксл:</label>
-                    <select value={payrollKsl} onChange={e => setPayrollKsl(e.target.value)} style={{ width: '100%', padding: '4px', borderRadius: '4px', background: 'var(--bg-card)', color: '#fff', fontSize: '0.72rem' }}>
-                      {KSL_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.name.split('(')[0]}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem' }}>
-                  <button type="button" onClick={() => setShowPayrollModal(false)} className="btn btn-secondary" style={{ padding: '0.45rem 0.9rem', fontSize: '0.78rem' }}>Отмена</button>
-                  <button type="button" onClick={handleLaunchPayrollSystem} className="btn btn-primary" style={{ padding: '0.45rem 1.1rem', fontSize: '0.78rem', fontWeight: 800, background: '#10b981', border: 'none' }}>
-                    Перейти к заполнению в ЗП ↗
-                  </button>
+              {/* Work Type Selection (handles multi-stage projects & site visits) */}
+              <div style={{ textAlign: 'left', background: 'rgba(255, 255, 255, 0.03)', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Вид работы для начисления ЗП:
+                </label>
+                <select
+                  value={payrollWorkType}
+                  onChange={(e) => setPayrollWorkType(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.45rem 0.65rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-card, #1c2233)',
+                    color: '#fff',
+                    fontSize: '0.78rem'
+                  }}
+                >
+                  <option value="Проектирование">Проектирование (РД / ВОЛС)</option>
+                  <option value="Выезд на объект">Выезд на объект / Обследование</option>
+                  <option value="Согласование">Согласование проектной документации</option>
+                </select>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  {currentTask.requires_site_visit
+                    ? '💡 У задачи включен выезд: можно внести отчет и по Проектированию, и по Выезду.'
+                    : '💡 Допускается сохранение отчетов разными исполнителями.'}
                 </div>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'center', padding: '0.5rem 0' }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                  <HelpCircle size={24} />
-                </div>
-                <div>
-                  <h4 style={{ margin: '0 0 0.35rem 0', color: '#fff', fontSize: '0.95rem' }}>Вы сохранили отчет в системе ЗП?</h4>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Нажмите «Да, сохранить», чтобы прикрепить отметку к задаче и предотвратить случайное дублирование начислений.
-                  </p>
-                </div>
 
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '0.5rem' }}>
-                  <button type="button" onClick={() => setShowPayrollModal(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.78rem' }}>
-                    ✕ Отмена (не сохранять)
-                  </button>
-                  <button type="button" onClick={handleConfirmPayrollSaved} className="btn btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.78rem', fontWeight: 800, background: '#10b981', border: 'none' }}>
-                    ✓ Да, отчет сохранен в ЗП
-                  </button>
+              {/* Already saved records on this task */}
+              {(currentTask.payroll_records || []).length > 0 && (
+                <div style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <span style={{ fontWeight: 700, color: '#10b981' }}>Ранее зафиксированные отчеты:</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '3px' }}>
+                    {currentTask.payroll_records.map((r, i) => (
+                      <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 6px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '4px' }}>
+                        <span>✓ {r.work_type} • {r.user_name}</span>
+                        <span style={{ color: 'var(--text-dim)' }}>{new Date(r.date).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPayrollModal(false)}
+                  className="btn btn-secondary"
+                  style={{ padding: '0.5rem 1rem', fontSize: '0.78rem' }}
+                >
+                  ✕ Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPayrollSaved}
+                  className="btn btn-primary"
+                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.78rem', fontWeight: 800, background: '#10b981', border: 'none' }}
+                >
+                  ✓ Да, отчет сохранен в ЗП
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Nest Into Parent Task Modal */}
       {showNestModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setShowNestModal(false)}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowNestModal(false);
+          }}
+        >
           <div style={{ background: 'var(--bg-modal, #141824)', border: '1px solid var(--border-subtle)', borderRadius: '14px', padding: '1.25rem', maxWidth: '440px', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, fontSize: '0.9rem', color: '#fff' }}>

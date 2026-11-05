@@ -19,7 +19,8 @@ export function KanbanColumn({
   currentUser,
   onUpdateColumn,
   allTasks = [],
-  onSaveTask
+  onSaveTask,
+  onOpenFullModal
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAddingInline, setIsAddingInline] = useState(false);
@@ -537,6 +538,7 @@ export function KanbanColumn({
             allTasks={allTasks}
             currentUser={currentUser}
             onSaveTask={onSaveTask}
+            onOpenFullModal={onOpenFullModal}
           />
         ))}
 

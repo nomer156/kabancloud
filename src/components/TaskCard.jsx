@@ -35,7 +35,9 @@ export function TaskCard({
   onToggleStopwatch,
   allTasks = [],
   currentUser,
-  onSaveTask
+  onSaveTask,
+  onOpenFullModal,
+  showToast
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
@@ -199,15 +201,65 @@ export function TaskCard({
     }
   };
 
-  // Open folder in Windows Explorer
+  // Open folder in Windows Explorer or open web links directly
   const handleOpenFolder = async (e) => {
     if (e) e.stopPropagation();
     if (!task.network_link) return;
+    const cleanPath = task.network_link.trim();
+    if (/^https?:\/\//i.test(cleanPath)) {
+      window.open(cleanPath, '_blank', 'noopener,noreferrer');
+      return;
+    }
     try {
-      await openFolderInExplorer(task.network_link);
+      await navigator.clipboard.writeText(cleanPath);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
       playSound('click');
+      const res = await openFolderInExplorer(cleanPath);
+      if (res?.isRemote || !res?.success) {
+        if (showToast) showToast('📁 Путь скопирован! Нажмите Win+R -> Ctrl+V -> Enter', '📁');
+      } else {
+        if (showToast) showToast('Папка открыта в Проводнике Windows', '📁');
+      }
     } catch (err) {
-      console.warn('Ошибка открытия папки:', err);
+      if (showToast) showToast('📁 Путь скопирован! Нажмите Win+R -> Ctrl+V -> Enter', '📁');
+    }
+  };
+
+  // External Files Drag & Drop onto this Task Card
+  const handleDragOverFiles = (e) => {
+    if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsFileOver(true);
+    }
+  };
+
+  const handleDragLeaveFiles = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileOver(false);
+  };
+
+  const handleDropFiles = async (e) => {
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsFileOver(false);
+      try {
+        const newFiles = [...(task.files || [])];
+        for (const file of e.dataTransfer.files) {
+          const uploaded = await uploadTaskFile(file, currentUser?.full_name || 'Инженер');
+          newFiles.push(uploaded);
+        }
+        if (onSaveTask) {
+          onSaveTask({ ...task, files: newFiles });
+        }
+        playSound('success');
+        if (showToast) showToast(`Файлы добавлены в задачу #${task.display_id || task.id}`, '📎');
+      } catch (err) {
+        if (showToast) showToast('Ошибка при загрузке файлов', '⚠️');
+      }
     }
   };
 
@@ -217,11 +269,24 @@ export function TaskCard({
 
   return (
     <div
-      className="task-card"
+      className={`task-card ${isFileOver ? 'task-card-file-hover' : ''}`}
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => onEdit(task)}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (onOpenFullModal) onOpenFullModal(task);
+      }}
       onAuxClick={handleMiddleClick}
+      onDragOver={handleDragOverFiles}
+      onDragLeave={handleDragLeaveFiles}
+      onDrop={handleDropFiles}
+      style={{
+        outline: isFileOver ? '2.5px dashed #ff6600' : 'none',
+        boxShadow: isFileOver ? '0 0 20px rgba(255, 102, 0, 0.45)' : undefined,
+        transform: isFileOver ? 'scale(1.02)' : undefined,
+        transition: 'transform 0.15s ease, box-shadow 0.15s ease, outline 0.15s ease'
+      }}
     >
       {/* Top Metadata: Department Badge, Section Tag, Project Tag, Priority Indicator, Actions */}
       <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.55rem' }}>
@@ -443,16 +508,36 @@ export function TaskCard({
         );
       })()}
 
-      {/* Title */}
+      {/* Title (Click opens task in new browser tab) */}
       <h4
         className="card-title"
-        style={{ cursor: 'pointer', margin: '0 0 0.5rem 0' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onEdit(task);
-        }}
+        style={{ margin: '0 0 0.5rem 0' }}
       >
-        {renderWithMentions(task.title, teamMembers)}
+        <a
+          href={`/#task/${encodeURIComponent(task.id)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Открыть задачу в новой вкладке браузера"
+          style={{
+            color: 'inherit',
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'baseline',
+            gap: '5px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#ff6600';
+            e.currentTarget.style.textDecoration = 'underline';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'inherit';
+            e.currentTarget.style.textDecoration = 'none';
+          }}
+        >
+          <span>{renderWithMentions(task.title, teamMembers)}</span>
+          <ExternalLink size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
+        </a>
       </h4>
 
       {/* Description Preview */}
@@ -466,7 +551,7 @@ export function TaskCard({
           className="card-network-link"
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'space-between' }}
           onClick={handleCopyLink}
-          title={`Папка: ${task.network_link}\n(Клик/иконка — скопировать путь, ↗ — открыть в Проводнике)`}
+          title={`Папка: ${task.network_link}\n(Клик/иконка — скопировать путь, ↗ — перейти / открыть в Проводнике)`}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden', minWidth: 0, flex: 1 }}>
             <FolderGit2 size={13} style={{ flexShrink: 0, color: 'var(--accent-orange)' }} />
@@ -494,7 +579,7 @@ export function TaskCard({
               type="button"
               className="btn-icon"
               onClick={handleOpenFolder}
-              title="Перейти к папке в Проводнике Windows (Win10 / Win11)"
+              title="Перейти к папке / открыть ссылку"
               style={{ width: 22, height: 22, padding: 0, color: 'var(--accent-orange)' }}
             >
               <ExternalLink size={12} />
@@ -518,30 +603,6 @@ export function TaskCard({
           <span className="card-network-text">{task.address}</span>
           <ExternalLink size={11} style={{ opacity: 0.6, flexShrink: 0 }} />
         </a>
-      )}
-
-      {/* Checklist Checkboxes Progress */}
-      {totalChecks > 0 && (
-        <div className="card-checklist-group" style={{ margin: '0.4rem 0' }}>
-          <div className="card-checklist-stats" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: doneChecks === totalChecks ? '#10b981' : 'var(--text-muted)' }}>
-              <CheckSquare size={12} style={{ color: doneChecks === totalChecks ? '#10b981' : 'inherit' }} />
-              <span>Чек-лист: {doneChecks}/{totalChecks}</span>
-            </span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: doneChecks === totalChecks ? '#10b981' : 'var(--text-dim)' }}>
-              {Math.round((doneChecks / totalChecks) * 100)}%
-            </span>
-          </div>
-          <div className="checklist-progress-bar" style={{ marginTop: '2px' }}>
-            <div
-              className="checklist-progress-fill"
-              style={{
-                width: `${(doneChecks / totalChecks) * 100}%`,
-                backgroundColor: doneChecks === totalChecks ? '#10b981' : 'var(--accent-orange)'
-              }}
-            />
-          </div>
-        </div>
       )}
 
       {/* Real Nested Subtasks Tree (YouGile Tree Feature) */}

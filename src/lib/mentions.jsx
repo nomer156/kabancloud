@@ -144,7 +144,7 @@ export function MentionAutocompleteDropdown({
   query = '',
   teamMembers = [],
   onSelect,
-  position = { top: '100%', left: 0, marginTop: '4px' }
+  position = { bottom: '100%', left: 0, marginBottom: '8px' }
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const q = (query || '').toLowerCase().trim();

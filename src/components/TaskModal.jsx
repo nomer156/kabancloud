@@ -470,14 +470,25 @@ export function TaskModal({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  // Open Network folder in Windows Explorer
+  // Open Network folder in Windows Explorer or open web links directly
   const handleOpenFolder = async () => {
     if (!networkLink.trim()) return;
+    const cleanPath = networkLink.trim();
+    if (/^https?:\/\//i.test(cleanPath)) {
+      window.open(cleanPath, '_blank', 'noopener,noreferrer');
+      return;
+    }
     try {
-      await openFolderInExplorer(networkLink.trim());
+      await navigator.clipboard.writeText(cleanPath);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
       playSound('click');
+      const res = await openFolderInExplorer(cleanPath);
+      if (res?.isRemote || !res?.success) {
+        alert('Путь скопирован в буфер обмена! Нажмите Win+R -> Ctrl+V -> Enter для перехода в Проводнике.');
+      }
     } catch (err) {
-      alert(err.message || 'Ошибка открытия папки');
+      alert('Путь скопирован в буфер обмена! Нажмите Win+R -> Ctrl+V -> Enter');
     }
   };
 
