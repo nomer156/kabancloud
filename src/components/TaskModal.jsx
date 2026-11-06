@@ -73,6 +73,7 @@ export function TaskModal({
   projects = [],
   sections = [],
   columns = [],
+  departments = DEPARTMENTS,
   currentUser,
   allTasks = [],
   onSaveTask,

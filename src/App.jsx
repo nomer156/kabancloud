@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import { Kanban, Lock } from 'lucide-react';
 import { 
   COLUMNS, 
   DEFAULT_COLUMNS, 
@@ -1154,12 +1155,31 @@ export default function App() {
     showToast('Список колонок доски обновлен');
   };
 
-  // Reset all filters
+  // Select assignee and automatically exit archive view (user requirement)
+  const handleSelectAssignee = (assigneeId) => {
+    setSelectedAssigneeId(assigneeId);
+    if (isArchiveView) {
+      setIsArchiveView(false);
+    }
+  };
+
+  // Select project and automatically exit archive view
+  const handleSelectProject = (projectCode) => {
+    setSelectedProject(projectCode);
+    if (isArchiveView) {
+      setIsArchiveView(false);
+    }
+  };
+
+  // Reset all filters and exit archive view
   const handleResetFilters = () => {
     setSelectedAssigneeId(null);
     setSelectedSection(null);
     setSelectedProject(null);
     setSearchQuery('');
+    if (isArchiveView) {
+      setIsArchiveView(false);
+    }
   };
 
   // Mentions notifications handlers
@@ -1323,6 +1343,101 @@ export default function App() {
     );
   }
 
+  // Unauthenticated / Guest Lock Screen:
+  // User requested: "если ты пропустил авторизацию/регистрацию и остался как гость - то вся доска у тебя не грузится в принципе кроме кнопки входа, пока не войдешь"
+  if (!currentUser || currentUser.id === 'guest') {
+    return (
+      <div
+        className="app-root-shell"
+        style={{
+          width: '100vw',
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg, #0b0f19 0%, #131d2e 100%)',
+          color: '#fff',
+          padding: '2rem'
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '440px',
+            width: '100%',
+            background: 'var(--bg-card, #141c2c)',
+            border: '1px solid rgba(255, 102, 0, 0.4)',
+            borderRadius: '16px',
+            padding: '2.5rem 2rem',
+            textAlign: 'center',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7)',
+            animation: 'fadeIn 0.2s ease'
+          }}
+        >
+          <div
+            style={{
+              width: 58,
+              height: 58,
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #ff6600, #ff8800)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem auto',
+              boxShadow: '0 8px 24px rgba(255, 102, 0, 0.45)'
+            }}
+          >
+            <Kanban size={32} strokeWidth={2.4} />
+          </div>
+
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 900, marginBottom: '0.45rem', color: '#f8fafc' }}>
+            Уфанет • Доска проектирования
+          </h1>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', marginBottom: '1.8rem', lineHeight: 1.5 }}>
+            Для доступа к задачам, чатам отделов и проектным файлам необходимо авторизоваться в корпоративной системе.
+          </p>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              playSound('click');
+              setIsAuthModalOpen(true);
+            }}
+            style={{
+              width: '100%',
+              padding: '0.75rem 1.25rem',
+              fontSize: '0.92rem',
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #ff6600, #f97316)',
+              border: 'none',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 6px 20px rgba(255, 102, 0, 0.35)',
+              cursor: 'pointer'
+            }}
+          >
+            <Lock size={16} />
+            <span>Войти в систему</span>
+          </button>
+        </div>
+
+        {/* Auth Modal */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSelectUser={handleSelectCurrentUser}
+          teamMembers={teamMembers}
+          departments={departments}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-root-shell" style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
       {/* Top Navigation Header (Spans full 100% width across the top) */}
@@ -1374,7 +1489,7 @@ export default function App() {
             sections={sections}
             currentUser={currentUser}
             selectedAssigneeId={selectedAssigneeId}
-            onSelectAssignee={setSelectedAssigneeId}
+            onSelectAssignee={handleSelectAssignee}
             selectedSection={selectedSection}
             onSelectSection={setSelectedSection}
             selectedProject={selectedProject}
@@ -1467,9 +1582,9 @@ export default function App() {
               activeView={activeView}
               onChangeView={setActiveView}
               selectedProject={selectedProject}
-              onSelectProject={setSelectedProject}
+              onSelectProject={handleSelectProject}
               selectedAssigneeId={selectedAssigneeId}
-              onSelectAssignee={setSelectedAssigneeId}
+              onSelectAssignee={handleSelectAssignee}
               currentUser={currentUser}
               activeDepartmentId={activeDepartmentId}
               onAddNewProject={handleAddNewProject}
@@ -1526,7 +1641,7 @@ export default function App() {
                 sections={sections}
                 selectedAssigneeId={selectedAssigneeId}
                 selectedMember={selectedFilterMember}
-                onSelectAssignee={setSelectedAssigneeId}
+                onSelectAssignee={handleSelectAssignee}
                 onEditTask={handleEditTask}
                 theme={theme}
               />
@@ -1600,6 +1715,7 @@ export default function App() {
         projects={projects}
         sections={sections}
         columns={columns}
+        departments={departments}
         currentUser={currentUser}
         allTasks={tasks}
         onSaveTask={handleSaveTask}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, 
   FolderGit2, 
@@ -23,6 +23,230 @@ import { playSound } from '../lib/sound';
 import { openFolderInExplorer, uploadTaskFile } from '../lib/api';
 import { renderWithMentions } from '../lib/mentions';
 
+/**
+ * Recursive Subtask Item that supports unlimited hierarchy,
+ * dragging to Kanban columns, dragging onto to nest further,
+ * and mouse wheel middle-click to open in a new tab.
+ */
+function NestedSubtaskCard({
+  item,
+  depth = 1,
+  allTasks = [],
+  teamMembers = [],
+  onEdit,
+  onSaveTask,
+  showToast
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isDropOver, setIsDropOver] = useState(false);
+
+  const children = useMemo(() => {
+    return Array.isArray(allTasks) ? allTasks.filter((t) => t.parent_task_id === item.id) : [];
+  }, [allTasks, item.id]);
+
+  const assignee = Array.isArray(teamMembers) ? teamMembers.find((m) => m.id === item.assignee_id) : null;
+  const isDone = item.status === 'done';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginLeft: depth > 1 ? `${Math.min((depth - 1) * 10, 24)}px` : 0 }}>
+      <div
+        draggable={true}
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.setData('text/plain', item.id);
+          e.dataTransfer.setData('application/kaban-subtask', 'true');
+          e.dataTransfer.effectAllowed = 'move';
+        }}
+        onMouseDown={(e) => {
+          if (e.button === 1) { // Колесико мыши
+            e.preventDefault();
+            e.stopPropagation();
+            window.open(`#task/${item.id}`, '_blank');
+          }
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit(item);
+        }}
+        onDragOver={(e) => {
+          if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('text/plain')) {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDropOver(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          setIsDropOver(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDropOver(false);
+          window.dispatchEvent(new Event('dragend'));
+          const droppedId = e.dataTransfer.getData('text/plain');
+          if (droppedId && droppedId !== item.id) {
+            const droppedTask = allTasks.find(t => t.id === droppedId);
+            if (droppedTask && onSaveTask) {
+              onSaveTask({ ...droppedTask, parent_task_id: item.id });
+              playSound('success');
+              setIsExpanded(true);
+              if (showToast) showToast(`Задача #${droppedTask.display_id || droppedTask.title} вложена в #${item.display_id || item.title}`, '↳');
+            }
+          }
+        }}
+        style={{
+          padding: '4px 7px',
+          borderRadius: '6px',
+          background: isDropOver ? 'rgba(255, 102, 0, 0.2)' : 'var(--bg-secondary, #0f172a)',
+          border: isDropOver ? '1.5px dashed var(--accent-orange)' : '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
+          fontSize: '0.72rem',
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '6px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          transition: 'all 0.12s ease'
+        }}
+        title="Перетащите подзадачу в колонку доски, чтобы выложить её наружу. Колёсико мыши — в новой вкладке."
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1 }}>
+          {children.length > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(prev => !prev);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-orange)',
+                cursor: 'pointer',
+                padding: '0 2px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+              title={isExpanded ? 'Свернуть вложенные подзадачи' : 'Раскрыть вложенные подзадачи'}
+            >
+              {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+          )}
+
+          <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>
+            #{item.display_id || item.id?.slice(-4)}
+          </span>
+          <span style={{
+            fontWeight: 600,
+            color: isDone ? 'var(--text-muted)' : 'var(--text-main)',
+            textDecoration: isDone ? 'line-through' : 'none',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
+            {item.title}
+          </span>
+          {children.length > 0 && (
+            <span style={{ fontSize: '0.62rem', color: '#ff8800', background: 'rgba(255, 102, 0, 0.15)', padding: '0 4px', borderRadius: '4px', fontWeight: 800 }}>
+              ↳ {children.length}
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          {/* Status Pill Clicker */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSaveTask) {
+                const nextStatus = item.status === 'done' ? 'in_progress' : item.status === 'in_progress' ? 'done' : 'in_progress';
+                onSaveTask({ ...item, status: nextStatus });
+                playSound(nextStatus === 'done' ? 'success' : 'click');
+              }
+            }}
+            style={{
+              fontSize: '0.62rem',
+              padding: '1.5px 6px',
+              borderRadius: '4px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 700,
+              background: isDone ? 'rgba(16, 185, 129, 0.2)' : item.status === 'in_progress' ? 'rgba(255, 102, 0, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+              color: isDone ? '#10b981' : item.status === 'in_progress' ? '#ff8800' : 'var(--text-muted)'
+            }}
+            title="Кликните для переключения статуса"
+          >
+            {isDone ? 'Готово' : item.status === 'in_progress' ? 'В работе' : 'Очередь'}
+          </button>
+
+          {assignee && (
+            <div
+              style={{
+                width: 17,
+                height: 17,
+                borderRadius: '50%',
+                background: assignee.avatar_color || '#ff6600',
+                color: '#fff',
+                fontSize: '0.58rem',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title={`Исполнитель: ${assignee.full_name}`}
+            >
+              {assignee.initials || assignee.full_name?.[0]}
+            </div>
+          )}
+
+          {/* Detach button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSaveTask) {
+                onSaveTask({ ...item, parent_task_id: null });
+                playSound('click');
+              }
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-dim)',
+              cursor: 'pointer',
+              padding: '0 3px',
+              fontSize: '0.72rem'
+            }}
+            title="Открепить и вынести на доску"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Recursive children list */}
+      {isExpanded && children.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', paddingLeft: '8px', borderLeft: '1.5px dashed rgba(255, 102, 0, 0.35)', marginTop: '2px' }}>
+          {children.map(childSub => (
+            <NestedSubtaskCard
+              key={childSub.id}
+              item={childSub}
+              depth={depth + 1}
+              allTasks={allTasks}
+              teamMembers={teamMembers}
+              onEdit={onEdit}
+              onSaveTask={onSaveTask}
+              showToast={showToast}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TaskCard({
   task,
   teamMembers,
@@ -46,6 +270,17 @@ export function TaskCard({
   const [isFileOver, setIsFileOver] = useState(false);
   const [isSubtaskDropOver, setIsSubtaskDropOver] = useState(false);
   const [isCardTaskDropOver, setIsCardTaskDropOver] = useState(false);
+
+  // Global listener to clear all drop highlights on dragend anywhere
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      setIsCardTaskDropOver(false);
+      setIsFileOver(false);
+      setIsSubtaskDropOver(false);
+    };
+    window.addEventListener('dragend', handleGlobalDragEnd);
+    return () => window.removeEventListener('dragend', handleGlobalDragEnd);
+  }, []);
 
   // Check if task is running live stopwatch
   const isStopwatchActive = activeStopwatchTaskId === task.id;
@@ -307,6 +542,12 @@ export function TaskCard({
       className={`task-card ${isFileOver ? 'task-card-file-hover' : ''}`}
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
+      onDragEnd={() => {
+        setIsCardTaskDropOver(false);
+        setIsFileOver(false);
+        setIsSubtaskDropOver(false);
+        window.dispatchEvent(new Event('dragend'));
+      }}
       onClick={() => onEdit(task)}
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -768,135 +1009,18 @@ export function TaskCard({
               </span>
             </div>
 
-            {childTasks.map((child) => {
-              const childAssignee = teamMembers.find((m) => m.id === child.assignee_id);
-              const isChildDone = child.status === 'done';
-              return (
-                <div
-                  key={child.id}
-                  draggable={true}
-                  onDragStart={(e) => {
-                    e.stopPropagation();
-                    e.dataTransfer.setData('text/plain', child.id);
-                    e.dataTransfer.setData('application/kaban-subtask', 'true');
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onMouseDown={(e) => {
-                    if (e.button === 1) { // Колесико мыши
-                      e.preventDefault();
-                      e.stopPropagation();
-                      window.open(`#task/${child.id}`, '_blank');
-                    }
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(child);
-                  }}
-                  style={{
-                    padding: '5px 8px',
-                    borderRadius: '6px',
-                    background: 'var(--bg-secondary, #0f172a)',
-                    border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
-                    fontSize: '0.72rem',
-                    cursor: 'grab',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '6px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                  }}
-                  title="Перетащите подзадачу в колонку доски, чтобы выложить её наружу. Колёсико мыши — в новой вкладке."
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
-                    <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>
-                      #{child.display_id || child.id?.slice(-4)}
-                    </span>
-                    <span style={{
-                      fontWeight: 600,
-                      color: isChildDone ? 'var(--text-muted)' : 'var(--text-main)',
-                      textDecoration: isChildDone ? 'line-through' : 'none',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {child.title}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
-                    {/* Status Pill Clicker */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onSaveTask) {
-                          const nextStatus = child.status === 'done' ? 'in_progress' : child.status === 'in_progress' ? 'done' : 'in_progress';
-                          onSaveTask({ ...child, status: nextStatus });
-                          playSound(nextStatus === 'done' ? 'success' : 'click');
-                        }
-                      }}
-                      style={{
-                        fontSize: '0.62rem',
-                        padding: '1.5px 6px',
-                        borderRadius: '4px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        background: isChildDone ? 'rgba(16, 185, 129, 0.2)' : child.status === 'in_progress' ? 'rgba(255, 102, 0, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                        color: isChildDone ? '#10b981' : child.status === 'in_progress' ? '#ff8800' : 'var(--text-muted)'
-                      }}
-                      title="Кликните для переключения статуса подзадачи"
-                    >
-                      {isChildDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Очередь'}
-                    </button>
-
-                    {childAssignee && (
-                      <div
-                        style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: '50%',
-                          background: childAssignee.avatar_color || '#ff6600',
-                          color: '#fff',
-                          fontSize: '0.55rem',
-                          fontWeight: 800,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title={childAssignee.full_name}
-                      >
-                        {childAssignee.initials || childAssignee.full_name?.[0]}
-                      </div>
-                    )}
-
-                    {/* Unlink / Detach Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onSaveTask) {
-                          onSaveTask({ ...child, parent_task_id: null });
-                          playSound('click');
-                          if (showToast) showToast('Подзадача откреплена и вынесена на доску', '✓');
-                        }
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-dim)',
-                        cursor: 'pointer',
-                        padding: '1px 3px',
-                        fontSize: '0.7rem'
-                      }}
-                      title="Открепить подзадачу (сделать самостоятельной задачей)"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            {childTasks.map((child) => (
+              <NestedSubtaskCard
+                key={child.id}
+                item={child}
+                depth={1}
+                allTasks={allTasks}
+                teamMembers={teamMembers}
+                onEdit={onEdit}
+                onSaveTask={onSaveTask}
+                showToast={showToast}
+              />
+            ))}
 
             {/* Inline Quick Add Subtask Input */}
             {isAddingCardSubtask ? (
