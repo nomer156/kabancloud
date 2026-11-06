@@ -45,6 +45,7 @@ export function TaskCard({
   const [quickSubtaskTitle, setQuickSubtaskTitle] = useState('');
   const [isFileOver, setIsFileOver] = useState(false);
   const [isSubtaskDropOver, setIsSubtaskDropOver] = useState(false);
+  const [isCardTaskDropOver, setIsCardTaskDropOver] = useState(false);
 
   // Check if task is running live stopwatch
   const isStopwatchActive = activeStopwatchTaskId === task.id;
@@ -229,26 +230,36 @@ export function TaskCard({
     }
   };
 
-  // External Files Drag & Drop onto this Task Card
-  const handleDragOverFiles = (e) => {
+  // External Files or Task Card Drag & Drop onto this Task Card
+  const handleDragOverCard = (e) => {
     if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
       e.preventDefault();
       e.stopPropagation();
       setIsFileOver(true);
+      return;
+    }
+    if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('text/plain')) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!isCardTaskDropOver) setIsCardTaskDropOver(true);
     }
   };
 
-  const handleDragLeaveFiles = (e) => {
+  const handleDragLeaveCard = (e) => {
     e.preventDefault();
-    e.stopPropagation();
-    setIsFileOver(false);
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsFileOver(false);
+      setIsCardTaskDropOver(false);
+    }
   };
 
-  const handleDropFiles = async (e) => {
+  const handleDropCard = async (e) => {
+    // Files drop
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       e.preventDefault();
       e.stopPropagation();
       setIsFileOver(false);
+      setIsCardTaskDropOver(false);
       try {
         const newFiles = [...(task.files || [])];
         for (const file of e.dataTransfer.files) {
@@ -262,6 +273,27 @@ export function TaskCard({
         if (showToast) showToast(`Файлы добавлены в задачу #${task.display_id || task.id}`, '📎');
       } catch (err) {
         if (showToast) showToast('Ошибка при загрузке файлов', '⚠️');
+      }
+      return;
+    }
+
+    // Task card drop onto this card -> make it a child subtask!
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCardTaskDropOver(false);
+    setIsFileOver(false);
+    window.dispatchEvent(new Event('dragend')); // Clear column ghost highlights!
+
+    const droppedId = e.dataTransfer.getData('text/plain');
+    if (droppedId && droppedId !== task.id) {
+      const droppedTask = allTasks.find((t) => t.id === droppedId);
+      if (droppedTask && onSaveTask) {
+        onSaveTask({ ...droppedTask, parent_task_id: task.id });
+        playSound('success');
+        setIsSubtasksExpanded(true); // Automatically expand subtasks to reveal the new child!
+        if (showToast) {
+          showToast(`Задача #${droppedTask.display_id || droppedTask.title} теперь вложена как подзадача!`, '↳');
+        }
       }
     }
   };
@@ -281,16 +313,45 @@ export function TaskCard({
         if (onOpenFullModal) onOpenFullModal(task);
       }}
       onAuxClick={handleMiddleClick}
-      onDragOver={handleDragOverFiles}
-      onDragLeave={handleDragLeaveFiles}
-      onDrop={handleDropFiles}
+      onDragOver={handleDragOverCard}
+      onDragLeave={handleDragLeaveCard}
+      onDrop={handleDropCard}
       style={{
-        outline: isFileOver ? '2.5px dashed #ff6600' : 'none',
-        boxShadow: isFileOver ? '0 0 20px rgba(255, 102, 0, 0.45)' : undefined,
-        transform: isFileOver ? 'scale(1.02)' : undefined,
+        outline: isFileOver ? '2.5px dashed #ff6600' : isCardTaskDropOver ? '2.5px dashed #ff8800' : 'none',
+        boxShadow: isFileOver || isCardTaskDropOver ? '0 0 20px rgba(255, 102, 0, 0.45)' : undefined,
+        transform: isFileOver || isCardTaskDropOver ? 'scale(1.02)' : undefined,
+        background: isCardTaskDropOver ? 'rgba(255, 102, 0, 0.12)' : undefined,
         transition: 'transform 0.15s ease, box-shadow 0.15s ease, outline 0.15s ease'
       }}
     >
+      {/* Drop overlay badge when dragging a task into this task */}
+      {isCardTaskDropOver && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 50,
+          background: 'rgba(20, 24, 36, 0.92)',
+          borderRadius: 'var(--radius-md, 10px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          border: '2px dashed var(--accent-orange)',
+          pointerEvents: 'none'
+        }}>
+          <span style={{ fontSize: '1.4rem' }}>↳</span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-orange)' }}>
+            Вложить как подзадачу
+          </span>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            в #{task.display_id || task.id}
+          </span>
+        </div>
+      )}
       {/* Top Metadata: Department Badge, Section Tag, Project Tag, Priority Indicator, Actions */}
       <div className="card-top-meta" style={{ flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.55rem' }}>
         <div className="card-tags-group" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
@@ -674,6 +735,7 @@ export function TaskCard({
               e.preventDefault();
               e.stopPropagation();
               setIsSubtaskDropOver(false);
+              window.dispatchEvent(new Event('dragend')); // Clear column ghost highlights!
               const droppedId = e.dataTransfer.getData('text/plain');
               if (droppedId && droppedId !== task.id) {
                 const droppedTask = allTasks.find(t => t.id === droppedId);
@@ -712,6 +774,20 @@ export function TaskCard({
               return (
                 <div
                   key={child.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    e.dataTransfer.setData('text/plain', child.id);
+                    e.dataTransfer.setData('application/kaban-subtask', 'true');
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onMouseDown={(e) => {
+                    if (e.button === 1) { // Колесико мыши
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open(`#task/${child.id}`, '_blank');
+                    }
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(child);
@@ -722,14 +798,14 @@ export function TaskCard({
                     background: 'var(--bg-secondary, #0f172a)',
                     border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
                     fontSize: '0.72rem',
-                    cursor: 'pointer',
+                    cursor: 'grab',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '6px',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                   }}
-                  title="Кликните для редактирования подзадачи"
+                  title="Перетащите подзадачу в колонку доски, чтобы выложить её наружу. Колёсико мыши — в новой вкладке."
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
                     <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>

@@ -532,6 +532,76 @@ export default function App() {
     showToast('Выберите профиль сотрудника для входа', '🔐');
   };
 
+  // Global Escape Key Handler to close open modals, side panels, and standalone views
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.key !== 'Escape') return;
+
+      if (isTaskModalOpen) {
+        setIsTaskModalOpen(false);
+        return;
+      }
+      if (isImportModalOpen) {
+        setIsImportModalOpen(false);
+        return;
+      }
+      if (isTeamModalOpen) {
+        setIsTeamModalOpen(false);
+        return;
+      }
+      if (isProfileModalOpen) {
+        setIsProfileModalOpen(false);
+        return;
+      }
+      if (isAccessRequestsModalOpen) {
+        setIsAccessRequestsModalOpen(false);
+        return;
+      }
+      if (isSectionsModalOpen) {
+        setIsSectionsModalOpen(false);
+        return;
+      }
+      if (isColumnsModalOpen) {
+        setIsColumnsModalOpen(false);
+        return;
+      }
+      if (isSettingsModalOpen) {
+        setIsSettingsModalOpen(false);
+        return;
+      }
+      if (isChatModalOpen) {
+        setIsChatModalOpen(false);
+        return;
+      }
+      if (standaloneTaskId) {
+        setStandaloneTaskId(null);
+        window.location.hash = '';
+        return;
+      }
+      if (activeTaskInPanel) {
+        setActiveTaskInPanel(null);
+        if (window.location.hash.startsWith('#task/')) {
+          window.location.hash = '';
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    isTaskModalOpen,
+    isImportModalOpen,
+    isTeamModalOpen,
+    isProfileModalOpen,
+    isAccessRequestsModalOpen,
+    isSectionsModalOpen,
+    isColumnsModalOpen,
+    isSettingsModalOpen,
+    isChatModalOpen,
+    standaloneTaskId,
+    activeTaskInPanel
+  ]);
+
   // Find member selected in filter
   const selectedFilterMember = useMemo(() => {
     if (selectedAssigneeId) return teamMembers.find((m) => m.id === selectedAssigneeId) || null;
@@ -599,7 +669,10 @@ export default function App() {
       return;
     }
     const task = tasks.find((t) => t.id === taskId);
-    if (!task || task.status === newStatus) return;
+    if (!task) return;
+
+    const wasSubtask = Boolean(task.parent_task_id);
+    if (task.status === newStatus && !wasSubtask) return;
 
     // Validation for moving to "ГОТОВО / Выдано": mandatory fields must be filled
     if (newStatus === 'done') {
@@ -621,10 +694,20 @@ export default function App() {
       }
     }
 
+    const updatedTask = {
+      ...task,
+      status: newStatus,
+      parent_task_id: null // Unlink if it was a subtask, making it a top-level task in this column!
+    };
+
     // Optimistic UI update
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+      prev.map((t) => (t.id === taskId ? updatedTask : t))
     );
+
+    if (wasSubtask) {
+      showToast(`Подзадача #${task.display_id || task.title} вынесена на доску в колонку`, '↳');
+    }
 
     if (newStatus === 'done') {
       playSound('success');
@@ -639,7 +722,11 @@ export default function App() {
     }
 
     try {
-      await updateTaskStatus(taskId, newStatus);
+      if (wasSubtask) {
+        await saveTask(updatedTask);
+      } else {
+        await updateTaskStatus(taskId, newStatus);
+      }
     } catch (err) {
       console.error('Ошибка обновления статуса:', err);
     }
@@ -1462,6 +1549,7 @@ export default function App() {
                 formatStopwatchTime={formatStopwatchTime}
                 onSaveTask={handleSaveTask}
                 onNotifyMention={handleNotifyMention}
+                onSelectTask={(child) => setActiveTaskInPanel(child)}
                 onClose={() => {
                   setActiveTaskInPanel(null);
                   if (window.location.hash.startsWith('#task/')) {

@@ -1877,7 +1877,14 @@ async function handleRequest(req, res) {
         return;
       }
 
-      const item = { ...body, id: body.id || `notif-${Date.now()}`, read: false, created_at: new Date().toISOString() };
+      const now = new Date().toISOString();
+      const item = {
+        ...body,
+        id: body.id || `notif-${Date.now()}`,
+        read: false,
+        created_at: body.created_at || body.createdAt || now,
+        createdAt: body.createdAt || body.created_at || now
+      };
       db.notifications.unshift(item);
       if (db.notifications.length > 200) db.notifications = db.notifications.slice(0, 200);
       writeDb(db);

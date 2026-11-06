@@ -100,6 +100,19 @@ export function ProfileModal({
     }
   }, [isOpen, currentUser]);
 
+  // Close on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !currentUser) return null;
 
   const userLevel = Number(currentUser.role_level) || 6;
@@ -830,104 +843,6 @@ export function ProfileModal({
               style={{ width: '100%', fontSize: '0.85rem' }}
             />
           </div>
-
-          {/* 3. Chief Access Request Banner (If user is not Level 10) */}
-          {!isChiefOrAdmin && (
-            <div
-              style={{
-                padding: '1.1rem',
-                borderRadius: 'var(--radius-lg, 12px)',
-                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(255, 102, 0, 0.08) 100%)',
-                border: '1.5px solid rgba(239, 68, 68, 0.35)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '8px',
-                      background: 'rgba(239, 68, 68, 0.25)',
-                      color: '#ef4444',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Crown size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
-                      Права начальника отдела (Уровень 10)
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
-                      Позволяет подтверждать инженеров отдела, изменять матрицу прав, настраивать колонки и разделы
-                    </div>
-                  </div>
-                </div>
-
-                {hasPendingRequest ? (
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                      background: 'rgba(245, 158, 11, 0.2)',
-                      color: '#f59e0b',
-                      fontSize: '0.75rem',
-                      fontWeight: 800
-                    }}
-                  >
-                    <Clock size={14} />
-                    <span>Заявка отправлена • Ожидает решения</span>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSendAccessRequest}
-                    disabled={requestSending}
-                    className="btn"
-                    style={{
-                      background: 'linear-gradient(135deg, #ef4444, #f97316)',
-                      color: '#fff',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      padding: '0.45rem 0.9rem',
-                      border: 'none',
-                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.35)'
-                    }}
-                  >
-                    <Crown size={14} />
-                    <span>{requestSending ? 'Отправка...' : 'Запросить доступ начальника (Ур. 10)'}</span>
-                  </button>
-                )}
-              </div>
-
-              {!hasPendingRequest && (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Комментарий к заявке (например: Назначен руководителем группы...)"
-                    value={requestNote}
-                    onChange={(e) => setRequestNote(e.target.value)}
-                    className="form-input"
-                    style={{
-                      flex: 1,
-                      fontSize: '0.78rem',
-                      background: 'rgba(0,0,0,0.25)',
-                      padding: '0.4rem 0.75rem'
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Modal Footer Actions */}
           <div

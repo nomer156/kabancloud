@@ -51,6 +51,7 @@ import {
 import { playSound } from '../lib/sound';
 import { MentionAutocompleteDropdown, extractMentionTargets, renderWithMentions } from '../lib/mentions';
 import { openFolderInExplorer, uploadTaskFile, addProjectItem, deleteProjectItem } from '../lib/api';
+import { SmartMemberPicker } from './SmartMemberPicker';
 
 function normalizeToTimeFormat(val) {
   if (!val) return '';
@@ -1116,6 +1117,7 @@ export function TaskModal({
                     e.preventDefault();
                     e.stopPropagation();
                     setIsSubtaskDropOver(false);
+                    window.dispatchEvent(new Event('dragend'));
                     const droppedId = e.dataTransfer.getData('text/plain');
                     if (droppedId && droppedId !== taskToEdit?.id) {
                       const droppedTask = allTasks.find(t => t.id === droppedId);
@@ -1149,6 +1151,20 @@ export function TaskModal({
                       return (
                         <div
                           key={child.id}
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.stopPropagation();
+                            e.dataTransfer.setData('text/plain', child.id);
+                            e.dataTransfer.setData('application/kaban-subtask', 'true');
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          onMouseDown={(e) => {
+                            if (e.button === 1) { // Колесико мыши
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.open(`#task/${child.id}`, '_blank');
+                            }
+                          }}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -1157,8 +1173,10 @@ export function TaskModal({
                             background: 'var(--bg-card)',
                             padding: '0.45rem 0.65rem',
                             borderRadius: '6px',
-                            border: '1px solid var(--border-subtle)'
+                            border: '1px solid var(--border-subtle)',
+                            cursor: 'grab'
                           }}
+                          title="Перетащите подзадачу в колонку доски, чтобы выложить наружу. Колёсико мыши — в новой вкладке."
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
                             <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>
@@ -1247,7 +1265,7 @@ export function TaskModal({
 
                 {/* Create subtask input */}
                 {taskToEdit?.id ? (
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                     <input
                       type="text"
                       className="form-input"
@@ -1257,17 +1275,14 @@ export function TaskModal({
                       onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChildSubtask(e); }}
                       style={{ fontSize: '0.8rem', flex: 1 }}
                     />
-                    <select
-                      className="form-select"
+                    <SmartMemberPicker
+                      compact={true}
                       value={newChildSubtaskAssignee}
-                      onChange={(e) => setNewChildSubtaskAssignee(e.target.value)}
-                      style={{ width: '135px', fontSize: '0.74rem', height: 32, backgroundColor: '#1a2234', color: '#f8fafc', colorScheme: 'dark' }}
-                    >
-                      <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Назначить...</option>
-                      {teamMembers.map(m => (
-                        <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
-                      ))}
-                    </select>
+                      onChange={setNewChildSubtaskAssignee}
+                      teamMembers={teamMembers}
+                      departments={departments}
+                      placeholder="Назначить..."
+                    />
                     <button
                       type="button"
                       className="btn btn-primary"
@@ -1846,16 +1861,13 @@ export function TaskModal({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
                 <div className="form-group">
                   <label className="form-label">Исполнитель</label>
-                  <select
-                    className="form-select"
+                  <SmartMemberPicker
                     value={assigneeId}
-                    onChange={(e) => setAssigneeId(e.target.value)}
-                  >
-                    <option value="">Не назначен</option>
-                    {teamMembers.map((m) => (
-                      <option key={m.id} value={m.id}>{m.full_name} ({m.initials})</option>
-                    ))}
-                  </select>
+                    onChange={setAssigneeId}
+                    teamMembers={teamMembers}
+                    departments={departments}
+                    placeholder="Не назначен..."
+                  />
                 </div>
 
                 <div className="form-group">

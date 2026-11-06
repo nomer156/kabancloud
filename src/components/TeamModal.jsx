@@ -88,6 +88,19 @@ export function TeamModal({
     }
   }, [isOpen, initialEditingId, teamMembers]);
 
+  // Close on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const isAdmin = (Number(currentUser?.role_level) || 0) >= 10 || currentUser?.full_name?.toLowerCase() === 'admin' || currentUser?.username?.toLowerCase() === 'sanya';
@@ -568,15 +581,17 @@ export function TeamModal({
 
                       {!isEditing && (
                         <>
-                          <button
-                            type="button"
-                            className="btn-icon"
-                            style={{ width: 30, height: 30 }}
-                            onClick={() => handleStartEdit(member)}
-                            title="Редактировать сотрудника"
-                          >
-                            <Edit2 size={13} />
-                          </button>
+                          {isChiefOrAdmin && (
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              style={{ width: 30, height: 30 }}
+                              onClick={() => handleStartEdit(member)}
+                              title="Редактировать сотрудника"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                          )}
 
                           {isChiefOrAdmin && onDeleteMember && teamMembers.length > 1 && (
                             <button

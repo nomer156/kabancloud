@@ -56,6 +56,7 @@ import { playSound } from '../lib/sound';
 import { renderWithMentions, extractMentionTargets, MentionAutocompleteDropdown } from '../lib/mentions';
 import { openFolderInExplorer, uploadTaskFile, addProjectItem, deleteProjectItem } from '../lib/api';
 import confetti from 'canvas-confetti';
+import { SmartMemberPicker } from './SmartMemberPicker';
 
 const MONTHS_SHORT = [
   'янв.', 'февр.', 'марта', 'апр.', 'мая', 'июня',
@@ -401,6 +402,17 @@ export function TaskDetailView({
       setComments(Array.isArray(task.comments) ? task.comments : []);
     }
   }, [task?.id]);
+
+  // Close on Escape key (navigate back to board)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && onBack) {
+        onBack();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onBack]);
 
   if (!task) {
     return (
@@ -1332,6 +1344,20 @@ export function TaskDetailView({
                   return (
                     <div
                       key={child.id}
+                      draggable={true}
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('text/plain', child.id);
+                        e.dataTransfer.setData('application/kaban-subtask', 'true');
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button === 1) { // Колесико мыши (средний клик)
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.open(`#task/${child.id}`, '_blank');
+                        }
+                      }}
                       style={{
                         padding: '6px 10px',
                         borderRadius: '6px',
@@ -1340,8 +1366,10 @@ export function TaskDetailView({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        gap: '8px'
+                        gap: '8px',
+                        cursor: 'grab'
                       }}
+                      title="Перетащите подзадачу в колонку доски, чтобы выложить её наружу. Колёсико мыши — в новой вкладке."
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                         <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.72rem', fontFamily: 'var(--font-mono)' }}>
@@ -1384,25 +1412,18 @@ export function TaskDetailView({
                           {isDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Очередь'}
                         </button>
 
-                        {childAssignee && (
-                          <div
-                            style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: '50%',
-                              background: childAssignee.avatar_color || '#ff6600',
-                              color: '#fff',
-                              fontSize: '0.64rem',
-                              fontWeight: 800,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            title={`Исполнитель: ${childAssignee.full_name}`}
-                          >
-                            {childAssignee.initials || childAssignee.full_name?.[0]}
-                          </div>
-                        )}
+                        {/* Smart Member Picker for Subtask */}
+                        <SmartMemberPicker
+                          compact={true}
+                          value={child.assignee_id || ''}
+                          onChange={(newId) => {
+                            onSaveTask({ ...child, assignee_id: newId || null });
+                            playSound('click');
+                          }}
+                          teamMembers={teamMembers}
+                          departments={departments}
+                          placeholder="Назначить..."
+                        />
 
                         <button
                           type="button"
@@ -1411,7 +1432,7 @@ export function TaskDetailView({
                           }}
                           className="btn-icon"
                           style={{ width: 22, height: 22, padding: 0 }}
-                          title="Открыть подзадачу"
+                          title="Открыть подзадачу (Колёсико — в новой вкладке)"
                         >
                           <ExternalLink size={12} />
                         </button>
@@ -1442,7 +1463,7 @@ export function TaskDetailView({
             </div>
 
             {/* Quick Create Subtask Form */}
-            <form onSubmit={handleCreateChildSubtask} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
+            <form onSubmit={handleCreateChildSubtask} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.85rem' }}>
               <input
                 type="text"
                 className="form-input"
@@ -1451,18 +1472,14 @@ export function TaskDetailView({
                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
                 style={{ flex: 1, fontSize: '0.8rem' }}
               />
-              <select
-                className="form-select"
+              <SmartMemberPicker
+                compact={true}
                 value={newSubtaskAssignee}
-                onChange={(e) => setNewSubtaskAssignee(e.target.value)}
-                style={{ width: '135px', fontSize: '0.75rem', colorScheme: 'dark', backgroundColor: '#1a2234', color: '#f8fafc' }}
-                title="Исполнитель подзадачи"
-              >
-                <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Без исп.</option>
-                {teamMembers.map(m => (
-                  <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
-                ))}
-              </select>
+                onChange={setNewSubtaskAssignee}
+                teamMembers={teamMembers}
+                departments={departments}
+                placeholder="Исполнитель..."
+              />
               <button type="submit" className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}>
                 <Plus size={14} />
                 <span>Добавить</span>
@@ -2297,21 +2314,16 @@ export function TaskDetailView({
                   </span>
                 )}
               </div>
-              <select
-                className="form-select"
+              <SmartMemberPicker
                 value={assigneeId}
-                onChange={(e) => {
-                  setAssigneeId(e.target.value);
-                  handleSaveAll({ assignee_id: e.target.value || null });
+                onChange={(newId) => {
+                  setAssigneeId(newId);
+                  handleSaveAll({ assignee_id: newId || null });
                 }}
-              >
-                <option value="">-- Не назначен --</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.full_name} ({m.role})
-                  </option>
-                ))}
-              </select>
+                teamMembers={teamMembers}
+                departments={departments}
+                placeholder="-- Не назначен --"
+              />
             </div>
 
             {/* Соисполнители / Участники из других отделов */}

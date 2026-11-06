@@ -118,18 +118,25 @@ export function extractMentionTargets(text, teamMembers = []) {
   if (!text) return [];
   const lower = text.toLowerCase();
 
-  // If @все or @all mentioned, return all member IDs
+  // If @все or @all mentioned, return all member IDs plus '__all__' sentinel
   if (lower.includes('@все') || lower.includes('@all')) {
-    return teamMembers.map((m) => m.id);
+    return ['__all__', ...teamMembers.map((m) => m.id)];
   }
 
   const targets = [];
   for (const m of teamMembers) {
-    const fullNameAt = `@${m.full_name.toLowerCase()}`;
-    const firstNameAt = `@${m.full_name.split(' ')[0].toLowerCase()}`;
-    const initialsAt = `@${(m.initials || '').toLowerCase()}`;
+    if (!m) continue;
+    const fullNameAt = m.full_name ? `@${m.full_name.toLowerCase()}` : '';
+    const firstNameAt = m.full_name ? `@${m.full_name.split(' ')[0].toLowerCase()}` : '';
+    const initialsAt = m.initials ? `@${m.initials.toLowerCase()}` : '';
+    const usernameAt = m.username ? `@${m.username.toLowerCase()}` : '';
 
-    if (lower.includes(fullNameAt) || lower.includes(firstNameAt) || (m.initials && lower.includes(initialsAt))) {
+    if (
+      (fullNameAt && lower.includes(fullNameAt)) ||
+      (firstNameAt && lower.includes(firstNameAt)) ||
+      (initialsAt && lower.includes(initialsAt)) ||
+      (usernameAt && lower.includes(usernameAt))
+    ) {
       targets.push(m.id);
     }
   }

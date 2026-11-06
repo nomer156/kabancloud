@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Network, 
   Plus, 
@@ -59,6 +59,29 @@ export function Header({
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const notifRef = useRef(null);
+
+  // Close notifications dropdown on outside click or Escape key
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setNotifDropdownOpen(false);
+      }
+    };
+    if (notifDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [notifDropdownOpen]);
 
   // Role permissions
   const isSuperAdmin = Boolean(
@@ -331,9 +354,10 @@ export function Header({
 
 
         {/* Notifications & Mentions Center (Bell Icon) */}
-        <div style={{ position: 'relative' }}>
+        <div ref={notifRef} style={{ position: 'relative' }}>
           {(() => {
-            // Strictly filter notifications: only those where currentUser was mentioned OR which currentUser authored
+            // Filter notifications: show incoming mentions & alerts targeted to currentUser or @все.
+            // Exclude self-authored comments so the user doesn't get pinged by their own typing!
             const userNotifications = notifications.filter((notif) => {
               if (!currentUser?.id) return false;
               const isTargeted = (Array.isArray(notif.targetUserIds) && notif.targetUserIds.includes(currentUser.id)) ||
@@ -341,7 +365,10 @@ export function Header({
                 (Array.isArray(notif.targetUserIds) && notif.targetUserIds.includes('__all__'));
               const isAuthor = (notif.fromUserId && notif.fromUserId === currentUser.id) ||
                 (notif.fromUserName && notif.fromUserName === currentUser.full_name);
-              return isTargeted || isAuthor;
+              if (isAuthor && (!Array.isArray(notif.targetUserIds) || !notif.targetUserIds.includes(currentUser.id))) {
+                return false;
+              }
+              return Boolean(isTargeted);
             });
 
             // Unread badge only counts unread notifications targeted to the current user
@@ -408,7 +435,7 @@ export function Header({
                       maxHeight: '440px',
                       display: 'flex',
                       flexDirection: 'column',
-                      zIndex: 100,
+                      zIndex: 1050,
                       animation: 'fadeIn 0.15s ease'
                     }}
                   >

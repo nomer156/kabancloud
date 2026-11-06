@@ -44,6 +44,7 @@ import { DEPARTMENTS, DEFAULT_STICKERS, PRIORITIES, KST_OPTIONS, KIZM_OPTIONS, K
 import { playSound } from '../lib/sound';
 import { openFolderInExplorer, uploadTaskFile, createNotification } from '../lib/api';
 import { renderWithMentions, MentionAutocompleteDropdown, extractMentionTargets } from '../lib/mentions';
+import { SmartMemberPicker } from './SmartMemberPicker';
 
 export function TaskChatPanel({
   task,
@@ -58,6 +59,7 @@ export function TaskChatPanel({
   stopwatchElapsedSec = 0,
   formatStopwatchTime,
   onSaveTask,
+  onNotifyMention,
   onClose,
   showToast,
   allTasks = [],
@@ -112,6 +114,17 @@ export function TaskChatPanel({
     if (!Array.isArray(allTasks) || allTasks.length === 0 || !currentTask?.id) return [];
     return allTasks.filter((t) => t.parent_task_id === currentTask.id);
   }, [allTasks, currentTask?.id]);
+
+  // Unnest subtask to top level
+  const handleUnnest = () => {
+    const updated = { ...currentTask, parent_task_id: null };
+    commitTaskUpdate({ parent_task_id: null });
+    if (onSaveTask) {
+      onSaveTask(updated);
+    }
+    playSound('click');
+    if (showToast) showToast('Задача откреплена и вынесена на общую доску', '✓');
+  };
 
   // Parent task if nested
   const parentTask = useMemo(() => {
@@ -1753,6 +1766,20 @@ export function TaskChatPanel({
                     return (
                       <div
                         key={child.id}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          e.dataTransfer.setData('text/plain', child.id);
+                          e.dataTransfer.setData('application/kaban-subtask', 'true');
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onMouseDown={(e) => {
+                          if (e.button === 1) { // Колесико мыши
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(`#task/${child.id}`, '_blank');
+                          }
+                        }}
                         style={{
                           padding: '8px 10px',
                           borderRadius: '8px',
@@ -1762,8 +1789,10 @@ export function TaskChatPanel({
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           gap: '8px',
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.25)'
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.25)',
+                          cursor: 'grab'
                         }}
+                        title="Перетащите подзадачу в колонку доски, чтобы выложить её наружу. Колёсико мыши — открыть в новой вкладке."
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                           <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.72rem', fontFamily: 'var(--font-mono)' }}>
@@ -1781,7 +1810,7 @@ export function TaskChatPanel({
                               textOverflow: 'ellipsis',
                               cursor: 'pointer'
                             }}
-                            title="Открыть подзадачу для редактирования"
+                            title="Открыть подзадачу (Колёсико — в новой вкладке)"
                           >
                             {child.title}
                           </span>
@@ -1815,34 +1844,20 @@ export function TaskChatPanel({
                             ))}
                           </select>
 
-                          {/* Assignee Avatar / Selector */}
-                          <select
+                          {/* Smart Member Picker for Subtask */}
+                          <SmartMemberPicker
+                            compact={true}
                             value={child.assignee_id || ''}
-                            onChange={(e) => {
+                            onChange={(newId) => {
                               if (onSaveTask) {
-                                onSaveTask({ ...child, assignee_id: e.target.value || null });
+                                onSaveTask({ ...child, assignee_id: newId || null });
                                 playSound('click');
                               }
                             }}
-                            style={{
-                              fontSize: '0.68rem',
-                              padding: '2px 6px',
-                              borderRadius: '5px',
-                              background: '#1a2234',
-                              color: '#f8fafc',
-                              border: '1px solid var(--border-subtle)',
-                              maxWidth: '100px',
-                              colorScheme: 'dark'
-                            }}
-                            title={childAssignee ? `Исполнитель: ${childAssignee.full_name}` : 'Назначить исполнителя'}
-                          >
-                            <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Без исп.</option>
-                            {teamMembers.map((m) => (
-                              <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>
-                                {m.full_name?.split(/\s+/)[0]}
-                              </option>
-                            ))}
-                          </select>
+                            teamMembers={teamMembers}
+                            departments={departments}
+                            placeholder="Назначить..."
+                          />
 
                           {/* Open Subtask Button */}
                           <button
@@ -1878,7 +1893,7 @@ export function TaskChatPanel({
             </div>
 
             {/* Form to Create Child Subtask */}
-            <form onSubmit={handleAddSubtask} style={{ display: 'flex', gap: '6px' }}>
+            <form onSubmit={handleAddSubtask} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <input
                 type="text"
                 value={newSubtaskTitle}
@@ -1894,25 +1909,14 @@ export function TaskChatPanel({
                   fontSize: '0.8rem'
                 }}
               />
-              <select
+              <SmartMemberPicker
+                compact={true}
                 value={newSubtaskAssignee}
-                onChange={(e) => setNewSubtaskAssignee(e.target.value)}
-                style={{
-                  padding: '0.55rem 0.6rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
-                  background: '#1a2638',
-                  color: '#fff',
-                  fontSize: '0.76rem',
-                  maxWidth: '130px',
-                  colorScheme: 'dark'
-                }}
-              >
-                <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>Исполнитель...</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name?.split(/\s+/)[0]}</option>
-                ))}
-              </select>
+                onChange={setNewSubtaskAssignee}
+                teamMembers={teamMembers}
+                departments={departments}
+                placeholder="Исполнитель..."
+              />
               <button
                 type="submit"
                 disabled={!newSubtaskTitle.trim()}

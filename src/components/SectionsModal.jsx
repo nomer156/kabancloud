@@ -38,6 +38,19 @@ export function SectionsModal({ isOpen, onClose, sections = [], onSaveSections, 
     }
   }, [isOpen, sections]);
 
+  // Close on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // Add a brand-new section
@@ -424,28 +437,30 @@ export function SectionsModal({ isOpen, onClose, sections = [], onSaveSections, 
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleStartEdit(sec)}
-                      className="btn-mini-action"
-                      style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem' }}
-                      title="Редактировать название, код или цвет раздела"
-                    >
-                      <Edit2 size={13} />
-                      <span>Изменить</span>
-                    </button>
+                  {isAdmin && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(sec)}
+                        className="btn-mini-action"
+                        style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem' }}
+                        title="Редактировать название, код или цвет раздела"
+                      >
+                        <Edit2 size={13} />
+                        <span>Изменить</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(sec.id)}
-                      className="btn-icon"
-                      style={{ width: 26, height: 26, color: 'var(--text-dim)' }}
-                      title="Удалить раздел"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(sec.id)}
+                        className="btn-icon"
+                        style={{ width: 26, height: 26, color: 'var(--text-dim)' }}
+                        title="Удалить раздел"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -454,11 +469,13 @@ export function SectionsModal({ isOpen, onClose, sections = [], onSaveSections, 
 
         <div className="modal-footer">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Отмена
+            {isAdmin ? 'Отмена' : 'Закрыть'}
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleSaveAll}>
-            Сохранить разделы
-          </button>
+          {isAdmin && (
+            <button type="button" className="btn btn-primary" onClick={handleSaveAll}>
+              Сохранить разделы
+            </button>
+          )}
         </div>
       </div>
     </div>
