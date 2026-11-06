@@ -588,7 +588,7 @@ export function AuthModal({
                     }}
                   >
                     {filteredSuggestions.map((m) => {
-                      const dept = departments.find(d => d.id === m.department_id) || departments[0];
+                      const dept = (Array.isArray(departments) && departments.find(d => d.id === m.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
                       return (
                         <div
                           key={m.id}

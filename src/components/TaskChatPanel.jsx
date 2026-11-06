@@ -433,9 +433,9 @@ export function TaskChatPanel({
   const completedSubtasks = subtasks.filter((s) => s.completed).length;
   const subtasksPercent = subtasks.length > 0 ? Math.round((completedSubtasks / subtasks.length) * 100) : 0;
 
-  const currentColumn = columns.find((c) => c.id === currentTask.status) || columns[0];
-  const currentAssignee = teamMembers.find((m) => m.id === currentTask.assignee_id);
-  const currentDept = departments.find((d) => d.id === currentTask.department_id) || departments[0];
+  const currentColumn = (Array.isArray(columns) && columns.find((c) => c.id === currentTask.status)) || columns?.[0] || { id: 'backlog', title: 'Очередь', color: '#64748b' };
+  const currentAssignee = Array.isArray(teamMembers) ? teamMembers.find((m) => m.id === currentTask.assignee_id) : null;
+  const currentDept = (Array.isArray(departments) && departments.find((d) => d.id === currentTask.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
 
   return (
     <aside

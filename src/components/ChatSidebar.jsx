@@ -51,10 +51,11 @@ export function ChatSidebar({
 
   // Active channel metadata
   const deptMeta = useMemo(() => {
+    const fallbackDept = { id: 'dept-all', name: 'Все отделы (Общий чат)', icon: '🌐', color: '#ff6600' };
     if (selectedChatDeptId === 'dept-all') {
-      return { id: 'dept-all', name: 'Все отделы (Общий чат)', icon: '🌐', color: '#ff6600' };
+      return fallbackDept;
     }
-    return departments.find((d) => d.id === selectedChatDeptId) || departments[0];
+    return (Array.isArray(departments) && departments.find((d) => d.id === selectedChatDeptId)) || departments?.[0] || fallbackDept;
   }, [selectedChatDeptId, departments]);
 
   const [messages, setMessages] = useState([]);
@@ -763,7 +764,7 @@ export function ChatSidebar({
           {/* Colleague List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
             {filteredDMMembers.map((member) => {
-              const dept = departments.find((d) => d.id === member.department_id) || departments[0];
+              const dept = (Array.isArray(departments) && departments.find((d) => d.id === member.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
 
               return (
                 <div

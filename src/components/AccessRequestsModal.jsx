@@ -233,7 +233,7 @@ export function AccessRequestsModal({
           }}
         >
           {filteredRequests.map((reqItem) => {
-            const dept = departments.find((d) => d.id === reqItem.department_id) || departments[0];
+            const dept = (Array.isArray(departments) && departments.find((d) => d.id === reqItem.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
             const member = teamMembers.find((m) => m.id === reqItem.user_id);
             const isPending = reqItem.status === 'pending';
             const isApproved = reqItem.status === 'approved';

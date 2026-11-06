@@ -413,7 +413,7 @@ export function TeamModal({
             {filteredMembers.map((member) => {
               const isEditing = editingId === member.id;
               const isDeleting = deletingId === member.id;
-              const deptMeta = departments.find((d) => d.id === member.department_id) || departments[0];
+              const deptMeta = (Array.isArray(departments) && departments.find((d) => d.id === member.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
               const level = Number(member.role_level) || 6;
               const isVerified = member.is_verified !== false;
 
