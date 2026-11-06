@@ -3,6 +3,7 @@
    ============================================================================== */
 
 :root {
+  color-scheme: dark;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
@@ -985,14 +986,16 @@ button, input, select, textarea {
 }
 
 select, option, optgroup {
+  color-scheme: dark !important;
   background-color: #1a2234 !important;
-  color: #f1f5f9 !important;
+  color: #f8fafc !important;
 }
 
 option {
+  color-scheme: dark !important;
   padding: 8px 12px;
-  background: #1a2234 !important;
-  color: #f1f5f9 !important;
+  background-color: #1a2234 !important;
+  color: #f8fafc !important;
 }
 
 option:checked, option:hover {
@@ -1063,6 +1066,9 @@ option:checked, option:hover {
   flex-direction: column;
   gap: 0.5rem;
   pointer-events: none;
+  max-height: 220px;
+  overflow: hidden;
+  justify-content: flex-end;
 }
 
 .toast {

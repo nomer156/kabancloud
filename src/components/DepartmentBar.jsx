@@ -9,6 +9,7 @@ export function DepartmentBar({
   onSelectDepartment,
   tasks = []
 }) {
+  const deptsList = Array.isArray(departments) && departments.length > 0 ? departments : DEPARTMENTS;
   const totalTasksCount = tasks.length;
 
   return (
@@ -86,7 +87,7 @@ export function DepartmentBar({
         </button>
 
         {/* Specific Departments Pills */}
-        {departments.map((dept) => {
+        {deptsList.map((dept) => {
           const isSelected = activeDepartmentId === dept.id;
           const deptTasksCount = tasks.filter((t) => (t.department_id || 'dept-design') === dept.id).length;
 

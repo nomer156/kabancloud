@@ -42,6 +42,7 @@ export function ProfileModal({
   onSaveProfile,
   showToast
 }) {
+  const deptsList = Array.isArray(departments) && departments.length > 0 ? departments : DEPARTMENTS;
   const [fullName, setFullName] = useState('');
   const [deptId, setDeptId] = useState('dept-design');
   const [role, setRole] = useState('');
@@ -686,10 +687,10 @@ export function ProfileModal({
                   value={deptId}
                   onChange={(e) => setDeptId(e.target.value)}
                   className="form-input"
-                  style={{ width: '100%', paddingLeft: '2.2rem', fontSize: '0.85rem' }}
+                  style={{ width: '100%', paddingLeft: '2.2rem', fontSize: '0.85rem', colorScheme: 'dark' }}
                 >
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
+                  {deptsList.map((d) => (
+                    <option key={d.id} value={d.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>
                       {d.icon} {d.fullName || d.name}
                     </option>
                   ))}

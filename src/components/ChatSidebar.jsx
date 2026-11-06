@@ -35,6 +35,7 @@ export function ChatSidebar({
   isOpen = true,
   onToggleOpen
 }) {
+  const deptsList = Array.isArray(departments) && departments.length > 0 ? departments : DEPARTMENTS;
   // Main tabs: 'channels' | 'direct' (Личные сообщения)
   const [chatTab, setChatTab] = useState('channels');
   const [selectedChatDeptId, setSelectedChatDeptId] = useState(() => currentUser?.department_id || 'dept-all');
@@ -55,8 +56,8 @@ export function ChatSidebar({
     if (selectedChatDeptId === 'dept-all') {
       return fallbackDept;
     }
-    return (Array.isArray(departments) && departments.find((d) => d.id === selectedChatDeptId)) || departments?.[0] || fallbackDept;
-  }, [selectedChatDeptId, departments]);
+    return deptsList.find((d) => d.id === selectedChatDeptId) || deptsList[0] || fallbackDept;
+  }, [selectedChatDeptId, deptsList]);
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -127,7 +128,7 @@ export function ChatSidebar({
     const list = [
       { id: '__all__', full_name: 'все', role: 'Оповестить всех сотрудников', avatar_color: '#ef4444', initials: 'ВС', dept_name: 'Все отделы' },
       ...teamMembers.map(m => {
-        const d = departments.find(dep => dep.id === m.department_id);
+        const d = deptsList.find(dep => dep.id === m.department_id);
         return {
           ...m,
           dept_name: d?.name || 'Отдел'
@@ -138,7 +139,7 @@ export function ChatSidebar({
     return list
       .filter((m) => m.full_name?.toLowerCase().includes(q) || m.role?.toLowerCase().includes(q) || m.dept_name?.toLowerCase().includes(q))
       .slice(0, 8);
-  }, [autocompleteType, autocompleteQuery, teamMembers, departments]);
+  }, [autocompleteType, autocompleteQuery, teamMembers, deptsList]);
 
   // Autocomplete task suggestions
   const taskSuggestions = useMemo(() => {
@@ -165,11 +166,11 @@ export function ChatSidebar({
       const roleMatch = m.role?.toLowerCase().includes(q);
       const specMatch = m.specialty?.toLowerCase().includes(q);
       const pcMatch = m.workstation_id?.toLowerCase().includes(q);
-      const d = departments.find(dep => dep.id === m.department_id);
+      const d = deptsList.find(dep => dep.id === m.department_id);
       const deptMatch = d?.name?.toLowerCase().includes(q);
       return nameMatch || roleMatch || specMatch || pcMatch || deptMatch;
     });
-  }, [teamMembers, currentUser, dmSearchQuery, departments]);
+  }, [teamMembers, currentUser, dmSearchQuery, deptsList]);
 
   // Handle textarea input and trigger autocomplete
   const handleInputChange = (e) => {
@@ -647,9 +648,9 @@ export function ChatSidebar({
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="dept-all">🌐 Все отделы (Общий чат компании)</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
+                  <option value="dept-all" style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>🌐 Все отделы (Общий чат компании)</option>
+                  {deptsList.map((d) => (
+                    <option key={d.id} value={d.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>
                       {d.icon} {d.name}
                     </option>
                   ))}
@@ -764,7 +765,7 @@ export function ChatSidebar({
           {/* Colleague List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
             {filteredDMMembers.map((member) => {
-              const dept = (Array.isArray(departments) && departments.find((d) => d.id === member.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
+              const dept = deptsList.find((d) => d.id === member.department_id) || deptsList[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
 
               return (
                 <div

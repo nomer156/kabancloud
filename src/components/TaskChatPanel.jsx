@@ -63,6 +63,7 @@ export function TaskChatPanel({
   allTasks = [],
   onSelectTask
 }) {
+  const deptsList = Array.isArray(departments) && departments.length > 0 ? departments : DEPARTMENTS;
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'properties' | 'subtasks' | 'files'
   
   // Local editable draft of task
@@ -435,7 +436,7 @@ export function TaskChatPanel({
 
   const currentColumn = (Array.isArray(columns) && columns.find((c) => c.id === currentTask.status)) || columns?.[0] || { id: 'backlog', title: 'Очередь', color: '#64748b' };
   const currentAssignee = Array.isArray(teamMembers) ? teamMembers.find((m) => m.id === currentTask.assignee_id) : null;
-  const currentDept = (Array.isArray(departments) && departments.find((d) => d.id === currentTask.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
+  const currentDept = deptsList.find((d) => d.id === currentTask.department_id) || deptsList[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
 
   return (
     <aside
@@ -1116,7 +1117,7 @@ export function TaskChatPanel({
                               {currentAssignee.full_name}
                             </span>
                             <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
-                              {currentAssignee.role} {departments.find(d => d.id === currentAssignee.department_id) ? `• ${departments.find(d => d.id === currentAssignee.department_id).name}` : ''}
+                              {currentAssignee.role} {deptsList.find(d => d.id === currentAssignee.department_id) ? `• ${deptsList.find(d => d.id === currentAssignee.department_id).name}` : ''}
                             </span>
                           </div>
                         </div>
@@ -1203,7 +1204,7 @@ export function TaskChatPanel({
                             .filter((m) => {
                               if (!assigneeSearchQuery.trim()) return true;
                               const q = assigneeSearchQuery.toLowerCase().trim();
-                              const d = departments.find(dep => dep.id === m.department_id);
+                              const d = deptsList.find(dep => dep.id === m.department_id);
                               return (
                                 m.full_name?.toLowerCase().includes(q) ||
                                 m.role?.toLowerCase().includes(q) ||
@@ -1212,7 +1213,7 @@ export function TaskChatPanel({
                             })
                             .slice(0, 30)
                             .map((m) => {
-                              const d = departments.find(dep => dep.id === m.department_id);
+                              const d = deptsList.find(dep => dep.id === m.department_id);
                               return (
                                 <div
                                   key={m.id}
@@ -1272,8 +1273,8 @@ export function TaskChatPanel({
                   cursor: 'pointer'
                 }}
               >
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                {deptsList.map((d) => (
+                  <option key={d.id} value={d.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{d.name}</option>
                 ))}
               </select>
             </div>
@@ -1310,7 +1311,7 @@ export function TaskChatPanel({
                 </span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {departments.filter((d) => d.id !== currentTask.department_id).map((dept) => {
+                {deptsList.filter((d) => d.id !== currentTask.department_id).map((dept) => {
                   const isMirrored = (currentTask.mirrored_departments || []).includes(dept.id);
                   return (
                     <button
@@ -1537,7 +1538,7 @@ export function TaskChatPanel({
                     .filter(m => {
                       if (!observerSearchQuery.trim()) return true;
                       const q = observerSearchQuery.toLowerCase().trim();
-                      const d = departments.find(dep => dep.id === m.department_id);
+                      const d = deptsList.find(dep => dep.id === m.department_id);
                       return (
                         m.full_name?.toLowerCase().includes(q) ||
                         m.role?.toLowerCase().includes(q) ||
@@ -1546,7 +1547,7 @@ export function TaskChatPanel({
                     })
                     .slice(0, 30)
                     .map((m) => {
-                      const d = departments.find(dep => dep.id === m.department_id);
+                      const d = deptsList.find(dep => dep.id === m.department_id);
                       return (
                         <div
                           key={m.id}
@@ -1734,12 +1735,13 @@ export function TaskChatPanel({
                     background: '#1a2638',
                     color: '#fff',
                     fontSize: '0.74rem',
-                    maxWidth: '120px'
+                    maxWidth: '120px',
+                    colorScheme: 'dark'
                   }}
                 >
-                  <option value="">Исполнитель...</option>
+                  <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>Исполнитель...</option>
                   {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>{m.full_name?.split(/\s+/)[0]}</option>
+                    <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name?.split(/\s+/)[0]}</option>
                   ))}
                 </select>
                 <button

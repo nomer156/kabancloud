@@ -49,6 +49,7 @@ export function TeamModal({
   initialEditingId = null,
   showToast
 }) {
+  const deptsList = Array.isArray(departments) && departments.length > 0 ? departments : DEPARTMENTS;
   const [editingId, setEditingId] = useState(null);
   const [nameInput, setNameInput] = useState('');
   const [deptInput, setDeptInput] = useState('dept-design');
@@ -257,7 +258,7 @@ export function TeamModal({
             Все отделы ({teamMembers.length})
           </button>
 
-          {departments.map((d) => {
+          {deptsList.map((d) => {
             const count = teamMembers.filter((m) => (m.department_id || 'dept-design') === d.id).length;
             return (
               <button
@@ -346,9 +347,10 @@ export function TeamModal({
                     className="form-input"
                     value={newDept}
                     onChange={(e) => setNewDept(e.target.value)}
+                    style={{ colorScheme: 'dark' }}
                   >
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
+                    {deptsList.map((d) => (
+                      <option key={d.id} value={d.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{d.icon} {d.name}</option>
                     ))}
                   </select>
                 </div>
@@ -413,7 +415,7 @@ export function TeamModal({
             {filteredMembers.map((member) => {
               const isEditing = editingId === member.id;
               const isDeleting = deletingId === member.id;
-              const deptMeta = (Array.isArray(departments) && departments.find((d) => d.id === member.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
+              const deptMeta = deptsList.find((d) => d.id === member.department_id) || deptsList[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
               const level = Number(member.role_level) || 6;
               const isVerified = member.is_verified !== false;
 
@@ -662,9 +664,10 @@ export function TeamModal({
                             className="form-input"
                             value={deptInput}
                             onChange={(e) => setDeptInput(e.target.value)}
+                            style={{ colorScheme: 'dark' }}
                           >
-                            {departments.map((d) => (
-                              <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
+                            {deptsList.map((d) => (
+                              <option key={d.id} value={d.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{d.icon} {d.name}</option>
                             ))}
                           </select>
                         </div>

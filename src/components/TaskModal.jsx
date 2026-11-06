@@ -76,7 +76,8 @@ export function TaskModal({
   allTasks = [],
   onSaveTask,
   onDeleteTask,
-  onNotifyMention
+  onNotifyMention,
+  showToast
 }) {
   // 1. Оперативные рабочие поля (Левая карточка)
   const [title, setTitle] = useState('');
@@ -514,10 +515,12 @@ export function TaskModal({
       playSound('click');
       const res = await openFolderInExplorer(cleanPath);
       if (res?.isRemote || !res?.success) {
-        alert('Путь скопирован в буфер обмена! Нажмите Win+R -> Ctrl+V -> Enter для перехода в Проводнике.');
+        if (showToast) showToast('📁 Путь скопирован! Нажмите Win+R -> Ctrl+V -> Enter', '📁');
+      } else {
+        if (showToast) showToast('Папка открыта в Проводнике Windows', '📁');
       }
     } catch (err) {
-      alert('Путь скопирован в буфер обмена! Нажмите Win+R -> Ctrl+V -> Enter');
+      if (showToast) showToast('📁 Путь скопирован! Нажмите Win+R -> Ctrl+V -> Enter', '📁');
     }
   };
 
@@ -1259,16 +1262,17 @@ export function TaskModal({
                             height: 24,
                             width: 'auto',
                             maxWidth: '130px',
-                            background: itemAssignee ? (itemAssignee.avatar_color ? `${itemAssignee.avatar_color}22` : 'var(--bg-base)') : 'transparent',
+                            colorScheme: 'dark',
+                            background: itemAssignee ? (itemAssignee.avatar_color ? `${itemAssignee.avatar_color}22` : '#1a2234') : '#1a2234',
                             borderColor: itemAssignee ? itemAssignee.avatar_color : 'var(--border-subtle)',
-                            color: itemAssignee ? 'var(--text-main)' : 'var(--text-dim)',
+                            color: itemAssignee ? '#ffffff' : '#94a3b8',
                             borderRadius: '4px'
                           }}
                           title={itemAssignee ? `Исполнитель: ${itemAssignee.full_name}` : 'Назначить исполнителя на этап'}
                         >
-                          <option value="">👤 Назначить...</option>
+                          <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Назначить...</option>
                           {teamMembers.map(m => (
-                            <option key={m.id} value={m.id}>{m.full_name}</option>
+                            <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
                           ))}
                         </select>
 
@@ -1299,12 +1303,12 @@ export function TaskModal({
                     className="form-select"
                     value={newSubtaskAssignee}
                     onChange={(e) => setNewSubtaskAssignee(e.target.value)}
-                    style={{ width: '130px', fontSize: '0.75rem', height: 32 }}
+                    style={{ width: '130px', fontSize: '0.75rem', height: 32, colorScheme: 'dark', backgroundColor: '#1a2234', color: '#f8fafc' }}
                     title="Исполнитель создаваемого пункта"
                   >
-                    <option value="">👤 Без исп.</option>
+                    <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Без исп.</option>
                     {teamMembers.map(m => (
-                      <option key={m.id} value={m.id}>{m.full_name}</option>
+                      <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
                     ))}
                   </select>
                   <button type="button" className="btn btn-secondary" onClick={handleAddChecklist} style={{ padding: '0.35rem 0.65rem' }}>
@@ -1383,7 +1387,7 @@ export function TaskModal({
                       query={commentMentionQuery}
                       teamMembers={teamMembers}
                       onSelect={handleSelectCommentMention}
-                      position={{ top: '100%', left: 0, marginTop: '4px' }}
+                      position={{ bottom: '100%', left: 0, marginBottom: '6px' }}
                     />
                   )}
 

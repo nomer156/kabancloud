@@ -282,7 +282,7 @@ export default function App() {
 
   // Toast feedback with deduplication, unique ID, max 4 items, and auto-dismiss
   const [toasts, setToasts] = useState([]);
-  const lastToastRef = useRef({ msg: '', time: 0 });
+  const recentToastsRef = useRef(new Map());
 
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -291,18 +291,26 @@ export default function App() {
   const showToast = useCallback((msg, icon = '✓') => {
     if (!msg) return;
     const now = Date.now();
-    if (lastToastRef.current.msg === msg && (now - lastToastRef.current.time) < 2500) {
+    // Clean up stale history
+    for (const [key, timestamp] of recentToastsRef.current.entries()) {
+      if (now - timestamp > 5000) {
+        recentToastsRef.current.delete(key);
+      }
+    }
+    // Prevent duplicate toasts within 3.5 seconds for each unique message
+    const lastSeen = recentToastsRef.current.get(msg);
+    if (lastSeen && (now - lastSeen) < 3500) {
       return;
     }
-    lastToastRef.current = { msg, time: now };
+    recentToastsRef.current.set(msg, now);
 
     const id = `${now}-${Math.random().toString(36).slice(2, 7)}`;
-    // Keep at most 2 visible toasts, discard old matching messages
-    setToasts((prev) => [...prev.filter((t) => t.msg !== msg).slice(-1), { id, msg, icon }]);
+    // Keep AT MOST 2 previous toasts + this new one (max 3 total)
+    setToasts((prev) => [...prev.filter((t) => t.msg !== msg).slice(-2), { id, msg, icon }]);
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
+    }, 2800);
   }, []);
 
   // Set theme on root
@@ -1473,6 +1481,7 @@ export default function App() {
         onSaveTask={handleSaveTask}
         onDeleteTask={handleDeleteTask}
         onNotifyMention={handleNotifyMention}
+        showToast={showToast}
       />
 
       {/* Smart Import from ERP/Excel Modal */}

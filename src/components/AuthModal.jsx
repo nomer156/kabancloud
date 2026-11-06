@@ -28,6 +28,7 @@ export function AuthModal({
   onSelectUser,
   isStandalonePage = false
 }) {
+  const deptsList = Array.isArray(departments) && departments.length > 0 ? departments : DEPARTMENTS;
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
   
   // Login Form State
@@ -44,7 +45,7 @@ export function AuthModal({
   const [lastName, setLastName] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regDeptId, setRegDeptId] = useState(departments[0]?.id || 'dept-design');
+  const [regDeptId, setRegDeptId] = useState(deptsList[0]?.id || 'dept-design');
   const [regRole, setRegRole] = useState('Инженер-проектировщик');
   const [regWorkstation, setRegWorkstation] = useState('');
   const [regSuccess, setRegSuccess] = useState(false);
@@ -317,7 +318,7 @@ export function AuthModal({
     }
   };
 
-  const selectedDeptName = departments.find((d) => d.id === regDeptId)?.name || 'Выбранный отдел';
+  const selectedDeptName = deptsList.find((d) => d.id === regDeptId)?.name || 'Выбранный отдел';
 
   const overlayMouseDownRef = useRef(false);
   const handleOverlayMouseDown = (e) => {
@@ -588,7 +589,7 @@ export function AuthModal({
                     }}
                   >
                     {filteredSuggestions.map((m) => {
-                      const dept = (Array.isArray(departments) && departments.find(d => d.id === m.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
+                      const dept = deptsList.find(d => d.id === m.department_id) || deptsList[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
                       return (
                         <div
                           key={m.id}
@@ -835,10 +836,11 @@ export function AuthModal({
                       color: '#fff',
                       fontSize: '0.82rem',
                       outline: 'none',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      colorScheme: 'dark'
                     }}
                   >
-                    {departments.map((d) => (
+                    {deptsList.map((d) => (
                       <option key={d.id} value={d.id} style={{ background: '#1a2234', color: '#fff' }}>
                         {d.name}
                       </option>

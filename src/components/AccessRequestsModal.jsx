@@ -24,6 +24,7 @@ export function AccessRequestsModal({
   onRejectRequest,
   showToast
 }) {
+  const deptsList = Array.isArray(departments) && departments.length > 0 ? departments : DEPARTMENTS;
   const [filter, setFilter] = useState('pending'); // 'pending' | 'all'
   const [processingId, setProcessingId] = useState(null);
 
@@ -233,7 +234,7 @@ export function AccessRequestsModal({
           }}
         >
           {filteredRequests.map((reqItem) => {
-            const dept = (Array.isArray(departments) && departments.find((d) => d.id === reqItem.department_id)) || departments?.[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
+            const dept = deptsList.find((d) => d.id === reqItem.department_id) || deptsList[0] || { id: 'dept-design', name: 'Отдел', color: '#ff6600', icon: '🏢' };
             const member = teamMembers.find((m) => m.id === reqItem.user_id);
             const isPending = reqItem.status === 'pending';
             const isApproved = reqItem.status === 'approved';

@@ -1300,16 +1300,17 @@ export function TaskDetailView({
                         height: 26,
                         width: 'auto',
                         maxWidth: '130px',
-                        background: itemAssignee ? (itemAssignee.avatar_color ? `${itemAssignee.avatar_color}22` : 'var(--bg-base)') : 'transparent',
+                        colorScheme: 'dark',
+                        background: itemAssignee ? (itemAssignee.avatar_color ? `${itemAssignee.avatar_color}22` : '#1a2234') : '#1a2234',
                         borderColor: itemAssignee ? itemAssignee.avatar_color : 'var(--border-subtle)',
-                        color: itemAssignee ? 'var(--text-main)' : 'var(--text-dim)',
+                        color: itemAssignee ? '#ffffff' : '#94a3b8',
                         borderRadius: '4px'
                       }}
                       title={itemAssignee ? `Исполнитель этапа: ${itemAssignee.full_name}` : 'Назначить исполнителя на этап'}
                     >
-                      <option value="">👤 Назначить...</option>
+                      <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Назначить...</option>
                       {teamMembers.map(m => (
-                        <option key={m.id} value={m.id}>{m.full_name}</option>
+                        <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
                       ))}
                     </select>
 
@@ -1349,12 +1350,12 @@ export function TaskDetailView({
                 className="form-select"
                 value={newSubtaskAssignee}
                 onChange={(e) => setNewSubtaskAssignee(e.target.value)}
-                style={{ width: '135px', fontSize: '0.75rem' }}
+                style={{ width: '135px', fontSize: '0.75rem', colorScheme: 'dark', backgroundColor: '#1a2234', color: '#f8fafc' }}
                 title="Исполнитель создаваемой подзадачи"
               >
-                <option value="">👤 Без исп.</option>
+                <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Без исп.</option>
                 {teamMembers.map(m => (
-                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                  <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
                 ))}
               </select>
               <button type="button" className="btn btn-secondary" onClick={handleAddChecklistItem}>
