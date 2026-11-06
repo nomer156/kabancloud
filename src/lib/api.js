@@ -1021,12 +1021,12 @@ export async function markNotificationRead(id) {
   return updated;
 }
 
-export async function markAllNotificationsRead() {
+export async function markAllNotificationsRead(userId = null) {
   try {
     const res = await fetch(`${API_BASE}/api/notifications`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action: 'read_all' })
+      body: JSON.stringify({ action: 'read_all', userId: userId || getCurrentUserId() })
     });
     if (res.ok) return await res.json();
   } catch {}
@@ -1054,11 +1054,7 @@ export async function deleteNotification(id) {
 // ------------------------------------------------------------------------------
 export function subscribeToRealtimeChanges(onRefresh, explicitUserId = null) {
   let eventSource = null;
-  const userId = explicitUserId || getCurrentUserId();
-
-  if (!userId) {
-    return () => {};
-  }
+  const userId = explicitUserId || getCurrentUserId() || 'guest';
 
   try {
     eventSource = new EventSource(`${API_BASE}/api/events?userId=${encodeURIComponent(userId)}`);

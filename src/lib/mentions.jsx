@@ -193,6 +193,8 @@ export function MentionAutocompleteDropdown({
     <div
       style={{
         position: 'absolute',
+        bottom: 'calc(100% + 4px)',
+        left: 0,
         zIndex: 10050,
         background: '#1a2234',
         border: '1px solid rgba(255, 102, 0, 0.4)',

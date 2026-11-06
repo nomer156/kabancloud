@@ -53,6 +53,7 @@ export function AuthModal({
 
   const suggestionsRef = useRef(null);
   const inputRef = useRef(null);
+  const overlayMouseDownRef = useRef(false);
 
   // Close suggestions dropdown when clicking outside
   useEffect(() => {
@@ -320,7 +321,6 @@ export function AuthModal({
 
   const selectedDeptName = deptsList.find((d) => d.id === regDeptId)?.name || 'Выбранный отдел';
 
-  const overlayMouseDownRef = useRef(false);
   const handleOverlayMouseDown = (e) => {
     overlayMouseDownRef.current = (e.target === e.currentTarget);
   };
@@ -466,37 +466,6 @@ export function AuthModal({
         <div style={{ padding: '1.25rem 1.4rem', maxHeight: '72vh', overflowY: 'auto' }}>
           {activeTab === 'login' ? (
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              {/* Quick Admin Login Pill */}
-              <div
-                onClick={handleAdminQuickLogin}
-                style={{
-                  padding: '0.6rem 0.85rem',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, rgba(255, 102, 0, 0.15), rgba(255, 136, 0, 0.08))',
-                  border: '1px solid rgba(255, 102, 0, 0.35)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#ff6600'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255, 102, 0, 0.35)'}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '1.1rem' }}>👑</span>
-                  <div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ff8800' }}>
-                      Войти как Администратор
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                      Александр Никитин (логин: Sanya, пароль: Nomer1)
-                    </div>
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.72rem', color: '#ff6600', fontWeight: 700 }}>Вход ➔</span>
-              </div>
-
               {loginError && (
                 <div style={{
                   padding: '0.7rem',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -166,6 +166,14 @@ export function TaskDetailView({
   const [checklist, setChecklist] = useState(task?.checklist || []);
   const [newChecklistText, setNewChecklistText] = useState('');
   const [newSubtaskAssignee, setNewSubtaskAssignee] = useState('');
+  const [isSubtaskDropOver, setIsSubtaskDropOver] = useState(false);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+
+  // Hierarchical child subtasks
+  const childTasks = useMemo(() => {
+    if (!Array.isArray(allTasks) || allTasks.length === 0 || !task?.id) return [];
+    return allTasks.filter((t) => t.parent_task_id === task.id);
+  }, [allTasks, task?.id]);
 
   // YouGile Mirrors / Зеркалирование задачи в другие отделы
   const [mirroredDepartments, setMirroredDepartments] = useState(() => 
@@ -726,6 +734,29 @@ export function TaskDetailView({
     handleSaveAll({ checklist: updated });
   };
 
+  const handleCreateChildSubtask = async (e) => {
+    if (e) e.preventDefault();
+    if (!newSubtaskTitle.trim() || !task?.id) return;
+    const subtaskPayload = {
+      title: newSubtaskTitle.trim(),
+      status: 'in_progress',
+      department_id: task.department_id || 'dept-design',
+      assignee_id: newSubtaskAssignee || null,
+      parent_task_id: task.id,
+      priority: task.priority || 'medium',
+      work_type: task.work_type || 'ВН',
+      project_id: task.project_id || null,
+      section_id: task.section_id || null,
+      description: `Подзадача для задачи #${task.display_id || task.id}`
+    };
+    if (onSaveTask) {
+      await onSaveTask(subtaskPayload);
+      playSound('success');
+      setNewSubtaskTitle('');
+      setNewSubtaskAssignee('');
+    }
+  };
+
   // Save all task updates
   const handleSaveAll = (extraOverrides = {}) => {
     const finalHours = extraOverrides.hours_spent !== undefined 
@@ -1240,128 +1271,203 @@ export function TaskDetailView({
             )}
           </div>
 
-          {/* Interactive Checklist */}
+          {/* Hierarchical Subtasks Column (Dropzone, No Checkboxes) */}
           <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <CheckSquare size={16} style={{ color: 'var(--accent-orange)' }} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Этапы разработки (Чек-лист)</span>
+                <Layers size={16} style={{ color: 'var(--accent-orange)' }} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>Колонка подзадач ({childTasks.filter(c => c.status === 'done').length}/{childTasks.length})</span>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                {doneChecklist} из {totalChecklist} ({checklistPercent}%)
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                перетащите задачу с доски для вложения
               </span>
             </div>
 
-            {totalChecklist > 0 && (
-              <div style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 3, overflow: 'hidden', marginBottom: '0.85rem' }}>
-                <div style={{ height: '100%', width: `${checklistPercent}%`, background: 'var(--accent-orange)', transition: 'width 0.25s ease' }} />
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.85rem' }}>
-              {checklist.map((item) => {
-                const itemAssignee = teamMembers.find(m => m.id === item.assignee_id);
-                return (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.6rem',
-                      padding: '0.45rem 0.65rem',
-                      background: 'var(--bg-card)',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-subtle)'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={item.done}
-                      onChange={() => handleToggleChecklist(item.id)}
-                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent-orange)' }}
-                    />
-                    <span style={{ flex: 1, fontSize: '0.84rem', textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'var(--text-dim)' : 'var(--text-main)' }}>
-                      {item.text}
-                    </span>
-
-                    {/* Subtask Assignee Selector */}
-                    <select
-                      className="form-select"
-                      value={item.assignee_id || ''}
-                      onChange={(e) => {
-                        const nextAssignee = e.target.value || null;
-                        const updated = checklist.map(c => c.id === item.id ? { ...c, assignee_id: nextAssignee } : c);
-                        setChecklist(updated);
-                        handleSaveAll({ checklist: updated });
-                      }}
+            {/* Drop Zone & Child List */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsSubtaskDropOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsSubtaskDropOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsSubtaskDropOver(false);
+                const droppedId = e.dataTransfer.getData('text/plain');
+                if (droppedId && droppedId !== task.id) {
+                  const droppedTask = allTasks.find(t => t.id === droppedId);
+                  if (droppedTask && onSaveTask) {
+                    onSaveTask({ ...droppedTask, parent_task_id: task.id });
+                    playSound('success');
+                  }
+                }
+              }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                padding: '8px',
+                borderRadius: '8px',
+                minHeight: '80px',
+                background: isSubtaskDropOver ? 'rgba(255, 102, 0, 0.15)' : 'rgba(0, 0, 0, 0.25)',
+                border: isSubtaskDropOver ? '2px dashed var(--accent-orange)' : '1px dashed rgba(255, 102, 0, 0.3)',
+                marginBottom: '0.85rem',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {childTasks.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1.2rem', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
+                  В этой задаче пока нет подзадач. Перетащите сюда задачу с доски или создайте форму ниже.
+                </div>
+              ) : (
+                childTasks.map((child) => {
+                  const childAssignee = teamMembers.find((m) => m.id === child.assignee_id);
+                  const isDone = child.status === 'done';
+                  return (
+                    <div
+                      key={child.id}
                       style={{
-                        padding: '2px 6px',
-                        fontSize: '0.74rem',
-                        height: 26,
-                        width: 'auto',
-                        maxWidth: '130px',
-                        colorScheme: 'dark',
-                        background: itemAssignee ? (itemAssignee.avatar_color ? `${itemAssignee.avatar_color}22` : '#1a2234') : '#1a2234',
-                        borderColor: itemAssignee ? itemAssignee.avatar_color : 'var(--border-subtle)',
-                        color: itemAssignee ? '#ffffff' : '#94a3b8',
-                        borderRadius: '4px'
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        background: 'var(--bg-tertiary, #1c2233)',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px'
                       }}
-                      title={itemAssignee ? `Исполнитель этапа: ${itemAssignee.full_name}` : 'Назначить исполнителя на этап'}
                     >
-                      <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Назначить...</option>
-                      {teamMembers.map(m => (
-                        <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
-                      ))}
-                    </select>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                        <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.72rem', fontFamily: 'var(--font-mono)' }}>
+                          #{child.display_id || child.id?.slice(-4)}
+                        </span>
+                        <span style={{
+                          fontWeight: 600,
+                          fontSize: '0.82rem',
+                          color: isDone ? 'var(--text-muted)' : 'var(--text-main)',
+                          textDecoration: isDone ? 'line-through' : 'none',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {child.title}
+                        </span>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = checklist.filter((i) => i.id !== item.id);
-                        setChecklist(updated);
-                        handleSaveAll({ checklist: updated });
-                      }}
-                      className="btn-icon btn-icon-danger"
-                      style={{ width: 22, height: 22, padding: 0 }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                );
-              })}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {/* Status switcher button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextStatus = child.status === 'done' ? 'in_progress' : child.status === 'in_progress' ? 'done' : 'in_progress';
+                            onSaveTask({ ...child, status: nextStatus });
+                            playSound(nextStatus === 'done' ? 'success' : 'click');
+                          }}
+                          style={{
+                            fontSize: '0.68rem',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            background: isDone ? 'rgba(16, 185, 129, 0.2)' : child.status === 'in_progress' ? 'rgba(255, 102, 0, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                            color: isDone ? '#10b981' : child.status === 'in_progress' ? '#ff8800' : 'var(--text-muted)'
+                          }}
+                          title="Кликните для переключения статуса подзадачи"
+                        >
+                          {isDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Очередь'}
+                        </button>
+
+                        {childAssignee && (
+                          <div
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: '50%',
+                              background: childAssignee.avatar_color || '#ff6600',
+                              color: '#fff',
+                              fontSize: '0.64rem',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title={`Исполнитель: ${childAssignee.full_name}`}
+                          >
+                            {childAssignee.initials || childAssignee.full_name?.[0]}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.location.hash = `#task/${child.id}`;
+                          }}
+                          className="btn-icon"
+                          style={{ width: 22, height: 22, padding: 0 }}
+                          title="Открыть подзадачу"
+                        >
+                          <ExternalLink size={12} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSaveTask({ ...child, parent_task_id: null });
+                            playSound('click');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-dim)',
+                            cursor: 'pointer',
+                            padding: '1px 4px',
+                            fontSize: '0.75rem'
+                          }}
+                          title="Открепить подзадачу"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
+            {/* Quick Create Subtask Form */}
+            <form onSubmit={handleCreateChildSubtask} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
               <input
                 type="text"
                 className="form-input"
-                placeholder="Добавить этап (например: согласовать ввод с ТСЖ)..."
-                value={newChecklistText}
-                onChange={(e) => setNewChecklistText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddChecklistItem();
-                  }
-                }}
-                style={{ flex: 1 }}
+                placeholder="+ Добавить подзадачу (например: согласовать ввод с ТСЖ)..."
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                style={{ flex: 1, fontSize: '0.8rem' }}
               />
               <select
                 className="form-select"
                 value={newSubtaskAssignee}
                 onChange={(e) => setNewSubtaskAssignee(e.target.value)}
                 style={{ width: '135px', fontSize: '0.75rem', colorScheme: 'dark', backgroundColor: '#1a2234', color: '#f8fafc' }}
-                title="Исполнитель создаваемой подзадачи"
+                title="Исполнитель подзадачи"
               >
                 <option value="" style={{ backgroundColor: '#1a2234', color: '#94a3b8' }}>👤 Без исп.</option>
                 {teamMembers.map(m => (
                   <option key={m.id} value={m.id} style={{ backgroundColor: '#1a2234', color: '#ffffff' }}>{m.full_name}</option>
                 ))}
               </select>
-              <button type="button" className="btn btn-secondary" onClick={handleAddChecklistItem}>
+              <button type="submit" className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}>
                 <Plus size={14} />
                 <span>Добавить</span>
               </button>
+            </form>
             </div>
 
             {/* YouGile Mirrors / Зеркалирование задачи в смежные отделы */}
@@ -1411,7 +1517,6 @@ export function TaskDetailView({
                 })}
               </div>
             </div>
-          </div>
 
           {/* ================= JIRA-STYLE BOTTOM TABS ================= */}
           <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -2485,7 +2590,7 @@ export function TaskDetailView({
                     type="button"
                     onClick={handleOpenFolder}
                     className="as-link"
-                    style={{ fontSize: '0.72rem', color: 'var(--accent-orange)', display: 'inline-flex', alignItems: 'center', gap: '3px', background: 'none', border: 'none', cursor: 'pointer' }}
+                    style={{ fontSize: '0.72rem', color: 'var(--accent-orange)', display: 'inline-flex', alignItems: 'center', gap: '3px', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
                     title="Открыть в Проводнике Windows"
                   >
                     <Folder size={11} />

@@ -858,13 +858,11 @@ async function handleRequest(req, res) {
     if (pathname === '/api/events') {
       const db = readDb();
       const userIdParam = parsedUrl.searchParams.get('userId');
-      const user = (userIdParam && db.members?.find((m) => m.id === userIdParam)) || extractAuthUser(req, db);
+      let user = (userIdParam && db.members?.find((m) => m.id === userIdParam)) || extractAuthUser(req, db);
 
       if (!user) {
-        Logger.audit('SSE_CONNECTION_REJECTED', 'anonymous', { reason: 'Missing or invalid userId' }, ip);
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'SSE требует авторизации (параметр ?userId=...)' }));
-        return;
+        // Fallback to guest user so SSE connection is never dropped
+        user = { id: userIdParam || 'guest', role_level: 1, full_name: 'Гость' };
       }
 
       res.writeHead(200, {
@@ -1861,9 +1859,25 @@ async function handleRequest(req, res) {
 
     if (pathname === '/api/notifications' && req.method === 'POST') {
       const db = readDb();
-      const notif = await parseBody(req);
+      const body = await parseBody(req);
       if (!Array.isArray(db.notifications)) db.notifications = [];
-      const item = { ...notif, id: notif.id || `notif-${Date.now()}`, created_at: new Date().toISOString() };
+
+      if (body.action === 'read_all') {
+        const targetUserId = body.userId;
+        db.notifications = db.notifications.map((n) => {
+          if (!targetUserId || !n.targetUserIds || n.targetUserIds.includes(targetUserId) || n.targetUserId === targetUserId || n.targetUserIds.includes('__all__')) {
+            return { ...n, read: true };
+          }
+          return n;
+        });
+        writeDb(db);
+        broadcastEvent('NOTIFICATIONS_UPDATED', db.notifications);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(db.notifications));
+        return;
+      }
+
+      const item = { ...body, id: body.id || `notif-${Date.now()}`, read: false, created_at: new Date().toISOString() };
       db.notifications.unshift(item);
       if (db.notifications.length > 200) db.notifications = db.notifications.slice(0, 200);
       writeDb(db);
@@ -1871,6 +1885,34 @@ async function handleRequest(req, res) {
       broadcastEvent('NEW_MENTION', item);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(item));
+      return;
+    }
+
+    const notifReadMatch = pathname.match(/^\/api\/notifications\/([^/]+)\/read$/);
+    if (notifReadMatch && req.method === 'PATCH') {
+      const notifId = decodeURIComponent(notifReadMatch[1]);
+      const db = readDb();
+      if (Array.isArray(db.notifications)) {
+        db.notifications = db.notifications.map((n) => (n.id === notifId ? { ...n, read: true } : n));
+        writeDb(db);
+        broadcastEvent('NOTIFICATIONS_UPDATED', db.notifications);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, id: notifId }));
+      return;
+    }
+
+    const notifDelMatch = pathname.match(/^\/api\/notifications\/([^/]+)$/);
+    if (notifDelMatch && req.method === 'DELETE') {
+      const notifId = decodeURIComponent(notifDelMatch[1]);
+      const db = readDb();
+      if (Array.isArray(db.notifications)) {
+        db.notifications = db.notifications.filter((n) => n.id !== notifId);
+        writeDb(db);
+        broadcastEvent('NOTIFICATIONS_UPDATED', db.notifications);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, id: notifId }));
       return;
     }
 

@@ -44,6 +44,7 @@ export function TaskCard({
   const [isAddingCardSubtask, setIsAddingCardSubtask] = useState(false);
   const [quickSubtaskTitle, setQuickSubtaskTitle] = useState('');
   const [isFileOver, setIsFileOver] = useState(false);
+  const [isSubtaskDropOver, setIsSubtaskDropOver] = useState(false);
 
   // Check if task is running live stopwatch
   const isStopwatchActive = activeStopwatchTaskId === task.id;
@@ -658,7 +659,53 @@ export function TaskCard({
         ) : null}
 
         {isSubtasksExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '5px', paddingLeft: '8px', borderLeft: '2px solid rgba(255, 102, 0, 0.35)' }}>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsSubtaskDropOver(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsSubtaskDropOver(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsSubtaskDropOver(false);
+              const droppedId = e.dataTransfer.getData('text/plain');
+              if (droppedId && droppedId !== task.id) {
+                const droppedTask = allTasks.find(t => t.id === droppedId);
+                if (droppedTask && onSaveTask) {
+                  onSaveTask({ ...droppedTask, parent_task_id: task.id });
+                  playSound('success');
+                  if (showToast) showToast(`Задача #${droppedTask.display_id || droppedTask.title} теперь подзадача!`, '↳');
+                }
+              }
+            }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              marginTop: '5px',
+              padding: '6px 8px',
+              borderRadius: '8px',
+              background: isSubtaskDropOver ? 'rgba(255, 102, 0, 0.15)' : 'rgba(0, 0, 0, 0.25)',
+              border: isSubtaskDropOver ? '2px dashed var(--accent-orange)' : '1px dashed rgba(255, 102, 0, 0.35)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            {/* Subtasks Column Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span style={{ fontSize: '0.66rem', fontWeight: 800, color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ↳ Колонка подзадач ({childTasks.length})
+              </span>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                перетащите задачу сюда
+              </span>
+            </div>
+
             {childTasks.map((child) => {
               const childAssignee = teamMembers.find((m) => m.id === child.assignee_id);
               const isChildDone = child.status === 'done';
@@ -670,7 +717,7 @@ export function TaskCard({
                     onEdit(child);
                   }}
                   style={{
-                    padding: '4px 8px',
+                    padding: '5px 8px',
                     borderRadius: '6px',
                     background: 'var(--bg-secondary, #0f172a)',
                     border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
@@ -679,33 +726,15 @@ export function TaskCard({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '6px'
+                    gap: '6px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                   }}
                   title="Кликните для редактирования подзадачи"
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onSaveTask) {
-                          onSaveTask({ ...child, status: isChildDone ? 'in_progress' : 'done' });
-                          playSound(isChildDone ? 'click' : 'success');
-                        }
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                        color: isChildDone ? '#10b981' : 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}
-                      title={isChildDone ? 'Отметить невыполненной' : 'Отметить выполненной'}
-                    >
-                      {isChildDone ? <CheckSquare size={13} style={{ color: '#10b981' }} /> : <Square size={13} />}
-                    </button>
+                    <span style={{ color: 'var(--accent-orange)', fontWeight: 800, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>
+                      #{child.display_id || child.id?.slice(-4)}
+                    </span>
                     <span style={{
                       fontWeight: 600,
                       color: isChildDone ? 'var(--text-muted)' : 'var(--text-main)',
@@ -718,12 +747,38 @@ export function TaskCard({
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                    {/* Status Pill Clicker */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSaveTask) {
+                          const nextStatus = child.status === 'done' ? 'in_progress' : child.status === 'in_progress' ? 'done' : 'in_progress';
+                          onSaveTask({ ...child, status: nextStatus });
+                          playSound(nextStatus === 'done' ? 'success' : 'click');
+                        }
+                      }}
+                      style={{
+                        fontSize: '0.62rem',
+                        padding: '1.5px 6px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        background: isChildDone ? 'rgba(16, 185, 129, 0.2)' : child.status === 'in_progress' ? 'rgba(255, 102, 0, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                        color: isChildDone ? '#10b981' : child.status === 'in_progress' ? '#ff8800' : 'var(--text-muted)'
+                      }}
+                      title="Кликните для переключения статуса подзадачи"
+                    >
+                      {isChildDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Очередь'}
+                    </button>
+
                     {childAssignee && (
                       <div
                         style={{
-                          width: 17,
-                          height: 17,
+                          width: 18,
+                          height: 18,
                           borderRadius: '50%',
                           background: childAssignee.avatar_color || '#ff6600',
                           color: '#fff',
@@ -738,9 +793,30 @@ export function TaskCard({
                         {childAssignee.initials || childAssignee.full_name?.[0]}
                       </div>
                     )}
-                    <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: isChildDone ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)', color: isChildDone ? '#10b981' : 'var(--text-dim)' }}>
-                      {isChildDone ? 'Готово' : child.status === 'in_progress' ? 'В работе' : 'Бэклог'}
-                    </span>
+
+                    {/* Unlink / Detach Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSaveTask) {
+                          onSaveTask({ ...child, parent_task_id: null });
+                          playSound('click');
+                          if (showToast) showToast('Подзадача откреплена и вынесена на доску', '✓');
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-dim)',
+                        cursor: 'pointer',
+                        padding: '1px 3px',
+                        fontSize: '0.7rem'
+                      }}
+                      title="Открепить подзадачу (сделать самостоятельной задачей)"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               );

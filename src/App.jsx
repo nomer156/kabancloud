@@ -470,12 +470,31 @@ export default function App() {
           showToast(`🔔 ${isForMe ? 'Вас упомянул(а)' : 'Упоминание @все от'} ${notif.fromUserName || 'коллеги'}!`, '💬');
         }
       }
-    });
+    }, currentUser?.id);
 
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [loadData, showToast]);
+  }, [loadData, showToast, currentUser?.id]);
+
+  // Realtime notification sync fallback every 5 seconds
+  useEffect(() => {
+    const notifInterval = setInterval(async () => {
+      try {
+        const notifs = await fetchNotifications();
+        if (Array.isArray(notifs)) {
+          const seen = new Set();
+          const deduped = notifs.filter((n) => {
+            if (!n || !n.id || seen.has(n.id)) return false;
+            seen.add(n.id);
+            return true;
+          });
+          setNotifications(deduped);
+        }
+      } catch {}
+    }, 5000);
+    return () => clearInterval(notifInterval);
+  }, []);
 
   const handleSelectCurrentUser = (user) => {
     if (!user) return;
@@ -708,6 +727,22 @@ export default function App() {
           }
           return [saved, ...prev];
         });
+
+        // Trigger notification if newly assigned to a colleague
+        if (saved.assignee_id && saved.assignee_id !== currentUser?.id) {
+          const oldTask = tasks.find((t) => t.id === saved.id);
+          if (!oldTask || oldTask.assignee_id !== saved.assignee_id) {
+            createNotification({
+              type: 'assignment',
+              targetUserIds: [saved.assignee_id],
+              fromUserId: currentUser?.id,
+              fromUserName: currentUser?.full_name,
+              taskId: saved.id,
+              taskTitle: saved.title,
+              text: `Вам назначена задача #${saved.display_id || saved.title} (${currentUser?.full_name || 'Администратор'})`
+            }).catch(() => {});
+          }
+        }
       }
 
       // Persist cascaded archive state for all descendants
@@ -1426,6 +1461,7 @@ export default function App() {
                 stopwatchElapsedSec={stopwatchElapsedSec}
                 formatStopwatchTime={formatStopwatchTime}
                 onSaveTask={handleSaveTask}
+                onNotifyMention={handleNotifyMention}
                 onClose={() => {
                   setActiveTaskInPanel(null);
                   if (window.location.hash.startsWith('#task/')) {

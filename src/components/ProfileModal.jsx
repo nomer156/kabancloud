@@ -68,6 +68,7 @@ export function ProfileModal({
   // Access request state
   const [requestNote, setRequestNote] = useState('');
   const [requestSending, setRequestSending] = useState(false);
+  const overlayMouseDownRef = useRef(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -207,7 +208,6 @@ export function ProfileModal({
     }
   };
 
-  const overlayMouseDownRef = useRef(false);
   const handleOverlayMouseDown = (e) => {
     overlayMouseDownRef.current = (e.target === e.currentTarget);
   };

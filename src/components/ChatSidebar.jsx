@@ -21,8 +21,9 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { DEPARTMENTS } from '../lib/constants';
-import { fetchChatMessages, sendChatMessage, subscribeToRealtimeChanges } from '../lib/api';
+import { fetchChatMessages, sendChatMessage, subscribeToRealtimeChanges, createNotification } from '../lib/api';
 import { playSound } from '../lib/sound';
+import { extractMentionTargets } from '../lib/mentions';
 
 export function ChatSidebar({
   currentUser,
@@ -295,6 +296,28 @@ export function ChatSidebar({
       setMessages((prev) => [...prev, newMsg]);
       playSound('message');
       setTimeout(scrollToBottom, 50);
+
+      // Create notification for DM or mentions
+      if (chatTab === 'direct' && activeDmUser) {
+        createNotification({
+          type: 'dm',
+          targetUserIds: [activeDmUser.id],
+          fromUserId: currentUser?.id,
+          fromUserName: currentUser?.full_name,
+          text: `Личное сообщение от ${currentUser?.full_name || 'коллеги'}: "${textToSend.slice(0, 80)}"`
+        });
+      } else {
+        const mentionTargets = extractMentionTargets(textToSend, teamMembers);
+        if (mentionTargets.length > 0) {
+          createNotification({
+            type: 'mention',
+            targetUserIds: mentionTargets,
+            fromUserId: currentUser?.id,
+            fromUserName: currentUser?.full_name,
+            text: textToSend
+          });
+        }
+      }
     } catch (err) {
       console.error('Ошибка отправки сообщения:', err);
     } finally {
