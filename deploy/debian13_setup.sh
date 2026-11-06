@@ -75,9 +75,23 @@ ${APP_DIR}/data/logs/*.log {
 }
 EOF
 
-# 6. Установка и активация Nginx
+# 6. Установка и активация Nginx с HTTPS (SSL)
+echo -e "\e[34m[6/7]\e[0m Настройка Nginx и генерация SSL сертификата..."
+mkdir -p /etc/ssl/kaban /var/www/html
+if [ ! -f /etc/ssl/kaban/doska.crt ]; then
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout /etc/ssl/kaban/doska.key \
+        -out /etc/ssl/kaban/doska.crt \
+        -subj "/C=RU/ST=Bashkortostan/L=Ufa/O=AO Ufanet/OU=Design/CN=doska.odn.ufanet.ru" \
+        -addext "subjectAltName=DNS:doska.odn.ufanet.ru,DNS:localhost,IP:188.191.125.10,IP:127.0.0.1" \
+        2>/dev/null || true
+    chmod 600 /etc/ssl/kaban/doska.key || true
+    chmod 644 /etc/ssl/kaban/doska.crt || true
+fi
+
 if [ -f "${APP_DIR}/deploy/nginx_debian13.conf" ]; then
-    sed "s|/opt/kaban2|${APP_DIR}|g" "${APP_DIR}/deploy/nginx_debian13.conf" > /etc/nginx/sites-available/kaban.conf
+    cp -f "${APP_DIR}/deploy/nginx_debian13.conf" /etc/nginx/sites-available/kaban.conf
+    rm -f /etc/nginx/sites-enabled/default
     ln -sf /etc/nginx/sites-available/kaban.conf /etc/nginx/sites-enabled/default
     nginx -t && systemctl reload nginx || systemctl restart nginx
 fi
@@ -124,7 +138,8 @@ SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "ВАШ_IP_СЕР
 echo -e "\n\e[32m========================================================================\e[0m"
 echo -e "\e[32m✔ УФАНЕТ • KabanCloud YouGile Engine успешно запущен на Debian 13.7!\e[0m"
 echo -e "------------------------------------------------------------------------"
-echo -e "👉  Откройте в браузере: \e[1;36mhttp://${SERVER_IP}\e[0m (или http://${SERVER_IP}:3000)"
+echo -e "👉  Официальный адрес:   \e[1;36mhttps://doska.odn.ufanet.ru\e[0m"
+echo -e "👉  Прямой доступ (IP):  \e[1;36mhttps://${SERVER_IP}\e[0m (или http://${SERVER_IP}:3000)"
 echo -e "📊  Статус службы:        systemctl status kaban.service"
 echo -e "📝  Живой журнал логов:   journalctl -u kaban.service -f"
 echo -e "💾  Свободно на диске:    $(df -h / | awk 'NR==2 {print $4}')"
