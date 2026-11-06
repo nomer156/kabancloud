@@ -1526,7 +1526,87 @@ async function handleRequest(req, res) {
       return;
     }
 
-    // ------------------ CHIEF & ADMIN ACCESS REQUESTS (УРОВЕНЬ 10) ------------------ //
+    // ------------------ FEEDBACK & IDEAS (ОБРАТНАЯ СВЯЗЬ И ПОЖЕЛАНИЯ) ------------------ //
+    // 1. POST /api/feedback (Any employee can submit suggestions or bug reports)
+    if (pathname === '/api/feedback' && req.method === 'POST') {
+      const body = await parseBody(req);
+      const authUser = extractAuthUser(req, readDb());
+      const feedbackEntry = {
+        id: `fb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type: body.type || 'suggestion',
+        subject: body.subject || body.title || 'Без темы',
+        title: body.title || body.subject || 'Без темы',
+        message: body.message || '',
+        authorName: body.authorName || authUser?.full_name || 'Сотрудник Уфанет',
+        authorId: body.authorId || authUser?.id || null,
+        authorRole: body.authorRole || authUser?.role || 'Отдел проектирования',
+        created_at: new Date().toISOString()
+      };
+
+      let feedbackList = [];
+      try {
+        if (fs.existsSync(FEEDBACK_FILE)) {
+          feedbackList = JSON.parse(fs.readFileSync(FEEDBACK_FILE, 'utf8'));
+        }
+      } catch {}
+      feedbackList.push(feedbackEntry);
+      try {
+        fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(feedbackList, null, 2), 'utf8');
+        const txtPath = path.join(DATA_DIR, 'feedback_and_ideas.txt');
+        const line = `[${feedbackEntry.created_at}] [${feedbackEntry.type.toUpperCase()}] ${feedbackEntry.authorName} (${feedbackEntry.authorRole}): ${feedbackEntry.subject} — ${feedbackEntry.message}\n`;
+        fs.appendFileSync(txtPath, line, 'utf8');
+      } catch (err) {
+        console.error('Ошибка записи файла пожеланий:', err);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, feedback: feedbackEntry }));
+      return;
+    }
+
+    // 2. GET /api/feedback (Admin Sanya / Level 10 only)
+    if (pathname === '/api/feedback' && req.method === 'GET') {
+      const db = readDb();
+      const currentUser = extractAuthUser(req, db);
+      const isAdmin = currentUser && (
+        (Number(currentUser.role_level) || 0) >= 10 ||
+        currentUser.username?.toLowerCase() === 'sanya' ||
+        currentUser.full_name?.toLowerCase() === 'admin'
+      );
+
+      if (!isAdmin) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Доступ к просмотру пожеланий открыт только администратору Sanya' }));
+        return;
+      }
+
+      let feedbackList = [];
+      try {
+        if (fs.existsSync(FEEDBACK_FILE)) {
+          feedbackList = JSON.parse(fs.readFileSync(FEEDBACK_FILE, 'utf8'));
+        }
+      } catch {}
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(feedbackList));
+      return;
+    }
+
+    // 3. GET /api/feedback/export (Admin Sanya file download)
+    if (pathname === '/api/feedback/export' && req.method === 'GET') {
+      const txtPath = path.join(DATA_DIR, 'feedback_and_ideas.txt');
+      if (fs.existsSync(txtPath)) {
+        res.writeHead(200, {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="ufanet_feedback_and_ideas.txt"'
+        });
+        fs.createReadStream(txtPath).pipe(res);
+      } else {
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Пока нет записей пожеланий.');
+      }
+      return;
+    }
     // 1. GET /api/access-requests (Fetch all pending & reviewed requests)
     if (pathname === '/api/access-requests' && req.method === 'GET') {
       const db = readDb();

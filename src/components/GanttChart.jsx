@@ -59,9 +59,13 @@ export function GanttChart({
     return list;
   }, [tasks]);
 
+  const hasDraggedRef = useRef(false);
+  const [dragLiveDates, setDragLiveDates] = useState(null);
+
   const handleBarMouseDown = (e, task, mode) => {
     e.stopPropagation();
     e.preventDefault();
+    hasDraggedRef.current = false;
     let startDate = task.created_at ? new Date(task.created_at) : new Date();
     if (isNaN(startDate.getTime())) startDate = new Date();
     let endDate = task.due_date ? new Date(task.due_date) : null;
@@ -74,13 +78,48 @@ export function GanttChart({
       task,
       mode,
       startX: e.clientX,
+      startY: e.clientY,
       originalStartMs: startDate.getTime(),
       originalEndMs: endDate.getTime()
+    });
+
+    setDragLiveDates({
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0],
+      x: e.clientX,
+      y: e.clientY
     });
   };
 
   useEffect(() => {
     if (!draggingTask) return;
+
+    const handleMouseMove = (e) => {
+      const dayPixelWidth = 44;
+      const deltaPx = e.clientX - draggingTask.startX;
+      if (Math.abs(deltaPx) > 3) {
+        hasDraggedRef.current = true;
+      }
+      const deltaDays = Math.round(deltaPx / dayPixelWidth);
+      const msPerDay = 86400000;
+      let newStartMs = draggingTask.originalStartMs;
+      let newEndMs = draggingTask.originalEndMs;
+
+      if (draggingTask.mode === 'move') {
+        newStartMs += deltaDays * msPerDay;
+        newEndMs += deltaDays * msPerDay;
+      } else if (draggingTask.mode === 'resize') {
+        newEndMs = Math.max(newStartMs + msPerDay, newEndMs + deltaDays * msPerDay);
+      }
+
+      setDragLiveDates({
+        start: new Date(newStartMs).toLocaleDateString('ru-RU'),
+        end: new Date(newEndMs).toLocaleDateString('ru-RU'),
+        days: Math.round((newEndMs - newStartMs) / msPerDay),
+        x: e.clientX,
+        y: e.clientY
+      });
+    };
 
     const handleMouseUp = (e) => {
       const dayPixelWidth = 44;
@@ -111,10 +150,16 @@ export function GanttChart({
       }
 
       setDraggingTask(null);
+      setDragLiveDates(null);
+      setTimeout(() => {
+        hasDraggedRef.current = false;
+      }, 150);
     };
 
+    window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [draggingTask, onSaveTask]);
@@ -557,7 +602,10 @@ export function GanttChart({
                 >
                   {metrics && (
                     <div
-                      onClick={() => { if (onEditTask) onEditTask(task); }}
+                      onClick={() => {
+                        if (hasDraggedRef.current) return;
+                        if (onEditTask) onEditTask(task);
+                      }}
                       onMouseDown={(e) => handleBarMouseDown(e, task, 'move')}
                       title={`${task.display_id || ''}: ${task.title} (Потяните для переноса дат или правый край для изменения срока)`}
                       style={{
@@ -637,6 +685,33 @@ export function GanttChart({
           </div>
         </div>
       </div>
+
+      {/* Live drag/resize floating date tooltip */}
+      {dragLiveDates && (
+        <div
+          style={{
+            position: 'fixed',
+            left: dragLiveDates.x + 12,
+            top: dragLiveDates.y - 32,
+            background: 'rgba(15, 23, 42, 0.95)',
+            color: '#fff',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            pointerEvents: 'none',
+            zIndex: 99999,
+            border: '1px solid #ff6600',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <span>📅 {dragLiveDates.start} → {dragLiveDates.end}</span>
+          {dragLiveDates.days !== undefined && <span style={{ color: '#ff8800' }}>({dragLiveDates.days} дн.)</span>}
+        </div>
+      )}
     </div>
   );
 }

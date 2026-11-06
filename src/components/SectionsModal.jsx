@@ -150,14 +150,19 @@ export function SectionsModal({ isOpen, onClose, sections = [], onSaveSections, 
   };
 
   // Prevent accidental close when selecting text
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div className="modal-overlay" onMouseDown={handleOverlayClick}>
+    <div 
+      className="modal-overlay" 
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) e.currentTarget.dataset.overlayClick = 'true';
+      }}
+      onMouseUp={(e) => {
+        if (e.currentTarget.dataset.overlayClick === 'true' && e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+        e.currentTarget.dataset.overlayClick = 'false';
+      }}
+    >
       <div className="modal-content" style={{ maxWidth: '640px' }} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">

@@ -192,10 +192,8 @@ export default function App() {
       const raw = localStorage.getItem('ufanet_local_members_v3');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map((m) => String(m.id)));
-          const missing = INITIAL_MEMBERS.filter((m) => !existingIds.has(String(m.id)));
-          return missing.length > 0 ? [...parsed, ...missing] : parsed;
+        if (Array.isArray(parsed)) {
+          return parsed;
         }
       }
     } catch {}
@@ -244,7 +242,7 @@ export default function App() {
         if (parsed && parsed.id) return parsed;
       }
     } catch {}
-    return INITIAL_MEMBERS[0]; // Admin by default! Never unauthenticated or blocked!
+    return null;
   });
   const [permissionsMatrix, setPermissionsMatrix] = useState(DEFAULT_PERMISSIONS);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(() => localStorage.getItem('kaban_chat_open') !== 'false');
@@ -268,7 +266,13 @@ export default function App() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [chatPreQuotedTask, setChatPreQuotedTask] = useState(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
+    try {
+      return !localStorage.getItem('kaban_current_user');
+    } catch {
+      return false;
+    }
+  });
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAccessRequestsModalOpen, setIsAccessRequestsModalOpen] = useState(false);
   const [accessRequests, setAccessRequests] = useState([]);
@@ -1124,9 +1128,6 @@ export default function App() {
     if (!task) return;
     setActiveTaskInPanel(task);
     setIsChatSidebarOpen(true);
-    if (task.id) {
-      window.location.hash = `#task/${encodeURIComponent(task.id)}`;
-    }
     playSound('click');
   };
 
@@ -1142,12 +1143,12 @@ export default function App() {
     }
   };
 
-  const effectiveUser = currentUser || INITIAL_MEMBERS[0];
+  const effectiveUser = currentUser || { id: 'guest', full_name: 'Гость (Авторизуйтесь)', role_level: 1, role: 'Гость' };
 
   // Dedicated Jira-style Standalone Full Page Task View
   if (standaloneTaskId) {
     return (
-      <div className="app-root-shell" style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
+      <div className="app-root-shell" style={{ width: '100vw', minHeight: '100vh', height: '100vh', overflowY: 'auto', background: 'var(--bg-primary)' }}>
         {standaloneTask ? (
           <TaskDetailView
             task={standaloneTask}
@@ -1156,6 +1157,7 @@ export default function App() {
             projects={projects}
             sections={sections}
             columns={columns}
+            departments={departments}
             currentUser={effectiveUser}
             onSaveTask={handleSaveTask}
             onDeleteTask={handleDeleteTask}

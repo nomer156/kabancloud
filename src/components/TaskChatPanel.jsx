@@ -2056,7 +2056,13 @@ export function TaskChatPanel({
             padding: '1rem'
           }}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowPayrollModal(false);
+            if (e.target === e.currentTarget) e.currentTarget.dataset.overlayClick = 'true';
+          }}
+          onMouseUp={(e) => {
+            if (e.currentTarget.dataset.overlayClick === 'true' && e.target === e.currentTarget) {
+              setShowPayrollModal(false);
+            }
+            e.currentTarget.dataset.overlayClick = 'false';
           }}
         >
           <div
@@ -2181,7 +2187,13 @@ export function TaskChatPanel({
             padding: '1rem'
           }}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowNestModal(false);
+            if (e.target === e.currentTarget) e.currentTarget.dataset.overlayClick = 'true';
+          }}
+          onMouseUp={(e) => {
+            if (e.currentTarget.dataset.overlayClick === 'true' && e.target === e.currentTarget) {
+              setShowNestModal(false);
+            }
+            e.currentTarget.dataset.overlayClick = 'false';
           }}
         >
           <div style={{ background: 'var(--bg-modal, #141824)', border: '1px solid var(--border-subtle)', borderRadius: '14px', padding: '1.25rem', maxWidth: '440px', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }} onClick={e => e.stopPropagation()}>

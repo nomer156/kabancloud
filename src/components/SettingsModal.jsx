@@ -204,14 +204,24 @@ export function SettingsModal({
     window.open('/api/feedback/export', '_blank');
   };
 
+  const overlayMouseDownRef = useRef(false);
+  const handleOverlayMouseDown = (e) => {
+    overlayMouseDownRef.current = (e.target === e.currentTarget);
+  };
+  const handleOverlayMouseUp = (e) => {
+    if (overlayMouseDownRef.current && e.target === e.currentTarget && onClose) {
+      onClose();
+    }
+    overlayMouseDownRef.current = false;
+  };
+
   if (!isOpen) return null;
 
   return (
     <div 
       className="modal-overlay" 
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onMouseDown={handleOverlayMouseDown}
+      onMouseUp={handleOverlayMouseUp}
       style={{ zIndex: 1000 }}
     >
       <div 
@@ -473,8 +483,8 @@ export function SettingsModal({
                 )}
               </form>
 
-              {/* Recent Feedback List */}
-              {feedbackList.length > 0 && (
+              {/* Recent Feedback List (Admin only) */}
+              {isAdmin && feedbackList.length > 0 && (
                 <div style={{ marginTop: '0.8rem' }}>
                   <div style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <FileText size={15} style={{ color: 'var(--accent-orange)' }} />

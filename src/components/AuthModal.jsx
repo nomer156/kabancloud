@@ -274,8 +274,8 @@ export function AuthModal({
         full_name: fullName,
         initials,
         department_id: regDeptId,
-        role: regRole?.trim() || 'Инженер-проектировщик',
-        role_level: 6, // Active employee level
+        role: regRole?.trim() || 'Инженер (Ур. 1)',
+        role_level: 1, // Default Level 1 until promoted by Chief or Admin
         password: regPassword,
         workstation_id: normPc,
         status: 'active', // Active immediately so user can log in without friction!
@@ -319,14 +319,22 @@ export function AuthModal({
 
   const selectedDeptName = departments.find((d) => d.id === regDeptId)?.name || 'Выбранный отдел';
 
+  const overlayMouseDownRef = useRef(false);
+  const handleOverlayMouseDown = (e) => {
+    overlayMouseDownRef.current = (e.target === e.currentTarget);
+  };
+  const handleOverlayMouseUp = (e) => {
+    if (overlayMouseDownRef.current && e.target === e.currentTarget && !isStandalonePage && onClose) {
+      onClose();
+    }
+    overlayMouseDownRef.current = false;
+  };
+
   return (
     <div 
       className="modal-overlay" 
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !isStandalonePage && onClose) {
-          onClose();
-        }
-      }}
+      onMouseDown={handleOverlayMouseDown}
+      onMouseUp={handleOverlayMouseUp}
       style={{
         position: 'fixed',
         inset: 0,

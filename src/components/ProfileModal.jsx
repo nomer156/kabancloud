@@ -206,14 +206,22 @@ export function ProfileModal({
     }
   };
 
+  const overlayMouseDownRef = useRef(false);
+  const handleOverlayMouseDown = (e) => {
+    overlayMouseDownRef.current = (e.target === e.currentTarget);
+  };
+  const handleOverlayMouseUp = (e) => {
+    if (overlayMouseDownRef.current && e.target === e.currentTarget && onClose) {
+      onClose();
+    }
+    overlayMouseDownRef.current = false;
+  };
+
   return (
     <div
       className="modal-overlay"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && onClose) {
-          onClose();
-        }
-      }}
+      onMouseDown={handleOverlayMouseDown}
+      onMouseUp={handleOverlayMouseUp}
       style={{
         display: 'flex',
         alignItems: 'center',

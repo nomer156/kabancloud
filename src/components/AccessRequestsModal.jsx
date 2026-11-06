@@ -70,7 +70,15 @@ export function AccessRequestsModal({
   return (
     <div
       className="modal-overlay"
-      onMouseDown={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) e.currentTarget.dataset.overlayClick = 'true';
+      }}
+      onMouseUp={(e) => {
+        if (e.currentTarget.dataset.overlayClick === 'true' && e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+        e.currentTarget.dataset.overlayClick = 'false';
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -152,7 +160,15 @@ export function AccessRequestsModal({
           <button
             type="button"
             className="btn-icon"
-            onMouseDown={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
+            onMouseDown={(e) => {
+        if (e.target === e.currentTarget) e.currentTarget.dataset.overlayClick = 'true';
+      }}
+      onMouseUp={(e) => {
+        if (e.currentTarget.dataset.overlayClick === 'true' && e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+        e.currentTarget.dataset.overlayClick = 'false';
+      }}
             title="Закрыть"
             style={{ width: 32, height: 32 }}
           >

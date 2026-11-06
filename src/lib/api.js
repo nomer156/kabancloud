@@ -497,28 +497,18 @@ export async function deleteTask(taskId) {
 // TEAM MEMBERS API
 // ------------------------------------------------------------------------------
 export async function fetchTeamMembers() {
-  let localMembers = getLocalData(STORAGE_KEY_MEMBERS, INITIAL_MEMBERS);
-  if (!Array.isArray(localMembers) || localMembers.length === 0) {
+  let localMembers = getLocalData(STORAGE_KEY_MEMBERS, null);
+  if (!Array.isArray(localMembers)) {
     localMembers = [...INITIAL_MEMBERS];
-  } else {
-    // Ensure all critical INITIAL_MEMBERS exist in localMembers
-    const existingIds = new Set(localMembers.map((m) => String(m.id)));
-    const missing = INITIAL_MEMBERS.filter((m) => !existingIds.has(String(m.id)));
-    if (missing.length > 0) {
-      localMembers = [...localMembers, ...missing];
-    }
+    setLocalData(STORAGE_KEY_MEMBERS, localMembers);
   }
-  setLocalData(STORAGE_KEY_MEMBERS, localMembers);
 
   try {
     const res = await fetch(`${API_BASE}/api/members`);
     const serverMembers = await safeParseJson(res);
-    if (Array.isArray(serverMembers) && serverMembers.length > 0) {
-      const serverMap = new Map(serverMembers.map((m) => [String(m.id), m]));
-      const localOnly = localMembers.filter((lm) => !serverMap.has(String(lm.id)));
-      const merged = [...serverMembers, ...localOnly];
-      setLocalData(STORAGE_KEY_MEMBERS, merged);
-      return merged;
+    if (Array.isArray(serverMembers)) {
+      setLocalData(STORAGE_KEY_MEMBERS, serverMembers);
+      return serverMembers;
     }
   } catch {}
   return localMembers;
@@ -1151,7 +1141,9 @@ export async function uploadTaskFile(file, uploadedBy = 'Инженер') {
 // ------------------------------------------------------------------------------
 export async function fetchFeedback() {
   try {
-    const res = await fetch(`${API_BASE}/api/feedback`);
+    const res = await fetch(`${API_BASE}/api/feedback`, {
+      headers: getAuthHeaders()
+    });
     if (res.ok) return await res.json();
   } catch {}
   return [];

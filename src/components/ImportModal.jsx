@@ -287,7 +287,13 @@ export function ImportModal({
     <div 
       className="modal-overlay" 
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) e.currentTarget.dataset.overlayClick = 'true';
+      }}
+      onMouseUp={(e) => {
+        if (e.currentTarget.dataset.overlayClick === 'true' && e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+        e.currentTarget.dataset.overlayClick = 'false';
       }}
       style={{ zIndex: 1000 }}
     >

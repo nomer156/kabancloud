@@ -138,10 +138,12 @@ function minutesToTimeString(totalMinutes) {
 
 export function TaskDetailView({
   task,
+  allTasks = [],
   teamMembers = [],
   projects = [],
   sections = [],
   columns = [],
+  departments = DEPARTMENTS,
   currentUser,
   onSaveTask,
   onDeleteTask,

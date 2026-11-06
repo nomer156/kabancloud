@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
   Trash2, 
@@ -785,15 +785,24 @@ export function TaskModal({
     }
   };
 
-  // Safe overlay click
+  // Safe overlay click (never closes on text selection drag)
+  const overlayMouseDownRef = useRef(false);
   const handleOverlayMouseDown = (e) => {
-    if (e.target === e.currentTarget) {
+    overlayMouseDownRef.current = (e.target === e.currentTarget);
+  };
+  const handleOverlayMouseUp = (e) => {
+    if (overlayMouseDownRef.current && e.target === e.currentTarget && onClose) {
       onClose();
     }
+    overlayMouseDownRef.current = false;
   };
 
   return (
-    <div className="modal-overlay" onMouseDown={handleOverlayMouseDown}>
+    <div 
+      className="modal-overlay" 
+      onMouseDown={handleOverlayMouseDown}
+      onMouseUp={handleOverlayMouseUp}
+    >
       <div 
         className="modal-content" 
         style={{ 

@@ -310,7 +310,7 @@ export function ProjectTreeSidebar({
               width: '100%'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isCollapsed ? 0 : '8px', justifyContent: isCollapsed ? 'center' : 'flex-start', width: isCollapsed ? '100%' : 'auto' }}>
               <Layers size={14} style={{ color: 'var(--accent-orange)' }} />
               {!isCollapsed && <span>Все задачи</span>}
             </div>
@@ -347,7 +347,7 @@ export function ProjectTreeSidebar({
                 fontWeight: selectedAssigneeId === currentUser.id ? 700 : 500
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: isCollapsed ? 0 : '8px', justifyContent: isCollapsed ? 'center' : 'flex-start', width: isCollapsed ? '100%' : 'auto' }}>
                 <User size={14} style={{ color: selectedAssigneeId === currentUser.id ? 'var(--accent-orange)' : 'inherit' }} />
                 {!isCollapsed && <span>Мои задачи</span>}
               </div>
@@ -382,7 +382,7 @@ export function ProjectTreeSidebar({
                 width: '100%'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: isCollapsed ? 0 : '8px', justifyContent: isCollapsed ? 'center' : 'flex-start', width: isCollapsed ? '100%' : 'auto' }}>
                 <Zap size={14} style={{ color: '#ef4444' }} />
                 {!isCollapsed && <span>Срочные</span>}
               </div>
@@ -416,7 +416,7 @@ export function ProjectTreeSidebar({
                 width: '100%'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: isCollapsed ? 0 : '8px', justifyContent: isCollapsed ? 'center' : 'flex-start', width: isCollapsed ? '100%' : 'auto' }}>
                 <Link2 size={14} style={{ color: '#8b5cf6' }} />
                 {!isCollapsed && <span>Зеркала</span>}
               </div>
@@ -451,7 +451,7 @@ export function ProjectTreeSidebar({
               fontWeight: isArchiveView ? 700 : 500
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isCollapsed ? 0 : '8px', justifyContent: isCollapsed ? 'center' : 'flex-start', width: isCollapsed ? '100%' : 'auto' }}>
               <Archive size={14} style={{ color: isArchiveView ? '#94a3b8' : 'var(--text-dim)' }} />
               {!isCollapsed && <span>Архив задач</span>}
             </div>
@@ -554,7 +554,15 @@ export function ProjectTreeSidebar({
                     if (!isSelected) e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: isCollapsed ? '0' : '6px', 
+                    minWidth: 0, 
+                    flex: isCollapsed ? undefined : 1,
+                    justifyContent: isCollapsed ? 'center' : 'flex-start',
+                    width: isCollapsed ? '100%' : undefined
+                  }}>
                     {!isCollapsed && (
                       <span
                         onClick={(e) => toggleFolder(proj, e)}

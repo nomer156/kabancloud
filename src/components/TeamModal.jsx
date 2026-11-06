@@ -210,7 +210,18 @@ export function TeamModal({
   });
 
   return (
-    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}>
+    <div 
+      className="modal-overlay" 
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) e.currentTarget.dataset.overlayClick = 'true';
+      }}
+      onMouseUp={(e) => {
+        if (e.currentTarget.dataset.overlayClick === 'true' && e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+        e.currentTarget.dataset.overlayClick = 'false';
+      }}
+    >
       <div 
         className="modal-content" 
         style={{ maxWidth: '780px', width: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} 

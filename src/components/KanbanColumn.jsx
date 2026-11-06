@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Inbox, X, ArrowRight, ChevronLeft, ChevronRight, AlertTriangle, Palette } from 'lucide-react';
 import { TaskCard } from './TaskCard';
 import { playSound } from '../lib/sound';
@@ -23,6 +23,17 @@ export function KanbanColumn({
   onOpenFullModal
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // Global listener to immediately remove ghost highlights when card drag ends
+  useEffect(() => {
+    const clearHighlight = () => setIsDragOver(false);
+    window.addEventListener('dragend', clearHighlight);
+    window.addEventListener('drop', clearHighlight);
+    return () => {
+      window.removeEventListener('dragend', clearHighlight);
+      window.removeEventListener('drop', clearHighlight);
+    };
+  }, []);
   const [isAddingInline, setIsAddingInline] = useState(false);
   const [inlineTitle, setInlineTitle] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(() => {
